@@ -1,17 +1,19 @@
-import brevo from '@getbrevo/brevo';
+import { BrevoClient } from '@getbrevo/brevo';
 
-const apiInstance = new brevo.TransactionalEmailsApi();
-apiInstance.authentications['apiKey'].apiKey = process.env.BREVO_API_KEY;
+const brevo = new BrevoClient({
+  apiKey: process.env.BREVO_API_KEY
+});
 
+// Mantiene la misma "forma" que nodemailer (transporter.sendMail({...}))
+// para que ningún otro archivo del proyecto necesite cambiar
 const transporter = {
   sendMail: async ({ from, to, subject, html }) => {
-    const correo = new brevo.SendSmtpEmail();
-    correo.sender = { email: from || process.env.EMAIL_USER, name: 'FitZone' };
-    correo.to = [{ email: to }];
-    correo.subject = subject;
-    correo.htmlContent = html;
-
-    return await apiInstance.sendTransacEmail(correo);
+    return await brevo.transactionalEmails.sendTransacEmail({
+      subject,
+      htmlContent: html,
+      sender: { name: 'FitZone', email: from || process.env.EMAIL_USER },
+      to: [{ email: to }]
+    });
   }
 };
 
