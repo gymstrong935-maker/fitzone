@@ -62,22 +62,45 @@ export const cambiarPlan = async (req, res) => {
     const { usuarioId, nuevoPlanId } = req.body;
 
     const usuario = await User.findById(usuarioId);
-    const plan = await Plan.findById(nuevoPlanId);
     if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });
-    if (!plan) return res.status(404).json({ mensaje: 'Plan no encontrado' });
 
-    const nuevaSuscripcion = await crearSuscripcionParaPlan(usuario, plan);
+    const nuevoPlan = await Plan.findById(nuevoPlanId);
+    if (!nuevoPlan) return res.status(404).json({ mensaje: 'Plan no encontrado' });
+
+    const planActual = await Plan.findById(usuario.planActual);
+
+    // Nunca se puede volver al plan gratuito
+    if (nuevoPlan.esGratuito) {
+      return res.status(400).json({ mensaje: 'No puedes seleccionar el plan gratuito nuevamente.' });
+    }
+
+    if (planActual && !planActual.esGratuito) {
+      // Si el plan actual es pago (Mensual/Anual) y sigue vigente, no se puede cambiar todavía
+      const suscripcionActual = await Subscription.findOne({ usuarioId, estado: 'activa' });
+
+      if (suscripcionActual && suscripcionActual.fechaFin && suscripcionActual.fechaFin > new Date()) {
+        return res.status(400).json({
+          mensaje: `Tu plan actual (${planActual.nombre}) sigue vigente hasta ${suscripcionActual.fechaFin.toLocaleDateString()}. Podrás cambiar de plan cuando finalice.`
+        });
+      }
+      // Si ya venció, puede elegir libremente Mensual o Anual (subir o bajar, sin restricción)
+    }
+    // Si el plan actual es gratuito (o no tiene plan), tampoco hay restricción
+
+    await Subscription.updateMany(
+      { usuarioId, estado: 'activa' },
+      { $set: { estado: 'cancelada' } }
+    );
+
+    const nuevaSuscripcion = await crearSuscripcionParaPlan(usuario, nuevoPlan);
+
+    await User.findByIdAndUpdate(usuarioId, { planActual: nuevoPlanId });
 
     res.json({
-      mensaje: nuevaSuscripcion.estado === 'activa'
-        ? 'Plan gratuito activado'
-        : 'Solicitud de cambio de plan enviada, pendiente de aprobación',
+      mensaje: 'Solicitud de cambio de plan enviada. Pendiente de aprobación.',
       suscripcion: nuevaSuscripcion
     });
   } catch (error) {
-    if (error.message === 'PLAN_GRATUITO_YA_USADO') {
-      return res.status(400).json({ mensaje: 'Ya usaste tu plan gratuito de prueba' });
-    }
     res.status(500).json({ error: error.message });
   }
 };
