@@ -10,7 +10,7 @@ import { borrarImagenCloudinary } from '../utils/cloudinary.js';
 // Registro
 export const registrarUsuario = async (req, res) => {
   try {
-    const { nombre, email, password, telefono, planId } = req.body;
+    const { nombre, email, password, telefono, planId, metodoPago } = req.body;
     const existe = await User.findOne({ email });
     if (existe) return res.status(400).json({ mensaje: 'El correo ya está registrado' });
 
@@ -32,7 +32,7 @@ export const registrarUsuario = async (req, res) => {
       codigoVerificacionExpira: Date.now() + 15 * 60 * 1000
     });
 
-    await crearSuscripcionParaPlan(nuevoUsuario, plan);
+   await crearSuscripcionParaPlan(nuevoUsuario, plan, metodoPago);
 
     await transporter.sendMail({
       from: process.env.EMAIL_USER,

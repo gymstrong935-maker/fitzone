@@ -4,8 +4,11 @@ import verificarToken, { verificarDueño } from '../middleware/authMiddleware.js
 import validar from '../middleware/validar.js';
 import { parametroSchema } from '../validators/trainingParameterValidator.js';
 
+
 const router = express.Router();
 router.post('/', verificarToken, validar(parametroSchema), crearParametro);
 router.get('/usuario/:usuarioId', verificarToken, verificarDueño, obtenerParametrosPorUsuario);
 
+
 export default router;
+

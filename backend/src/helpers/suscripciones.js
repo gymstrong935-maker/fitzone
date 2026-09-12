@@ -1,24 +1,14 @@
 import Subscription from '../models/Subscription.js';
+import Payment from '../models/Payment.js';
 import notificarAdmin from './notificarAdmin.js';
 
-// Crea una suscripción nueva para un usuario, según si el plan es gratuito o pago
-const crearSuscripcionParaPlan = async (usuario, plan) => {
-  // Si el plan es gratuito, verifica que el usuario no lo haya usado ya antes
-  if (plan.esGratuito) {
-    const yaUsoGratis = await Subscription.findOne({ usuarioId: usuario._id, planId: plan._id });
-    if (yaUsoGratis) {
-      throw new Error('PLAN_GRATUITO_YA_USADO');
-    }
-  }
-
-  // Cancela cualquier solicitud pendiente anterior del mismo usuario antes de crear una nueva
+const crearSuscripcionParaPlan = async (usuario, plan, metodoPago = 'Transferencia bancaria') => {
   await Subscription.updateMany(
     { usuarioId: usuario._id, estado: 'pendiente' },
     { $set: { estado: 'cancelada' } }
   );
 
   if (plan.esGratuito) {
-    // Plan gratuito: se activa de inmediato
     const fechaInicio = new Date();
     const fechaFin = new Date();
     fechaFin.setDate(fechaFin.getDate() + plan.duracionDias);
@@ -31,7 +21,6 @@ const crearSuscripcionParaPlan = async (usuario, plan) => {
       estado: 'activa'
     });
   } else {
-    // Plan pago: queda pendiente de aprobación por el admin
     const nuevaSuscripcion = await Subscription.create({
       usuarioId: usuario._id,
       planId: plan._id,
@@ -40,10 +29,18 @@ const crearSuscripcionParaPlan = async (usuario, plan) => {
       estado: 'pendiente'
     });
 
+    await Payment.create({
+      usuarioId: usuario._id,
+      suscripcionId: nuevaSuscripcion._id,
+      monto: plan.precio,
+      metodoPago,
+      estado: 'pendiente'
+    });
+
     await notificarAdmin({
-      mensaje: `${usuario.nombre} solicitó el plan "${plan.nombre}" y espera aprobación de pago.`,
+      mensaje: `${usuario.nombre} solicitó el plan "${plan.nombre}" (${plan.precio}) vía ${metodoPago} y espera aprobación de pago.`,
       asuntoCorreo: 'FitZone - Nueva solicitud de plan pendiente',
-      htmlCorreo: `<p>El usuario <strong>${usuario.nombre}</strong> (${usuario.email}) solicitó el plan <strong>${plan.nombre}</strong>.</p>
+      htmlCorreo: `<p>El usuario <strong>${usuario.nombre}</strong> (${usuario.email}) solicitó el plan <strong>${plan.nombre}</strong> por <strong>$${plan.precio}</strong>, pagando por <strong>${metodoPago}</strong>.</p>
                    <p>Verifica el pago y aprueba o rechaza la solicitud desde el panel de administración.</p>`
     });
 

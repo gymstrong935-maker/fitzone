@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import connectDB from './src/config/db.js';
 
+import chatRoutes from './src/routes/chatRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
 import planRoutes from './src/routes/planRoutes.js';
 import coachRoutes from './src/routes/coachRoutes.js';
@@ -42,6 +43,7 @@ app.use('/api/training-parameters', trainingParameterRoutes);
 app.use('/api/training-periods', trainingPeriodRoutes);
 app.use('/api/dietary-control', dietaryControlRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Ruta no encontrada (404)
 app.use((req, res) => {

@@ -59,7 +59,7 @@ export const verificarVencimientos = async (req, res) => {
 // Solicita un cambio de plan (gratuito se activa directo, pago queda pendiente de aprobación)
 export const cambiarPlan = async (req, res) => {
   try {
-    const { usuarioId, nuevoPlanId } = req.body;
+    const { usuarioId, nuevoPlanId, metodoPago } = req.body;
 
     const usuario = await User.findById(usuarioId);
     if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });
@@ -92,8 +92,7 @@ export const cambiarPlan = async (req, res) => {
       { $set: { estado: 'cancelada' } }
     );
 
-    const nuevaSuscripcion = await crearSuscripcionParaPlan(usuario, nuevoPlan);
-
+    const nuevaSuscripcion = await crearSuscripcionParaPlan(usuario, nuevoPlan, metodoPago);
     await User.findByIdAndUpdate(usuarioId, { planActual: nuevoPlanId });
 
     res.json({
