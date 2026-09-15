@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../services/auth_service.dart';
 import '../../widgets/fitzone_button.dart';
 import '../../widgets/fitzone_logo.dart';
 import '../../widgets/fitzone_text_field.dart';
@@ -19,6 +20,10 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController =
       TextEditingController();
 
+  final AuthService _authService = AuthService();
+
+  bool _cargando = false;
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -27,7 +32,7 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _iniciarSesion() {
+  Future<void> _iniciarSesion() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
@@ -43,13 +48,45 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Login preparado. Luego conectaremos el backend.',
+    setState(() {
+      _cargando = true;
+    });
+
+    try {
+      final respuesta = await _authService.login(
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _cargando = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            respuesta['mensaje']?.toString() ??
+                'Inicio de sesión correcto',
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _cargando = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Error: $e',
+          ),
+        ),
+      );
+    }
   }
 
   void _recuperarPassword() {
@@ -88,7 +125,9 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               const SizedBox(height: 25),
 
-              const FitZoneLogo(size: 85),
+              const FitZoneLogo(
+                size: 85,
+              ),
 
               const SizedBox(height: 25),
 
@@ -135,8 +174,12 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 20),
 
               FitZoneButton(
-                text: 'INICIAR SESIÓN',
-                onPressed: _iniciarSesion,
+                text: _cargando
+                    ? 'CONECTANDO...'
+                    : 'INICIAR SESIÓN',
+                onPressed: _cargando
+                    ? null
+                    : _iniciarSesion,
               ),
 
               const SizedBox(height: 25),
