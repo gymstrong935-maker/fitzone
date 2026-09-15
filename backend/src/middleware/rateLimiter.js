@@ -16,6 +16,14 @@ export const limitarRegistro = rateLimit({
   legacyHeaders: false
 });
 
+export const limitarChat = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 10, // máximo 10 mensajes por minuto
+  message: { mensaje: 'Estás enviando mensajes muy rápido. Espera un momento.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 export const limitarRecuperacion = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 3,

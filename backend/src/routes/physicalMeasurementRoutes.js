@@ -6,9 +6,7 @@ import { medicionSchema } from '../validators/physicalMeasurementValidator.js';
 import checkSubscription from '../middleware/checkSubscription.js';
 
 const router = express.Router();
-router.post('/', verificarToken, validar(medicionSchema), crearMedicion);
+router.post('/', verificarToken, checkSubscription, validar(medicionSchema), crearMedicion);
 router.get('/usuario/:usuarioId', verificarToken, verificarDueño, obtenerMedicionesPorUsuario);
-router.post('/', verificarToken, checkSubscription, crearMedicion);
 
 export default router;
-

@@ -20,9 +20,11 @@ import trainingParameterRoutes from './src/routes/trainingParameterRoutes.js';
 import trainingPeriodRoutes from './src/routes/trainingPeriodRoutes.js';
 import dietaryControlRoutes from './src/routes/dietaryControlRoutes.js';
 import appointmentRoutes from './src/routes/appointmentRoutes.js';
+import { iniciarJobVencimientos } from './src/jobs/verificarVencimientosJob.js';
 
 const app = express();
 connectDB();
+iniciarJobVencimientos();
 
 app.use(cors());
 app.use(express.json());

@@ -15,6 +15,10 @@ export const chatearConAsistente = async (req, res) => {
       return res.status(400).json({ mensaje: 'El mensaje no puede estar vacío' });
     }
 
+    if (mensaje.length > 500) {
+      return res.status(400).json({ mensaje: 'El mensaje no puede superar los 500 caracteres' });
+    }
+
     // Datos públicos: siempre disponibles para el asistente
     const [planes, entrenadores, grupos] = await Promise.all([
       Plan.find(),
@@ -25,24 +29,24 @@ export const chatearConAsistente = async (req, res) => {
     let contextoPersonal = '';
 
     // Si viene un token válido (req.usuario existe), agrega datos personales
-  if (req.usuario?.id) {
-  const usuario = await User.findById(req.usuario.id);
-  const suscripcion = await Subscription.findOne({ usuarioId: req.usuario.id, estado: 'activa' });
+    if (req.usuario?.id) {
+      const usuario = await User.findById(req.usuario.id);
+      const suscripcion = await Subscription.findOne({ usuarioId: req.usuario.id, estado: 'activa' });
 
-  if (usuario) {
-    const planDelUsuario = suscripcion
-      ? await Plan.findById(suscripcion.planId)
-      : await Plan.findById(usuario.planActual);
+      if (usuario) {
+        const planDelUsuario = suscripcion
+          ? await Plan.findById(suscripcion.planId)
+          : await Plan.findById(usuario.planActual);
 
-    contextoPersonal = `
+        contextoPersonal = `
 Información del usuario que está hablando contigo (usa esto solo si te pregunta por su propia cuenta):
 - Nombre: ${usuario.nombre}
 - Plan actual: ${planDelUsuario ? planDelUsuario.nombre : 'sin plan asignado'}
 - Estado de su suscripción: ${suscripcion ? suscripcion.estado : 'sin suscripción activa'}
 - Fecha de vencimiento: ${suscripcion?.fechaFin ? new Date(suscripcion.fechaFin).toLocaleDateString() : 'N/A'}
-    `;
-  }
-}
+        `;
+      }
+    }
 
     const contextoPublico = `
 Eres el asistente virtual de FitZone, un gimnasio. Responde de forma breve, amable y precisa, basándote SOLO en esta información real:

@@ -6,10 +6,7 @@ import { motivacionSchema } from '../validators/motivationValidator.js';
 import checkSubscription from '../middleware/checkSubscription.js';
 
 const router = express.Router();
-router.post('/', verificarToken, validar(motivacionSchema), crearRegistroMotivacion);
+router.post('/', verificarToken, checkSubscription, validar(motivacionSchema), crearRegistroMotivacion);
 router.get('/usuario/:usuarioId', verificarToken, verificarDueño, obtenerMotivacionPorUsuario);
-router.post('/', verificarToken, checkSubscription, crearRegistroMotivacion);
 
 export default router;
-
-

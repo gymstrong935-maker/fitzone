@@ -6,9 +6,7 @@ import { suenoSchema } from '../validators/sleepQualityValidator.js';
 import checkSubscription from '../middleware/checkSubscription.js';
 
 const router = express.Router();
-router.post('/', verificarToken, validar(suenoSchema), crearRegistroSueno);
+router.post('/', verificarToken, checkSubscription, validar(suenoSchema), crearRegistroSueno);
 router.get('/usuario/:usuarioId', verificarToken, verificarDueño, obtenerSuenoPorUsuario);
-router.post('/', verificarToken, checkSubscription, crearRegistroSueno);
 
 export default router;
-

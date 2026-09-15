@@ -6,9 +6,7 @@ import { frecuenciaSchema } from '../validators/trainingFrequencyValidator.js';
 import checkSubscription from '../middleware/checkSubscription.js';
 
 const router = express.Router();
-router.post('/', verificarToken, validar(frecuenciaSchema), crearFrecuencia);
+router.post('/', verificarToken, checkSubscription, validar(frecuenciaSchema), crearFrecuencia);
 router.get('/usuario/:usuarioId', verificarToken, verificarDueño, obtenerFrecuenciaPorUsuario);
-router.post('/', verificarToken, checkSubscription, crearFrecuencia); 
 
 export default router;
-
