@@ -56,7 +56,6 @@ export const verificarVencimientos = async (req, res) => {
   }
 };
 
-// Solicita un cambio de plan (gratuito se activa directo, pago queda pendiente de aprobación)
 export const cambiarPlan = async (req, res) => {
   try {
     const { usuarioId, nuevoPlanId, metodoPago } = req.body;
@@ -69,13 +68,11 @@ export const cambiarPlan = async (req, res) => {
 
     const planActual = await Plan.findById(usuario.planActual);
 
-    // Nunca se puede volver al plan gratuito
     if (nuevoPlan.esGratuito) {
       return res.status(400).json({ mensaje: 'No puedes seleccionar el plan gratuito nuevamente.' });
     }
 
     if (planActual && !planActual.esGratuito) {
-      // Si el plan actual es pago (Mensual/Anual) y sigue vigente, no se puede cambiar todavía
       const suscripcionActual = await Subscription.findOne({ usuarioId, estado: 'activa' });
 
       if (suscripcionActual && suscripcionActual.fechaFin && suscripcionActual.fechaFin > new Date()) {
@@ -83,9 +80,7 @@ export const cambiarPlan = async (req, res) => {
           mensaje: `Tu plan actual (${planActual.nombre}) sigue vigente hasta ${suscripcionActual.fechaFin.toLocaleDateString()}. Podrás cambiar de plan cuando finalice.`
         });
       }
-      // Si ya venció, puede elegir libremente Mensual o Anual (subir o bajar, sin restricción)
     }
-    // Si el plan actual es gratuito (o no tiene plan), tampoco hay restricción
 
     await Subscription.updateMany(
       { usuarioId, estado: 'activa' },
@@ -104,7 +99,6 @@ export const cambiarPlan = async (req, res) => {
   }
 };
 
-// Lista las solicitudes de plan pago pendientes de revisión (admin)
 export const obtenerPendientes = async (req, res) => {
   try {
     const pendientes = await Subscription.find({ estado: 'pendiente' })
@@ -118,11 +112,16 @@ export const obtenerPendientes = async (req, res) => {
   }
 };
 
-// Aprueba una solicitud de plan pago (admin)
 export const aprobarSuscripcion = async (req, res) => {
   try {
     const suscripcion = await Subscription.findById(req.params.id).populate('planId').populate('usuarioId');
     if (!suscripcion) return res.status(404).json({ mensaje: 'Solicitud no encontrada' });
+
+    // El usuario asociado ya no existe (borrado, o datos inconsistentes)
+    if (!suscripcion.usuarioId) {
+      return res.status(400).json({ mensaje: 'El usuario asociado a esta suscripción ya no existe. Esta solicitud debe eliminarse manualmente.' });
+    }
+
     if (suscripcion.estado !== 'pendiente') {
       return res.status(400).json({ mensaje: `Esta solicitud ya fue ${suscripcion.estado}` });
     }
@@ -163,11 +162,16 @@ export const aprobarSuscripcion = async (req, res) => {
   }
 };
 
-// Rechaza una solicitud de plan pago (admin)
 export const rechazarSuscripcion = async (req, res) => {
   try {
     const suscripcion = await Subscription.findById(req.params.id).populate('planId').populate('usuarioId');
     if (!suscripcion) return res.status(404).json({ mensaje: 'Solicitud no encontrada' });
+
+    // El usuario asociado ya no existe (borrado, o datos inconsistentes)
+    if (!suscripcion.usuarioId) {
+      return res.status(400).json({ mensaje: 'El usuario asociado a esta suscripción ya no existe. Esta solicitud debe eliminarse manualmente.' });
+    }
+
     if (suscripcion.estado !== 'pendiente') {
       return res.status(400).json({ mensaje: `Esta solicitud ya fue ${suscripcion.estado}` });
     }
@@ -175,7 +179,7 @@ export const rechazarSuscripcion = async (req, res) => {
     suscripcion.estado = 'rechazada';
     await suscripcion.save();
 
-    const motivo = req.body.motivo;
+    const motivo = req.body?.motivo;
 
     await notificarUsuario(suscripcion.usuarioId, {
       mensaje: `Tu solicitud del plan "${suscripcion.planId.nombre}" fue rechazada.${motivo ? ' Motivo: ' + motivo : ''}`,
@@ -192,7 +196,6 @@ export const rechazarSuscripcion = async (req, res) => {
   }
 };
 
-// Devuelve el estado del plan del usuario autenticado (para pantallas tipo "mi plan")
 export const obtenerMiSuscripcion = async (req, res) => {
   try {
     const suscripcion = await Subscription.findOne({ usuarioId: req.usuario.id, estado: 'activa' })
@@ -223,7 +226,6 @@ export const obtenerMiSuscripcion = async (req, res) => {
   }
 };
 
-// Limpieza de suscripciones canceladas de un usuario (solo mantenimiento, admin)
 export const limpiarCanceladas = async (req, res) => {
   try {
     const resultado = await Subscription.deleteMany({
