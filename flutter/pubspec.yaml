@@ -18,7 +18,12 @@ dependencies:
   http: ^1.2.0
 
   # Gestor de estado para manejar la sesión del usuario y datos de la app
-  provider: ^6.1.1
+  provider: ^6.1.5+1
+  dio: ^5.11.1
+  shared_preferences: ^2.5.5
+  google_fonts: ^8.2.1
+  flutter_svg: ^2.3.0
+  intl: ^0.20.3
 
 dev_dependencies:
   flutter_test:

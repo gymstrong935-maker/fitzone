@@ -1,71 +1,45 @@
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import '../config/api_config.dart';
 
 class ApiService {
-  // Para Android Emulator
-  static const String baseUrl =
-      'http://10.0.2.2:4000/api';
+  ApiService._();
 
-  Future<Map<String, dynamic>> post(
-    String endpoint,
-    Map<String, dynamic> data,
-  ) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(data),
-      );
+  static final ApiService instance = ApiService._();
 
-      Map<String, dynamic> respuesta = {};
-
-      if (response.body.isNotEmpty) {
-        try {
-          respuesta = jsonDecode(response.body);
-        } catch (e) {
-          respuesta = {
-            'mensaje': response.body,
-          };
-        }
-      }
-
-      if (response.statusCode >= 200 &&
-          response.statusCode < 300) {
-        return respuesta;
-      }
-
-      throw ApiException(
-        respuesta['mensaje']?.toString() ??
-            respuesta['error']?.toString() ??
-            'Error en el servidor',
-        response.statusCode,
-      );
-    } catch (e) {
-      if (e is ApiException) {
-        rethrow;
-      }
-
-      throw Exception(
-        'No se pudo conectar con el servidor',
-      );
-    }
-  }
-}
-
-class ApiException implements Exception {
-  final String message;
-  final int statusCode;
-
-  ApiException(
-    this.message,
-    this.statusCode,
+  final Dio dio = Dio(
+    BaseOptions(
+      baseUrl: ApiConfig.baseUrl,
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+      sendTimeout: const Duration(seconds: 15),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    ),
   );
 
-  @override
-  String toString() {
-    return message;
+  void setToken(String token) {
+    dio.options.headers['Authorization'] = 'Bearer $token';
+  }
+
+  void removeToken() {
+    dio.options.headers.remove('Authorization');
+  }
+
+  String getErrorMessage(Object error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+
+      if (data is Map<String, dynamic>) {
+        return data['mensaje']?.toString() ??
+            data['error']?.toString() ??
+            'Ha ocurrido un error.';
+      }
+
+      return error.message ?? 'Error de conexión.';
+    }
+
+    return 'Ha ocurrido un error inesperado.';
   }
 }

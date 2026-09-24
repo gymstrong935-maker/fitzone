@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
-import 'pages/home/home_page.dart';
+import 'package:provider/provider.dart';
+
+import 'config/app_theme.dart';
+import 'providers/auth_provider.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
-  runApp(const FitZoneApp());
+  WidgetsFlutterBinding.ensureInitialized();
+
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
+      child: const FitZoneApp(),
+    ),
+  );
 }
 
 class FitZoneApp extends StatelessWidget {
@@ -11,18 +22,10 @@ class FitZoneApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'FitZone',
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF080808),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF05C8D8),
-          brightness: Brightness.dark,
-        ),
-        fontFamily: 'Arial',
-      ),
-      home: const HomePage(),
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.darkTheme,
+      home: const SplashScreen(),
     );
   }
 }
