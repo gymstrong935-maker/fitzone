@@ -1,11 +1,11 @@
 import multer from 'multer';
 import CloudinaryStorage from 'multer-storage-cloudinary';
-import cloudinaryPackage from 'cloudinary'; // paquete completo, con .v2 adentro
-import '../utils/cloudinary.js'; // solo para que se ejecute cloudinary.config(...) antes de usarlo aquí
+import { v2 as cloudinary } from 'cloudinary';
+import '../utils/cloudinary.js'; // ejecuta cloudinary.config(...) antes de usarlo aquí
 
 const crearUploadMiddleware = (carpeta) => {
   const storage = new CloudinaryStorage({
-    cloudinary: cloudinaryPackage,
+    cloudinary, // ahora sí es el objeto v2 correcto, no el paquete completo
     params: {
       folder: `fitzone/${carpeta}`,
       allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
