@@ -74,7 +74,7 @@ class BottomNav extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: active
-                          ? AppColors.cyan.withOpacity(.15)
+                          ? (AppColors.cyan.withValues(alpha: .15))
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(16),
                     ),

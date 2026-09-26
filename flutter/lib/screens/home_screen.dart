@@ -280,10 +280,10 @@ class _QuickAction extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.05),
+        color: (Colors.white.withValues(alpha: 0.05)),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: Colors.white.withOpacity(.08),
+          color: (Colors.white.withValues(alpha: .08)),
         ),
       ),
       child: Row(
@@ -293,7 +293,7 @@ class _QuickAction extends StatelessWidget {
             height: 42,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: AppColors.cyan.withOpacity(.15),
+              color: (AppColors.cyan.withValues(alpha: .15)),
             ),
             child: const Icon(
               Icons.arrow_forward,
