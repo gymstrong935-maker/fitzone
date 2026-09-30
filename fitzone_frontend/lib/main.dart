@@ -6,6 +6,8 @@ import 'core/theme/app_text.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/auth/models/auth_models.dart';
+import 'features/onboarding/models/trainer.dart';
+import 'features/onboarding/trainer_selection_screen.dart';
 import 'features/payment_method/models/payment_models.dart';
 import 'features/payment_method/payment_method_screen.dart';
 import 'features/plan_selection/models/plan.dart';
@@ -37,13 +39,14 @@ class FitZoneApp extends StatelessWidget {
   }
 }
 
-/// Etapas del flujo previo a la app principal (igual que en el diseño).
+/// Etapas del flujo previo a la app principal.
 enum AppStage {
   planSelection,
   auth,
   paymentMethod,
   paymentValidation,
-  onboarding,
+  trainerSelection,
+  personalInfo,
 }
 
 class AppFlow extends StatefulWidget {
@@ -58,14 +61,21 @@ class _AppFlowState extends State<AppFlow> {
   PlanId? _selectedPlan;
   AuthUser? _user;
   PayMethod? _paymentMethod;
+  Trainer? _trainer;
 
   void _goTo(AppStage stage) => setState(() => _stage = stage);
 
   void _handleSelectPlan(PlanId plan) {
     setState(() {
       _selectedPlan = plan;
-      // Gratis -> Onboarding. Mensual/Anual -> Auth.
-      _stage = plan == PlanId.free ? AppStage.onboarding : AppStage.auth;
+      // Gratis -> Entrenador. Mensual/Anual -> Auth.
+      //
+      // OJO: en Figma (OnboardingFlow.STEP_ORDER) el plan gratuito se salta el
+      // entrenador y va directo a Información Personal. Si quieres ese
+      // comportamiento, cambia AppStage.trainerSelection por
+      // AppStage.personalInfo en la siguiente línea.
+      _stage =
+          plan == PlanId.free ? AppStage.trainerSelection : AppStage.auth;
     });
   }
 
@@ -80,6 +90,13 @@ class _AppFlowState extends State<AppFlow> {
     setState(() {
       _paymentMethod = method;
       _stage = AppStage.paymentValidation;
+    });
+  }
+
+  void _handleTrainerSelected(Trainer trainer) {
+    setState(() {
+      _trainer = trainer;
+      _stage = AppStage.personalInfo;
     });
   }
 
@@ -112,15 +129,25 @@ class _AppFlowState extends State<AppFlow> {
           message:
               'Método elegido: ${_paymentMethod?.name ?? '-'}\nUsuario: ${_user?.email ?? '-'}',
           onBack: () => _goTo(AppStage.paymentMethod),
-          onNext: () => _goTo(AppStage.onboarding),
+          onNext: () => _goTo(AppStage.trainerSelection),
         );
 
-      case AppStage.onboarding:
+      case AppStage.trainerSelection:
+        return TrainerSelectionScreen(
+          key: key,
+          isFree: _selectedPlan == PlanId.free,
+          initialTrainer: _trainer,
+          onNext: _handleTrainerSelected,
+          // En el diseño el primer paso no tiene "volver". Para probar, puedes
+          // agregar: onBack: () => _goTo(AppStage.planSelection),
+        );
+
+      case AppStage.personalInfo:
         return _PlaceholderScreen(
           key: key,
-          title: 'Onboarding',
-          message: 'Plan: ${_selectedPlan?.name ?? '-'}',
-          onBack: () => _goTo(AppStage.planSelection),
+          title: 'Información personal',
+          message: 'Entrenador: ${_trainer?.name ?? '-'}',
+          onBack: () => _goTo(AppStage.trainerSelection),
         );
     }
   }
