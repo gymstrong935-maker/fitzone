@@ -6,6 +6,8 @@ import 'core/theme/app_text.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/auth/models/auth_models.dart';
+import 'features/payment_method/models/payment_models.dart';
+import 'features/payment_method/payment_method_screen.dart';
 import 'features/plan_selection/models/plan.dart';
 import 'features/plan_selection/plan_selection_screen.dart';
 
@@ -36,7 +38,13 @@ class FitZoneApp extends StatelessWidget {
 }
 
 /// Etapas del flujo previo a la app principal (igual que en el diseño).
-enum AppStage { planSelection, auth, paymentMethod, onboarding }
+enum AppStage {
+  planSelection,
+  auth,
+  paymentMethod,
+  paymentValidation,
+  onboarding,
+}
 
 class AppFlow extends StatefulWidget {
   const AppFlow({super.key});
@@ -49,6 +57,7 @@ class _AppFlowState extends State<AppFlow> {
   AppStage _stage = AppStage.planSelection;
   PlanId? _selectedPlan;
   AuthUser? _user;
+  PayMethod? _paymentMethod;
 
   void _goTo(AppStage stage) => setState(() => _stage = stage);
 
@@ -67,26 +76,45 @@ class _AppFlowState extends State<AppFlow> {
     });
   }
 
+  void _handlePaymentMethodSelected(PayMethod method) {
+    setState(() {
+      _paymentMethod = method;
+      _stage = AppStage.paymentValidation;
+    });
+  }
+
   Widget _buildStage() {
     final ValueKey<AppStage> key = ValueKey<AppStage>(_stage);
 
     switch (_stage) {
       case AppStage.planSelection:
         return PlanSelectionScreen(key: key, onSelectPlan: _handleSelectPlan);
+
       case AppStage.auth:
         return AuthScreen(
           key: key,
           onAuthSuccess: _handleAuthSuccess,
           onBack: () => _goTo(AppStage.planSelection),
         );
+
       case AppStage.paymentMethod:
-        return _PlaceholderScreen(
+        return PaymentMethodScreen(
           key: key,
-          title: 'Método de pago',
-          message:
-              'Plan: ${_selectedPlan?.name ?? '-'}\nUsuario: ${_user?.name ?? '-'} (${_user?.email ?? '-'})',
+          planType: _selectedPlan ?? PlanId.monthly,
+          onContinue: _handlePaymentMethodSelected,
           onBack: () => _goTo(AppStage.auth),
         );
+
+      case AppStage.paymentValidation:
+        return _PlaceholderScreen(
+          key: key,
+          title: 'Validación de pago',
+          message:
+              'Método elegido: ${_paymentMethod?.name ?? '-'}\nUsuario: ${_user?.email ?? '-'}',
+          onBack: () => _goTo(AppStage.paymentMethod),
+          onNext: () => _goTo(AppStage.onboarding),
+        );
+
       case AppStage.onboarding:
         return _PlaceholderScreen(
           key: key,
@@ -131,11 +159,13 @@ class _PlaceholderScreen extends StatelessWidget {
     required this.title,
     required this.message,
     required this.onBack,
+    this.onNext,
   });
 
   final String title;
   final String message;
   final VoidCallback onBack;
+  final VoidCallback? onNext;
 
   @override
   Widget build(BuildContext context) {
@@ -161,11 +191,22 @@ class _PlaceholderScreen extends StatelessWidget {
                   style: AppText.body(size: 13, color: AppColors.whiteA(0.55)),
                 ),
                 const SizedBox(height: 24),
+                if (onNext != null)
+                  TextButton(
+                    onPressed: onNext,
+                    child: Text(
+                      'Continuar (temporal)',
+                      style: AppText.body(size: 14, color: AppColors.cyan),
+                    ),
+                  ),
                 TextButton(
                   onPressed: onBack,
                   child: Text(
                     'Volver',
-                    style: AppText.body(size: 14, color: AppColors.cyan),
+                    style: AppText.body(
+                      size: 14,
+                      color: AppColors.whiteA(0.6),
+                    ),
                   ),
                 ),
               ],
