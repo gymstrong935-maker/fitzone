@@ -8,7 +8,11 @@ const List<Trainer> kTrainers = <Trainer>[
         'https://images.unsplash.com/photo-1594381898411-846e7d193883?w=400&h=400&fit=crop',
     specialty: 'Hipertrofia y Fuerza',
     experience: 8,
-    certifications: <String>['NSCA-CPT', 'ISSA Bodybuilding', 'Nutrición Deportiva'],
+    certifications: <String>[
+      'NSCA-CPT',
+      'ISSA Bodybuilding',
+      'Nutrición Deportiva',
+    ],
     rating: 4.9,
     description:
         'Especialista en desarrollo muscular y programas de fuerza adaptados a cada nivel.',
@@ -31,7 +35,11 @@ const List<Trainer> kTrainers = <Trainer>[
         'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=400&fit=crop',
     specialty: 'Recomposición Corporal',
     experience: 10,
-    certifications: <String>['ACE', 'Precision Nutrition Level 2', 'NASM-PES'],
+    certifications: <String>[
+      'ACE',
+      'Precision Nutrition Level 2',
+      'NASM-PES',
+    ],
     rating: 4.8,
     description:
         'Experto en transformación física combinando entrenamiento y nutrición estratégica.',
@@ -55,7 +63,11 @@ const List<Trainer> kTrainers = <Trainer>[
         'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&h=400&fit=crop',
     specialty: 'Resistencia y Atletismo',
     experience: 7,
-    certifications: <String>['ACSM-CPT', 'Running Coach', 'Functional Training'],
+    certifications: <String>[
+      'ACSM-CPT',
+      'Running Coach',
+      'Functional Training',
+    ],
     rating: 4.7,
     description:
         'Entrenadora de resistencia cardiovascular y preparación atlética de alto rendimiento.',
@@ -77,7 +89,11 @@ const List<Trainer> kTrainers = <Trainer>[
         'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=400&h=400&fit=crop',
     specialty: 'Fuerza para Principiantes',
     experience: 5,
-    certifications: <String>['ISSA-CPT', 'Corrective Exercise', 'TRX Certified'],
+    certifications: <String>[
+      'ISSA-CPT',
+      'Corrective Exercise',
+      'TRX Certified',
+    ],
     rating: 4.9,
     description:
         'Dedicado a guiar principiantes con bases sólidas de técnica y seguridad.',
@@ -99,7 +115,11 @@ const List<Trainer> kTrainers = <Trainer>[
         'https://images.unsplash.com/photo-1607962837359-5e7e89f86776?w=400&h=400&fit=crop',
     specialty: 'Pérdida de Grasa y Tonificación',
     experience: 6,
-    certifications: <String>['NASM-CPT', 'Weight Management', 'Group Fitness'],
+    certifications: <String>[
+      'NASM-CPT',
+      'Weight Management',
+      'Group Fitness',
+    ],
     rating: 4.8,
     description:
         'Especialista en programas de definición muscular y pérdida de grasa sostenible.',

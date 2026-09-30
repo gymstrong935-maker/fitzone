@@ -6,8 +6,8 @@ import 'core/theme/app_text.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/auth/models/auth_models.dart';
-import 'features/onboarding/models/trainer.dart';
-import 'features/onboarding/trainer_selection_screen.dart';
+import 'features/onboarding/models/onboarding_data.dart';
+import 'features/onboarding/onboarding_flow.dart';
 import 'features/payment_method/models/payment_models.dart';
 import 'features/payment_method/payment_method_screen.dart';
 import 'features/plan_selection/models/plan.dart';
@@ -39,14 +39,14 @@ class FitZoneApp extends StatelessWidget {
   }
 }
 
-/// Etapas del flujo previo a la app principal.
+/// Etapas del flujo previo a la app principal (igual que en el diseño).
 enum AppStage {
   planSelection,
   auth,
   paymentMethod,
   paymentValidation,
-  trainerSelection,
-  personalInfo,
+  onboarding,
+  main,
 }
 
 class AppFlow extends StatefulWidget {
@@ -61,21 +61,15 @@ class _AppFlowState extends State<AppFlow> {
   PlanId? _selectedPlan;
   AuthUser? _user;
   PayMethod? _paymentMethod;
-  Trainer? _trainer;
+  OnboardingData? _onboardingData;
 
   void _goTo(AppStage stage) => setState(() => _stage = stage);
 
   void _handleSelectPlan(PlanId plan) {
     setState(() {
       _selectedPlan = plan;
-      // Gratis -> Entrenador. Mensual/Anual -> Auth.
-      //
-      // OJO: en Figma (OnboardingFlow.STEP_ORDER) el plan gratuito se salta el
-      // entrenador y va directo a Información Personal. Si quieres ese
-      // comportamiento, cambia AppStage.trainerSelection por
-      // AppStage.personalInfo en la siguiente línea.
-      _stage =
-          plan == PlanId.free ? AppStage.trainerSelection : AppStage.auth;
+      // Gratis -> Onboarding. Mensual/Anual -> Auth.
+      _stage = plan == PlanId.free ? AppStage.onboarding : AppStage.auth;
     });
   }
 
@@ -93,10 +87,10 @@ class _AppFlowState extends State<AppFlow> {
     });
   }
 
-  void _handleTrainerSelected(Trainer trainer) {
+  void _handleOnboardingComplete(OnboardingData data) {
     setState(() {
-      _trainer = trainer;
-      _stage = AppStage.personalInfo;
+      _onboardingData = data;
+      _stage = AppStage.main;
     });
   }
 
@@ -129,25 +123,23 @@ class _AppFlowState extends State<AppFlow> {
           message:
               'Método elegido: ${_paymentMethod?.name ?? '-'}\nUsuario: ${_user?.email ?? '-'}',
           onBack: () => _goTo(AppStage.paymentMethod),
-          onNext: () => _goTo(AppStage.trainerSelection),
+          onNext: () => _goTo(AppStage.onboarding),
         );
 
-      case AppStage.trainerSelection:
-        return TrainerSelectionScreen(
+      case AppStage.onboarding:
+        return OnboardingFlow(
           key: key,
-          isFree: _selectedPlan == PlanId.free,
-          initialTrainer: _trainer,
-          onNext: _handleTrainerSelected,
-          // En el diseño el primer paso no tiene "volver". Para probar, puedes
-          // agregar: onBack: () => _goTo(AppStage.planSelection),
+          planType: _selectedPlan ?? PlanId.free,
+          onComplete: _handleOnboardingComplete,
         );
 
-      case AppStage.personalInfo:
+      case AppStage.main:
         return _PlaceholderScreen(
           key: key,
-          title: 'Información personal',
-          message: 'Entrenador: ${_trainer?.name ?? '-'}',
-          onBack: () => _goTo(AppStage.trainerSelection),
+          title: 'App principal',
+          message:
+              'Plan: ${_selectedPlan?.name ?? '-'}\nEntrenador: ${_onboardingData?.trainer?.name ?? 'sin entrenador'}',
+          onBack: () => _goTo(AppStage.planSelection),
         );
     }
   }

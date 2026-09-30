@@ -1,4 +1,3 @@
-/// Nivel del entrenador (se usará en pantallas futuras).
 enum TrainerLevel { standard, premium, elite }
 
 class Trainer {
@@ -29,13 +28,15 @@ class Trainer {
   final double rating;
   final String description;
   final String trainingType;
+
+  /// Precio mensual en USD.
   final int price;
   final String priceDescription;
   final List<String> services;
   final TrainerLevel level;
 }
 
-/// Ventaja de contar con un entrenador (tarjeta "¿Por qué necesitas un entrenador?").
+/// Beneficio que se muestra en el panel "¿Por qué necesitas un entrenador?".
 class TrainerBenefit {
   const TrainerBenefit({
     required this.icon,
