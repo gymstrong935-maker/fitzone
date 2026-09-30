@@ -11,7 +11,7 @@ import 'models/plan.dart';
 import 'widgets/continuing_indicator.dart';
 import 'widgets/fz_logo.dart';
 import 'widgets/plan_card.dart';
-import 'widgets/shimmer_top_bar.dart';
+import '../../core/widgets/shimmer_top_bar.dart';
 
 class PlanSelectionScreen extends StatefulWidget {
   const PlanSelectionScreen({super.key, required this.onSelectPlan});
