@@ -11,10 +11,21 @@ import { borrarImagenCloudinary } from '../utils/cloudinary.js';
 
 const googleClient = new OAuth2Client();
 
-// Registro
+
+// ======================================================
+// REGISTRAR USUARIO
+// ======================================================
+
 export const registrarUsuario = async (req, res) => {
   try {
-    const { nombre, email, password, telefono, planId, metodoPago } = req.body;
+    const {
+      nombre,
+      email,
+      password,
+      telefono,
+      planId,
+      metodoPago
+    } = req.body;
 
     const existe = await User.findOne({ email });
 
@@ -63,15 +74,19 @@ export const registrarUsuario = async (req, res) => {
       subject: 'Verifica tu cuenta - FitZone',
       html: `
         <p>Hola ${nuevoUsuario.nombre},</p>
+
         <p>
           Tu código de verificación es:
           <strong>${codigoVerificacion}</strong>
         </p>
+
         <p>Este código vence en 15 minutos.</p>
+
+        <p>Gracias por registrarte en FitZone.</p>
       `
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       mensaje: plan.esGratuito
         ? 'Usuario registrado con plan gratuito. Revisa tu correo para verificar tu cuenta.'
         : 'Usuario registrado. Tu plan está pendiente de aprobación. Revisa tu correo para verificar tu cuenta.',
@@ -79,14 +94,19 @@ export const registrarUsuario = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({
+    console.error('❌ Error al registrar usuario:', error);
+
+    return res.status(500).json({
       error: error.message
     });
   }
 };
 
 
-// Verificar cuenta con el código enviado por correo
+// ======================================================
+// VERIFICAR CUENTA
+// ======================================================
+
 export const verificarCuenta = async (req, res) => {
   try {
     const { email, codigo } = req.body;
@@ -120,19 +140,24 @@ export const verificarCuenta = async (req, res) => {
 
     await usuario.save();
 
-    res.json({
+    return res.json({
       mensaje: 'Cuenta verificada correctamente'
     });
 
   } catch (error) {
-    res.status(500).json({
+    console.error('❌ Error al verificar cuenta:', error);
+
+    return res.status(500).json({
       error: error.message
     });
   }
 };
 
 
-// Reenviar código de verificación
+// ======================================================
+// REENVIAR CÓDIGO
+// ======================================================
+
 export const reenviarCodigo = async (req, res) => {
   try {
     const { email } = req.body;
@@ -156,6 +181,7 @@ export const reenviarCodigo = async (req, res) => {
     ).toString();
 
     usuario.codigoVerificacion = codigoVerificacion;
+
     usuario.codigoVerificacionExpira =
       Date.now() + 15 * 60 * 1000;
 
@@ -167,27 +193,36 @@ export const reenviarCodigo = async (req, res) => {
       subject: 'Nuevo código de verificación - FitZone',
       html: `
         <p>Hola ${usuario.nombre},</p>
+
         <p>
           Tu nuevo código de verificación es:
           <strong>${codigoVerificacion}</strong>
         </p>
+
         <p>Este código vence en 15 minutos.</p>
+
+        <p>Gracias por usar FitZone.</p>
       `
     });
 
-    res.json({
+    return res.json({
       mensaje: 'Código reenviado correctamente'
     });
 
   } catch (error) {
-    res.status(500).json({
+    console.error('❌ Error al reenviar código:', error);
+
+    return res.status(500).json({
       error: error.message
     });
   }
 };
 
 
-// Inicio de sesión
+// ======================================================
+// LOGIN
+// ======================================================
+
 export const iniciarSesion = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -200,8 +235,6 @@ export const iniciarSesion = async (req, res) => {
       });
     }
 
-    // Las cuentas creadas exclusivamente con Google
-    // no tienen contraseña local.
     if (!usuario.passwordHash) {
       return res.status(400).json({
         mensaje: 'Esta cuenta utiliza inicio de sesión con Google'
@@ -225,6 +258,12 @@ export const iniciarSesion = async (req, res) => {
       });
     }
 
+    if (usuario.estadoCuenta !== 'activo') {
+      return res.status(403).json({
+        mensaje: 'La cuenta no está activa'
+      });
+    }
+
     const token = jwt.sign(
       {
         id: usuario._id,
@@ -236,21 +275,26 @@ export const iniciarSesion = async (req, res) => {
       }
     );
 
-    res.json({
+    return res.json({
       mensaje: 'Sesión iniciada',
       token,
       usuario
     });
 
   } catch (error) {
-    res.status(500).json({
+    console.error('❌ Error al iniciar sesión:', error);
+
+    return res.status(500).json({
       error: error.message
     });
   }
 };
 
 
-// Inicio de sesión / registro con Google
+// ======================================================
+// LOGIN CON GOOGLE
+// ======================================================
+
 export const iniciarSesionGoogle = async (req, res) => {
   try {
     const { idToken } = req.body;
@@ -261,7 +305,8 @@ export const iniciarSesionGoogle = async (req, res) => {
       });
     }
 
-    const webClientId = process.env.GOOGLE_SERVER_CLIENT_ID;
+    const webClientId =
+      process.env.GOOGLE_SERVER_CLIENT_ID;
 
     if (!webClientId) {
       console.error(
@@ -273,7 +318,6 @@ export const iniciarSesionGoogle = async (req, res) => {
       });
     }
 
-    // Verificar el token recibido desde Flutter
     const ticket = await googleClient.verifyIdToken({
       idToken,
       audience: webClientId
@@ -307,7 +351,6 @@ export const iniciarSesionGoogle = async (req, res) => {
       });
     }
 
-    // Buscar primero por Google ID o por correo
     let usuario = await User.findOne({
       $or: [
         { googleId },
@@ -317,17 +360,16 @@ export const iniciarSesionGoogle = async (req, res) => {
 
     if (usuario) {
 
-      // Si el correo ya pertenece a otro Google ID
       if (
         usuario.googleId &&
         usuario.googleId !== googleId
       ) {
         return res.status(409).json({
-          mensaje: 'El correo está asociado a otra cuenta de Google'
+          mensaje:
+            'El correo está asociado a otra cuenta de Google'
         });
       }
 
-      // Vincular una cuenta existente con Google
       if (!usuario.googleId) {
         usuario.googleId = googleId;
         usuario.proveedorAuth = 'google';
@@ -341,7 +383,6 @@ export const iniciarSesionGoogle = async (req, res) => {
 
     } else {
 
-      // Buscar el plan gratuito para nuevos usuarios Google
       const plan = await Plan.findOne({
         esGratuito: true
       });
@@ -353,7 +394,6 @@ export const iniciarSesionGoogle = async (req, res) => {
         });
       }
 
-      // Crear nuevo usuario mediante Google
       usuario = await User.create({
         nombre: name || 'Usuario Google',
         email,
@@ -364,7 +404,6 @@ export const iniciarSesionGoogle = async (req, res) => {
         fotoPerfil: picture || undefined
       });
 
-      // Crear la suscripción correspondiente
       await crearSuscripcionParaPlan(
         usuario,
         plan,
@@ -372,14 +411,12 @@ export const iniciarSesionGoogle = async (req, res) => {
       );
     }
 
-    // Verificar que la cuenta esté activa
     if (usuario.estadoCuenta !== 'activo') {
       return res.status(403).json({
         mensaje: 'La cuenta no está activa'
       });
     }
 
-    // Crear JWT propio de FitZone
     const token = jwt.sign(
       {
         id: usuario._id,
@@ -410,7 +447,10 @@ export const iniciarSesionGoogle = async (req, res) => {
 };
 
 
-// Obtener perfil
+// ======================================================
+// OBTENER PERFIL
+// ======================================================
+
 export const obtenerUsuario = async (req, res) => {
   try {
     const usuario = await User.findById(req.params.id);
@@ -421,18 +461,22 @@ export const obtenerUsuario = async (req, res) => {
       });
     }
 
-    res.json(usuario);
+    return res.json(usuario);
 
   } catch (error) {
-    res.status(500).json({
+    console.error('❌ Error al obtener usuario:', error);
+
+    return res.status(500).json({
       error: error.message
     });
   }
 };
 
 
-// Actualizar usuario
-// Lista blanca de campos editables + foto de perfil opcional
+// ======================================================
+// ACTUALIZAR USUARIO
+// ======================================================
+
 export const actualizarUsuario = async (req, res) => {
   try {
     const camposPermitidos = [
@@ -448,7 +492,9 @@ export const actualizarUsuario = async (req, res) => {
       }
     }
 
+    // Solo un administrador puede cambiar estos campos
     if (req.usuario?.rol === 'admin') {
+
       if (req.body.rol !== undefined) {
         datosActualizar.rol = req.body.rol;
       }
@@ -469,6 +515,7 @@ export const actualizarUsuario = async (req, res) => {
       });
     }
 
+    // Actualizar foto de perfil
     if (req.file) {
 
       if (usuarioActual.fotoPerfilId) {
@@ -492,17 +539,86 @@ export const actualizarUsuario = async (req, res) => {
       }
     );
 
-    res.json(usuario);
+    return res.json(usuario);
 
   } catch (error) {
-    res.status(500).json({
+    console.error('❌ Error al actualizar usuario:', error);
+
+    return res.status(500).json({
       error: error.message
     });
   }
 };
 
 
-// Solicitar recuperación de contraseña
+// ======================================================
+// CAMBIAR ROL DE USUARIO
+// SOLO ADMIN
+// ======================================================
+
+export const cambiarRolUsuario = async (req, res) => {
+  try {
+    const { email, rol } = req.body;
+
+    if (!email || !rol) {
+      return res.status(400).json({
+        mensaje: 'El email y el rol son obligatorios'
+      });
+    }
+
+    const rolesPermitidos = [
+      'cliente',
+      'entrenador',
+      'admin'
+    ];
+
+    if (!rolesPermitidos.includes(rol)) {
+      return res.status(400).json({
+        mensaje: 'Rol no válido',
+        rolesPermitidos
+      });
+    }
+
+    const usuario = await User.findOne({ email });
+
+    if (!usuario) {
+      return res.status(404).json({
+        mensaje: 'Usuario no encontrado'
+      });
+    }
+
+    usuario.rol = rol;
+
+    await usuario.save();
+
+    return res.status(200).json({
+      mensaje: 'Rol actualizado correctamente',
+      usuario: {
+        id: usuario._id,
+        nombre: usuario.nombre,
+        email: usuario.email,
+        rol: usuario.rol
+      }
+    });
+
+  } catch (error) {
+    console.error(
+      '❌ Error al cambiar rol:',
+      error
+    );
+
+    return res.status(500).json({
+      mensaje: 'Error al cambiar el rol del usuario',
+      error: error.message
+    });
+  }
+};
+
+
+// ======================================================
+// SOLICITAR RECUPERACIÓN DE CONTRASEÑA
+// ======================================================
+
 export const solicitarRecuperacion = async (req, res) => {
   try {
     const { email } = req.body;
@@ -535,29 +651,44 @@ export const solicitarRecuperacion = async (req, res) => {
       subject: 'Recuperación de contraseña - FitZone',
       html: `
         <p>Hola ${usuario.nombre},</p>
+
         <p>
           Solicitaste recuperar tu contraseña.
           Este enlace vence en 1 hora:
         </p>
-        <a href="${enlace}">
-          ${enlace}
-        </a>
+
+        <p>
+          <a href="${enlace}">
+            ${enlace}
+          </a>
+        </p>
+
+        <p>Si no solicitaste este cambio, puedes ignorar este correo.</p>
       `
     });
 
-    res.json({
-      mensaje: 'Se envió un correo con las instrucciones'
+    return res.json({
+      mensaje:
+        'Se envió un correo con las instrucciones'
     });
 
   } catch (error) {
-    res.status(500).json({
+    console.error(
+      '❌ Error en recuperación de contraseña:',
+      error
+    );
+
+    return res.status(500).json({
       error: error.message
     });
   }
 };
 
 
-// Restablecer contraseña
+// ======================================================
+// RESTABLECER CONTRASEÑA
+// ======================================================
+
 export const restablecerPassword = async (req, res) => {
   try {
     const { token } = req.params;
@@ -584,12 +715,18 @@ export const restablecerPassword = async (req, res) => {
 
     await usuario.save();
 
-    res.json({
-      mensaje: 'Contraseña actualizada correctamente'
+    return res.json({
+      mensaje:
+        'Contraseña actualizada correctamente'
     });
 
   } catch (error) {
-    res.status(500).json({
+    console.error(
+      '❌ Error al restablecer contraseña:',
+      error
+    );
+
+    return res.status(500).json({
       error: error.message
     });
   }

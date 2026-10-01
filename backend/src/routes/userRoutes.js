@@ -1,112 +1,166 @@
 import express from 'express';
 
 import {
-registrarUsuario,
-iniciarSesion,
-iniciarSesionGoogle,
-obtenerUsuario,
-solicitarRecuperacion,
-restablecerPassword,
-actualizarUsuario,
-verificarCuenta,
-reenviarCodigo
+  registrarUsuario,
+  iniciarSesion,
+  iniciarSesionGoogle,
+  obtenerUsuario,
+  solicitarRecuperacion,
+  restablecerPassword,
+  actualizarUsuario,
+  verificarCuenta,
+  reenviarCodigo,
+  cambiarRolUsuario
 } from '../controllers/userController.js';
 
 import verificarToken, {
-verificarDueño
+  verificarDueño,
+  verificarAdmin
 } from '../middleware/authMiddleware.js';
 
 import {
-limitarLogin,
-limitarRegistro,
-limitarRecuperacion
+  limitarLogin,
+  limitarRegistro,
+  limitarRecuperacion
 } from '../middleware/rateLimiter.js';
 
 import validar from '../middleware/validar.js';
 
 import {
-registroSchema,
-loginSchema,
-forgotPasswordSchema,
-resetPasswordSchema,
-verificarCuentaSchema,
-reenviarCodigoSchema
+  registroSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  verificarCuentaSchema,
+  reenviarCodigoSchema
 } from '../validators/userValidator.js';
 
 import crearUploadMiddleware from '../middleware/uploadMiddleware.js';
 
 const router = express.Router();
 
-const uploadUserImage = crearUploadMiddleware('users');
+const uploadUserImage =
+  crearUploadMiddleware('users');
 
-// Registro
+
+// ======================================================
+// REGISTRO
+// ======================================================
+
 router.post(
-'/register',
-limitarRegistro,
-validar(registroSchema),
-registrarUsuario
+  '/register',
+  limitarRegistro,
+  validar(registroSchema),
+  registrarUsuario
 );
 
-// Inicio de sesión
+
+// ======================================================
+// LOGIN
+// ======================================================
+
 router.post(
-'/login',
-limitarLogin,
-validar(loginSchema),
-iniciarSesion
+  '/login',
+  limitarLogin,
+  validar(loginSchema),
+  iniciarSesion
 );
 
-// Inicio de sesión con Google
+
+// ======================================================
+// LOGIN CON GOOGLE
+// ======================================================
+
 router.post(
-'/google',
-limitarLogin,
-iniciarSesionGoogle
+  '/google',
+  limitarLogin,
+  iniciarSesionGoogle
 );
 
-// Verificación de cuenta
+
+// ======================================================
+// VERIFICAR CUENTA
+// ======================================================
+
 router.post(
-'/verificar-cuenta',
-validar(verificarCuentaSchema),
-verificarCuenta
+  '/verificar-cuenta',
+  validar(verificarCuentaSchema),
+  verificarCuenta
 );
 
-// Reenviar código de verificación
+
+// ======================================================
+// REENVIAR CÓDIGO
+// ======================================================
+
 router.post(
-'/reenviar-codigo',
-limitarRecuperacion,
-validar(reenviarCodigoSchema),
-reenviarCodigo
+  '/reenviar-codigo',
+  limitarRecuperacion,
+  validar(reenviarCodigoSchema),
+  reenviarCodigo
 );
 
-// Solicitar recuperación de contraseña
+
+// ======================================================
+// RECUPERAR CONTRASEÑA
+// ======================================================
+
 router.post(
-'/forgot-password',
-limitarRecuperacion,
-validar(forgotPasswordSchema),
-solicitarRecuperacion
+  '/forgot-password',
+  limitarRecuperacion,
+  validar(forgotPasswordSchema),
+  solicitarRecuperacion
 );
 
-// Restablecer contraseña
+
+// ======================================================
+// RESTABLECER CONTRASEÑA
+// ======================================================
+
 router.post(
-'/reset-password/:token',
-validar(resetPasswordSchema),
-restablecerPassword
+  '/reset-password/:token',
+  validar(resetPasswordSchema),
+  restablecerPassword
 );
 
-// Obtener usuario
-router.get(
-'/:id',
-verificarToken,
-verificarDueño,
-obtenerUsuario
-);
 
-// Actualizar usuario
+// ======================================================
+// CAMBIAR ROL DE USUARIO
+// SOLO ADMIN
+// ======================================================
+
 router.put(
-'/:id',
-verificarToken,
-verificarDueño,
-uploadUserImage.single('imagen'),
-actualizarUsuario
+  '/admin/rol',
+  verificarToken,
+  verificarAdmin,
+  cambiarRolUsuario
 );
+
+
+// ======================================================
+// OBTENER USUARIO
+// ======================================================
+
+router.get(
+  '/:id',
+  verificarToken,
+  verificarDueño,
+  obtenerUsuario
+);
+
+
+// ======================================================
+// ACTUALIZAR USUARIO
+// ======================================================
+
+router.put(
+  '/:id',
+  verificarToken,
+  verificarDueño,
+  uploadUserImage.single('imagen'),
+  actualizarUsuario
+);
+
 
 export default router;
+
