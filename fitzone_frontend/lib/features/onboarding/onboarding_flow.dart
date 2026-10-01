@@ -5,7 +5,9 @@ import '../../core/widgets/ellipse_glow.dart';
 import '../plan_selection/models/plan.dart';
 import 'models/onboarding_data.dart';
 import 'models/onboarding_step.dart';
+import 'models/personal_info.dart';
 import 'models/trainer.dart';
+import 'steps/personal_info_step.dart';
 import 'steps/placeholder_step.dart';
 import 'steps/trainer_step.dart';
 import 'widgets/onboarding_footer.dart';
@@ -54,11 +56,19 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   void _goNext() {
     if (!_nextEnabled) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    // Aplica los mínimos de Información Personal antes de avanzar.
+    final OnboardingData data = _data.copyWith(
+      personalInfo: _data.personalInfo.sanitized(),
+    );
+
     if (_isLast) {
-      widget.onComplete(_data);
+      widget.onComplete(data);
       return;
     }
     setState(() {
+      _data = data;
       _direction = 1;
       _step++;
     });
@@ -67,6 +77,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   void _goBack() {
     if (_step == 0) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _direction = -1;
       _step--;
@@ -76,6 +87,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   void _selectTrainer(Trainer trainer) {
     setState(() => _data = _data.copyWith(trainer: trainer));
+  }
+
+  void _updatePersonalInfo(PersonalInfo info) {
+    setState(() => _data = _data.copyWith(personalInfo: info));
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -115,6 +130,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             bottom: false,
             child: SingleChildScrollView(
               controller: _scroll,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.fromLTRB(24, 32, 24, 112 + bottomInset),
               child: Center(
                 child: ConstrainedBox(
@@ -170,8 +186,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         );
       },
       transitionBuilder: (Widget child, Animation<double> animation) {
-        final bool incoming =
-            child.key == ValueKey<OnboardingStep>(_current);
+        final bool incoming = child.key == ValueKey<OnboardingStep>(_current);
         final double dx = (incoming ? _direction : -_direction) * 28.0;
         return FadeTransition(
           opacity: animation,
@@ -202,12 +217,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           onSelect: _selectTrainer,
         );
       case OnboardingStep.personalInfo:
-        return PlaceholderStep(
+        return PersonalInfoStep(
           key: key,
-          icon: Icons.person_outline_rounded,
-          title: 'Información Personal',
-          subtitle: 'Cuéntanos sobre ti para personalizar tu experiencia',
-          teal: true,
+          info: _data.personalInfo,
+          onChanged: _updatePersonalInfo,
         );
       case OnboardingStep.measurements:
         return PlaceholderStep(
