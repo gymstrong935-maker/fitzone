@@ -1,3 +1,4 @@
+import 'body_measurements.dart';
 import 'personal_info.dart';
 import 'trainer.dart';
 
@@ -7,15 +8,22 @@ class OnboardingData {
   const OnboardingData({
     this.trainer,
     this.personalInfo = const PersonalInfo(),
+    this.bodyMeasurements = const BodyMeasurements(),
   });
 
   final Trainer? trainer;
   final PersonalInfo personalInfo;
+  final BodyMeasurements bodyMeasurements;
 
-  OnboardingData copyWith({Trainer? trainer, PersonalInfo? personalInfo}) {
+  OnboardingData copyWith({
+    Trainer? trainer,
+    PersonalInfo? personalInfo,
+    BodyMeasurements? bodyMeasurements,
+  }) {
     return OnboardingData(
       trainer: trainer ?? this.trainer,
       personalInfo: personalInfo ?? this.personalInfo,
+      bodyMeasurements: bodyMeasurements ?? this.bodyMeasurements,
     );
   }
 }

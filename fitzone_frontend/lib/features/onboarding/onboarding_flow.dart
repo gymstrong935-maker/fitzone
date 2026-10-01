@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/ellipse_glow.dart';
 import '../plan_selection/models/plan.dart';
+import 'models/body_measurements.dart';
 import 'models/onboarding_data.dart';
 import 'models/onboarding_step.dart';
 import 'models/personal_info.dart';
 import 'models/trainer.dart';
+import 'steps/measurements_step.dart';
 import 'steps/personal_info_step.dart';
 import 'steps/placeholder_step.dart';
 import 'steps/trainer_step.dart';
@@ -91,6 +93,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   void _updatePersonalInfo(PersonalInfo info) {
     setState(() => _data = _data.copyWith(personalInfo: info));
+  }
+
+  void _updateMeasurements(BodyMeasurements measurements) {
+    setState(() => _data = _data.copyWith(bodyMeasurements: measurements));
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -223,11 +229,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           onChanged: _updatePersonalInfo,
         );
       case OnboardingStep.measurements:
-        return PlaceholderStep(
+        return MeasurementsStep(
           key: key,
-          icon: Icons.straighten_rounded,
-          title: 'Mediciones Corporales',
-          subtitle: 'Opcionales — te ayudan a ver tu progreso real',
+          measurements: _data.bodyMeasurements,
+          onChanged: _updateMeasurements,
         );
       case OnboardingStep.goals:
         return PlaceholderStep(
