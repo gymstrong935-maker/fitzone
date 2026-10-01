@@ -4,10 +4,14 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/ellipse_glow.dart';
 import '../plan_selection/models/plan.dart';
 import 'models/body_measurements.dart';
+import 'models/experience_level.dart';
+import 'models/goal.dart';
 import 'models/onboarding_data.dart';
 import 'models/onboarding_step.dart';
 import 'models/personal_info.dart';
 import 'models/trainer.dart';
+import 'steps/experience_step.dart';
+import 'steps/goals_step.dart';
 import 'steps/measurements_step.dart';
 import 'steps/personal_info_step.dart';
 import 'steps/placeholder_step.dart';
@@ -42,8 +46,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   bool get _isLast => _step == _steps.length - 1;
 
   bool get _nextEnabled {
-    if (_current == OnboardingStep.trainer) return _data.trainer != null;
-    return true;
+    switch (_current) {
+      case OnboardingStep.trainer:
+        return _data.trainer != null;
+      case OnboardingStep.goals:
+        return _data.goal != null;
+      case OnboardingStep.experience:
+        return _data.experienceLevel != null;
+      case OnboardingStep.personalInfo:
+      case OnboardingStep.measurements:
+      case OnboardingStep.habits:
+        return true;
+    }
   }
 
   @override
@@ -97,6 +111,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   void _updateMeasurements(BodyMeasurements measurements) {
     setState(() => _data = _data.copyWith(bodyMeasurements: measurements));
+  }
+
+  void _selectGoal(Goal goal) {
+    setState(() => _data = _data.copyWith(goal: goal));
+  }
+
+  void _selectExperience(ExperienceLevel level) {
+    setState(() => _data = _data.copyWith(experienceLevel: level));
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -235,19 +257,16 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           onChanged: _updateMeasurements,
         );
       case OnboardingStep.goals:
-        return PlaceholderStep(
+        return GoalsStep(
           key: key,
-          icon: Icons.track_changes_rounded,
-          title: '¿Qué quieres lograr?',
-          subtitle: 'Selecciona tu objetivo principal',
-          teal: true,
+          selected: _data.goal,
+          onSelect: _selectGoal,
         );
       case OnboardingStep.experience:
-        return PlaceholderStep(
+        return ExperienceStep(
           key: key,
-          icon: Icons.workspace_premium_outlined,
-          title: 'Nivel de Experiencia',
-          subtitle: '¿Cuánto tiempo llevas entrenando?',
+          selected: _data.experienceLevel,
+          onSelect: _selectExperience,
         );
       case OnboardingStep.habits:
         return PlaceholderStep(
