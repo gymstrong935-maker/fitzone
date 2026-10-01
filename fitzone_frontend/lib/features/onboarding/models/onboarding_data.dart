@@ -3,9 +3,9 @@ import 'experience_level.dart';
 import 'goal.dart';
 import 'personal_info.dart';
 import 'trainer.dart';
+import 'training_habits.dart';
 
-/// Datos que va acumulando el onboarding.
-/// Iremos agregando campos con cada paso nuevo.
+/// Datos que acumula el onboarding (un campo por paso).
 class OnboardingData {
   const OnboardingData({
     this.trainer,
@@ -13,6 +13,7 @@ class OnboardingData {
     this.bodyMeasurements = const BodyMeasurements(),
     this.goal,
     this.experienceLevel,
+    this.trainingHabits = const TrainingHabits(),
   });
 
   final Trainer? trainer;
@@ -20,6 +21,7 @@ class OnboardingData {
   final BodyMeasurements bodyMeasurements;
   final Goal? goal;
   final ExperienceLevel? experienceLevel;
+  final TrainingHabits trainingHabits;
 
   OnboardingData copyWith({
     Trainer? trainer,
@@ -27,6 +29,7 @@ class OnboardingData {
     BodyMeasurements? bodyMeasurements,
     Goal? goal,
     ExperienceLevel? experienceLevel,
+    TrainingHabits? trainingHabits,
   }) {
     return OnboardingData(
       trainer: trainer ?? this.trainer,
@@ -34,6 +37,7 @@ class OnboardingData {
       bodyMeasurements: bodyMeasurements ?? this.bodyMeasurements,
       goal: goal ?? this.goal,
       experienceLevel: experienceLevel ?? this.experienceLevel,
+      trainingHabits: trainingHabits ?? this.trainingHabits,
     );
   }
 }

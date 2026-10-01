@@ -10,11 +10,12 @@ import 'models/onboarding_data.dart';
 import 'models/onboarding_step.dart';
 import 'models/personal_info.dart';
 import 'models/trainer.dart';
+import 'models/training_habits.dart';
 import 'steps/experience_step.dart';
 import 'steps/goals_step.dart';
+import 'steps/habits_step.dart';
 import 'steps/measurements_step.dart';
 import 'steps/personal_info_step.dart';
-import 'steps/placeholder_step.dart';
 import 'steps/trainer_step.dart';
 import 'widgets/onboarding_footer.dart';
 import 'widgets/onboarding_progress_bar.dart';
@@ -119,6 +120,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   void _selectExperience(ExperienceLevel level) {
     setState(() => _data = _data.copyWith(experienceLevel: level));
+  }
+
+  void _updateHabits(TrainingHabits habits) {
+    setState(() => _data = _data.copyWith(trainingHabits: habits));
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -269,12 +274,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           onSelect: _selectExperience,
         );
       case OnboardingStep.habits:
-        return PlaceholderStep(
+        return HabitsStep(
           key: key,
-          icon: Icons.schedule_rounded,
-          title: 'Hábitos de Entrenamiento',
-          subtitle: 'Cuéntanos sobre tu rutina diaria',
-          teal: true,
+          habits: _data.trainingHabits,
+          onChanged: _updateHabits,
         );
     }
   }

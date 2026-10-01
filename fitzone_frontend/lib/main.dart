@@ -94,6 +94,30 @@ class _AppFlowState extends State<AppFlow> {
     });
   }
 
+  /// Resumen de lo que capturó el onboarding (temporal, para verificar).
+  String _onboardingSummary() {
+    final OnboardingData? d = _onboardingData;
+    if (d == null) return 'Sin datos de onboarding';
+
+    final info = d.personalInfo;
+    final habits = d.trainingHabits;
+    final String weight = info.weight == info.weight.roundToDouble()
+        ? info.weight.toStringAsFixed(0)
+        : info.weight.toStringAsFixed(1);
+    final int measures = d.bodyMeasurements.skinfolds.length +
+        d.bodyMeasurements.circumferences.length;
+
+    return 'Plan: ${_selectedPlan?.name ?? '-'}\n'
+        'Entrenador: ${d.trainer?.name ?? 'sin entrenador'}\n'
+        'Edad: ${info.age} · Peso: $weight ${info.weightUnit.name} · Estatura: ${info.height} cm\n'
+        'Mediciones capturadas: $measures\n'
+        'Objetivo: ${d.goal?.apiValue ?? '-'}\n'
+        'Nivel: ${d.experienceLevel?.apiValue ?? '-'}\n'
+        'Hábitos: ${habits.frequency} días/sem · ${habits.duration} min · '
+        'sueño ${habits.sleepDuration}h (${habits.sleepQuality.apiValue}) · '
+        'actividad ${habits.activityLevel.apiValue}';
+  }
+
   Widget _buildStage() {
     final ValueKey<AppStage> key = ValueKey<AppStage>(_stage);
 
@@ -137,8 +161,7 @@ class _AppFlowState extends State<AppFlow> {
         return _PlaceholderScreen(
           key: key,
           title: 'App principal',
-          message:
-              'Plan: ${_selectedPlan?.name ?? '-'}\nEntrenador: ${_onboardingData?.trainer?.name ?? 'sin entrenador'}',
+          message: _onboardingSummary(),
           onBack: () => _goTo(AppStage.planSelection),
         );
     }
@@ -192,43 +215,50 @@ class _PlaceholderScreen extends StatelessWidget {
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(title, style: AppText.display(size: 28)),
-                const SizedBox(height: 8),
-                Text(
-                  'Próximamente',
-                  style: AppText.body(size: 14, color: AppColors.cyan),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: AppText.body(size: 13, color: AppColors.whiteA(0.55)),
-                ),
-                const SizedBox(height: 24),
-                if (onNext != null)
-                  TextButton(
-                    onPressed: onNext,
-                    child: Text(
-                      'Continuar (temporal)',
-                      style: AppText.body(size: 14, color: AppColors.cyan),
-                    ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(title, style: AppText.display(size: 28)),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Próximamente',
+                    style: AppText.body(size: 14, color: AppColors.cyan),
                   ),
-                TextButton(
-                  onPressed: onBack,
-                  child: Text(
-                    'Volver',
+                  const SizedBox(height: 16),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
                     style: AppText.body(
-                      size: 14,
-                      color: AppColors.whiteA(0.6),
+                      size: 13,
+                      color: AppColors.whiteA(0.55),
+                      height: 1.6,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 24),
+                  if (onNext != null)
+                    TextButton(
+                      onPressed: onNext,
+                      child: Text(
+                        'Continuar (temporal)',
+                        style: AppText.body(size: 14, color: AppColors.cyan),
+                      ),
+                    ),
+                  TextButton(
+                    onPressed: onBack,
+                    child: Text(
+                      'Volver',
+                      style: AppText.body(
+                        size: 14,
+                        color: AppColors.whiteA(0.6),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
