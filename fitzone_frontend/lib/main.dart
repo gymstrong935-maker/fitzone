@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'core/models/user_profile.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_text.dart';
 import 'core/theme/app_theme.dart';
@@ -12,6 +13,7 @@ import 'features/payment_method/models/payment_models.dart';
 import 'features/payment_method/payment_method_screen.dart';
 import 'features/plan_selection/models/plan.dart';
 import 'features/plan_selection/plan_selection_screen.dart';
+import 'features/shell/main_shell.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,7 +63,7 @@ class _AppFlowState extends State<AppFlow> {
   PlanId? _selectedPlan;
   AuthUser? _user;
   PayMethod? _paymentMethod;
-  OnboardingData? _onboardingData;
+  UserProfile? _profile;
 
   void _goTo(AppStage stage) => setState(() => _stage = stage);
 
@@ -88,34 +90,21 @@ class _AppFlowState extends State<AppFlow> {
   }
 
   void _handleOnboardingComplete(OnboardingData data) {
+    final AuthUser? user = _user;
+    final DateTime now = DateTime.now();
+
     setState(() {
-      _onboardingData = data;
+      // Sin cuenta (plan gratuito) se usa un usuario por defecto, igual que
+      // en el diseño.
+      _profile = UserProfile(
+        id: 'user-${now.millisecondsSinceEpoch}',
+        name: user?.name ?? 'Usuario FitZone',
+        email: user?.email ?? 'guest@fitzone.app',
+        createdAt: now,
+        onboardingData: data,
+      );
       _stage = AppStage.main;
     });
-  }
-
-  /// Resumen de lo que capturó el onboarding (temporal, para verificar).
-  String _onboardingSummary() {
-    final OnboardingData? d = _onboardingData;
-    if (d == null) return 'Sin datos de onboarding';
-
-    final info = d.personalInfo;
-    final habits = d.trainingHabits;
-    final String weight = info.weight == info.weight.roundToDouble()
-        ? info.weight.toStringAsFixed(0)
-        : info.weight.toStringAsFixed(1);
-    final int measures = d.bodyMeasurements.skinfolds.length +
-        d.bodyMeasurements.circumferences.length;
-
-    return 'Plan: ${_selectedPlan?.name ?? '-'}\n'
-        'Entrenador: ${d.trainer?.name ?? 'sin entrenador'}\n'
-        'Edad: ${info.age} · Peso: $weight ${info.weightUnit.name} · Estatura: ${info.height} cm\n'
-        'Mediciones capturadas: $measures\n'
-        'Objetivo: ${d.goal?.apiValue ?? '-'}\n'
-        'Nivel: ${d.experienceLevel?.apiValue ?? '-'}\n'
-        'Hábitos: ${habits.frequency} días/sem · ${habits.duration} min · '
-        'sueño ${habits.sleepDuration}h (${habits.sleepQuality.apiValue}) · '
-        'actividad ${habits.activityLevel.apiValue}';
   }
 
   Widget _buildStage() {
@@ -158,12 +147,12 @@ class _AppFlowState extends State<AppFlow> {
         );
 
       case AppStage.main:
-        return _PlaceholderScreen(
-          key: key,
-          title: 'App principal',
-          message: _onboardingSummary(),
-          onBack: () => _goTo(AppStage.planSelection),
-        );
+        final UserProfile? profile = _profile;
+        if (profile == null) {
+          // No debería pasar: el perfil se crea al terminar el onboarding.
+          return PlanSelectionScreen(key: key, onSelectPlan: _handleSelectPlan);
+        }
+        return MainShell(key: key, userProfile: profile);
     }
   }
 
