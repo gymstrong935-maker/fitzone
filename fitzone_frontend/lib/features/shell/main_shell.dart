@@ -8,6 +8,7 @@ import '../community/community_screen.dart';
 import '../history/history_screen.dart';
 import '../home/home_screen.dart';
 import '../nutrition/nutrition_screen.dart';
+import '../stats/stats_screen.dart';
 import 'pages/coming_soon_page.dart';
 import 'pages/workout_placeholder_screen.dart';
 import 'widgets/fz_bottom_nav.dart';
@@ -125,11 +126,7 @@ class _MainShellState extends State<MainShell> {
           onStartWorkout: _startWorkout,
         );
       case 'stats':
-        return ComingSoonPage(
-          key: key,
-          title: 'Estadísticas',
-          icon: Icons.bar_chart_rounded,
-        );
+        return StatsScreen(key: key);
       case 'plan':
         return ComingSoonPage(
           key: key,
