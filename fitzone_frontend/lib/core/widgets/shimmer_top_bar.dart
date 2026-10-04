@@ -4,9 +4,34 @@ import '../theme/app_colors.dart';
 
 /// Barra superior de 3 px con degradado cian/turquesa en movimiento continuo.
 class ShimmerTopBar extends StatefulWidget {
-  const ShimmerTopBar({super.key, this.height = 3});
+  const ShimmerTopBar({
+    super.key,
+    this.height = 3,
+    this.colors = defaultColors,
+  });
 
   final double height;
+
+  /// Colores del degradado (se repite en bucle).
+  final List<Color> colors;
+
+  /// Tema oscuro (el de siempre).
+  static const List<Color> defaultColors = <Color>[
+    AppColors.cyan,
+    AppColors.teal,
+    AppColors.cyanLight,
+    AppColors.teal,
+    AppColors.cyan,
+  ];
+
+  /// Tema claro.
+  static const List<Color> lightColors = <Color>[
+    Color(0xFF0891B2),
+    Color(0xFF0D9488),
+    Color(0xFF06B6D4),
+    Color(0xFF0D9488),
+    Color(0xFF0891B2),
+  ];
 
   @override
   State<ShimmerTopBar> createState() => _ShimmerTopBarState();
@@ -36,23 +61,16 @@ class _ShimmerTopBarState extends State<ShimmerTopBar>
     return SizedBox(
       height: widget.height,
       width: double.infinity,
-      child: CustomPaint(painter: _ShimmerPainter(_controller)),
+      child: CustomPaint(painter: _ShimmerPainter(_controller, widget.colors)),
     );
   }
 }
 
 class _ShimmerPainter extends CustomPainter {
-  _ShimmerPainter(this.progress) : super(repaint: progress);
+  _ShimmerPainter(this.progress, this.colors) : super(repaint: progress);
 
   final Animation<double> progress;
-
-  static const List<Color> _colors = <Color>[
-    AppColors.cyan,
-    AppColors.teal,
-    AppColors.cyanLight,
-    AppColors.teal,
-    AppColors.cyan,
-  ];
+  final List<Color> colors;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -67,8 +85,8 @@ class _ShimmerPainter extends CustomPainter {
     );
 
     final Paint paint = Paint()
-      ..shader = const LinearGradient(
-        colors: _colors,
+      ..shader = LinearGradient(
+        colors: colors,
         tileMode: TileMode.repeated,
       ).createShader(gradientRect);
 
@@ -77,6 +95,6 @@ class _ShimmerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ShimmerPainter oldDelegate) {
-    return oldDelegate.progress != progress;
+    return oldDelegate.progress != progress || oldDelegate.colors != colors;
   }
 }

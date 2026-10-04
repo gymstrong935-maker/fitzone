@@ -15,4 +15,18 @@ class UserProfile {
   final String email;
   final DateTime createdAt;
   final OnboardingData onboardingData;
+
+  UserProfile copyWith({
+    String? name,
+    String? email,
+    OnboardingData? onboardingData,
+  }) {
+    return UserProfile(
+      id: id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      createdAt: createdAt,
+      onboardingData: onboardingData ?? this.onboardingData,
+    );
+  }
 }

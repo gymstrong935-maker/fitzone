@@ -107,6 +107,17 @@ class _AppFlowState extends State<AppFlow> {
     });
   }
 
+  /// Cerrar sesión: se olvidan los datos y se vuelve a elegir plan.
+  void _handleLogout() {
+    setState(() {
+      _profile = null;
+      _user = null;
+      _selectedPlan = null;
+      _paymentMethod = null;
+      _stage = AppStage.planSelection;
+    });
+  }
+
   Widget _buildStage() {
     final ValueKey<AppStage> key = ValueKey<AppStage>(_stage);
 
@@ -152,7 +163,7 @@ class _AppFlowState extends State<AppFlow> {
           // No debería pasar: el perfil se crea al terminar el onboarding.
           return PlanSelectionScreen(key: key, onSelectPlan: _handleSelectPlan);
         }
-        return MainShell(key: key, userProfile: profile);
+        return MainShell(key: key, userProfile: profile, onLogout: _handleLogout);
     }
   }
 
