@@ -21,7 +21,8 @@ import verificarToken, {
 import {
   limitarLogin,
   limitarRegistro,
-  limitarRecuperacion
+  limitarRecuperacion,
+  limitarResetPassword
 } from '../middleware/rateLimiter.js';
 
 import validar from '../middleware/validar.js';
@@ -118,7 +119,8 @@ router.post(
 // ======================================================
 
 router.post(
-  '/reset-password/:token',
+  '/reset-password',
+  limitarResetPassword,
   validar(resetPasswordSchema),
   restablecerPassword
 );

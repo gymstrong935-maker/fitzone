@@ -615,119 +615,54 @@ export const cambiarRolUsuario = async (req, res) => {
 };
 
 
-// ======================================================
-// SOLICITAR RECUPERACIÓN DE CONTRASEÑA
-// ======================================================
-
+// Solicitar recuperación de contraseña (envía un código de 6 dígitos)
 export const solicitarRecuperacion = async (req, res) => {
   try {
     const { email } = req.body;
-
     const usuario = await User.findOne({ email });
+    if (!usuario) return res.status(404).json({ mensaje: 'No existe una cuenta con ese correo' });
 
-    if (!usuario) {
-      return res.status(404).json({
-        mensaje: 'No existe una cuenta con ese correo'
-      });
-    }
-
-    const token = crypto
-      .randomBytes(32)
-      .toString('hex');
-
-    usuario.resetPasswordToken = token;
-
-    usuario.resetPasswordExpira =
-      Date.now() + 3600000;
-
+    const codigo = crypto.randomInt(100000, 1000000).toString();
+    usuario.resetPasswordToken = codigo;
+    usuario.resetPasswordExpira = Date.now() + 15 * 60 * 1000; // 15 minutos
     await usuario.save();
-
-    const enlace =
-      `http://localhost:4000/api/users/reset-password/${token}`;
 
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: usuario.email,
-      subject: 'Recuperación de contraseña - FitZone',
-      html: `
-        <p>Hola ${usuario.nombre},</p>
-
-        <p>
-          Solicitaste recuperar tu contraseña.
-          Este enlace vence en 1 hora:
-        </p>
-
-        <p>
-          <a href="${enlace}">
-            ${enlace}
-          </a>
-        </p>
-
-        <p>Si no solicitaste este cambio, puedes ignorar este correo.</p>
-      `
+      subject: 'Código para recuperar tu contraseña - FitZone',
+      html: `<p>Hola ${usuario.nombre},</p>
+             <p>Tu código para recuperar tu contraseña es:</p>
+             <h2 style="letter-spacing: 6px;">${codigo}</h2>
+             <p>Este código vence en 15 minutos. Si no lo solicitaste, ignora este correo.</p>`
     });
 
-    return res.json({
-      mensaje:
-        'Se envió un correo con las instrucciones'
-    });
-
+    res.json({ mensaje: 'Te enviamos un código a tu correo' });
   } catch (error) {
-    console.error(
-      '❌ Error en recuperación de contraseña:',
-      error
-    );
-
-    return res.status(500).json({
-      error: error.message
-    });
+    res.status(500).json({ error: error.message });
   }
 };
 
-
-// ======================================================
-// RESTABLECER CONTRASEÑA
-// ======================================================
-
+// Restablecer contraseña con el código recibido por correo
 export const restablecerPassword = async (req, res) => {
   try {
-    const { token } = req.params;
-    const { password } = req.body;
+    const { email, codigo, password } = req.body;
 
     const usuario = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpira: {
-        $gt: Date.now()
-      }
+      email,
+      resetPasswordToken: codigo,
+      resetPasswordExpira: { $gt: Date.now() }
     });
 
-    if (!usuario) {
-      return res.status(400).json({
-        mensaje: 'Token inválido o expirado'
-      });
-    }
+    if (!usuario) return res.status(400).json({ mensaje: 'Código inválido o expirado' });
 
-    usuario.passwordHash =
-      await bcrypt.hash(password, 10);
-
+    usuario.passwordHash = await bcrypt.hash(password, 10);
     usuario.resetPasswordToken = undefined;
     usuario.resetPasswordExpira = undefined;
-
     await usuario.save();
 
-    return res.json({
-      mensaje:
-        'Contraseña actualizada correctamente'
-    });
-
+    res.json({ mensaje: 'Contraseña actualizada correctamente' });
   } catch (error) {
-    console.error(
-      '❌ Error al restablecer contraseña:',
-      error
-    );
-
-    return res.status(500).json({
-      error: error.message
-    });
+    res.status(500).json({ error: error.message });
   }
 };

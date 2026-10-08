@@ -31,3 +31,11 @@ export const limitarRecuperacion = rateLimit({
   standardHeaders: true,
   legacyHeaders: false
 });
+
+export const limitarResetPassword = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10,
+  message: { mensaje: 'Demasiados intentos. Solicita un nuevo código e inténtalo más tarde.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
