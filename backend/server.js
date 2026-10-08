@@ -21,14 +21,35 @@ import trainingPeriodRoutes from './src/routes/trainingPeriodRoutes.js';
 import dietaryControlRoutes from './src/routes/dietaryControlRoutes.js';
 import appointmentRoutes from './src/routes/appointmentRoutes.js';
 import onboardingRoutes from './src/routes/onboardingRoutes.js';
+
 import { iniciarJobVencimientos } from './src/jobs/verificarVencimientosJob.js';
 
 const app = express();
-connectDB();
-iniciarJobVencimientos();
+
+const PORT = process.env.PORT || 4000;
+
+// ======================================================
+// MIDDLEWARES
+// ======================================================
 
 app.use(cors());
 app.use(express.json());
+
+// ======================================================
+// RUTA PRINCIPAL
+// ======================================================
+
+app.get('/', (req, res) => {
+  res.json({
+    mensaje: '🚀 FitZone Backend funcionando correctamente',
+    estado: 'online',
+    puerto: PORT
+  });
+});
+
+// ======================================================
+// RUTAS API
+// ======================================================
 
 app.use('/api/users', userRoutes);
 app.use('/api/plans', planRoutes);
@@ -49,16 +70,51 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/chat', chatRoutes);
 
-// Ruta no encontrada (404)
+// ======================================================
+// RUTA NO ENCONTRADA
+// ======================================================
+
 app.use((req, res) => {
-  res.status(404).json({ mensaje: 'Ruta no encontrada' });
+  res.status(404).json({
+    mensaje: 'Ruta no encontrada'
+  });
 });
 
-// Manejador de errores global
+// ======================================================
+// MANEJADOR GLOBAL DE ERRORES
+// ======================================================
+
 app.use((err, req, res, next) => {
   console.error('❌ Error no controlado:', err.stack);
-  res.status(500).json({ mensaje: 'Error interno del servidor' });
+
+  res.status(500).json({
+    mensaje: 'Error interno del servidor'
+  });
 });
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`🚀 Servidor corriendo en puerto ${PORT}`));
+// ======================================================
+// ARRANQUE DEL SERVIDOR
+// ======================================================
+
+const iniciarServidor = async () => {
+  try {
+    // 1. Primero conectamos MongoDB
+    await connectDB();
+
+    // 2. Cuando MongoDB ya está conectado,
+    //    iniciamos el job de vencimientos
+    iniciarJobVencimientos();
+
+    // 3. Finalmente levantamos Express
+    app.listen(PORT, () => {
+      console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+      console.log(`🌐 http://localhost:${PORT}`);
+    });
+
+  } catch (error) {
+    console.error('❌ No se pudo iniciar el servidor:', error.message);
+    process.exit(1);
+  }
+};
+
+iniciarServidor();
