@@ -58,8 +58,7 @@ export const verificarVencimientos = async (req, res) => {
 
 export const cambiarPlan = async (req, res) => {
   try {
-    const { nuevoPlanId, metodoPago } = req.body;
-    const usuarioId = req.usuario.id;
+    const { usuarioId, nuevoPlanId, metodoPago } = req.body;
 
     const usuario = await User.findById(usuarioId);
     if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });

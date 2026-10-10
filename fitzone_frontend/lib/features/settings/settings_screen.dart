@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/models/user_profile.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
@@ -61,6 +62,8 @@ class SettingsScreen extends StatelessWidget {
     required this.onThemeToggle,
     required this.onBack,
     required this.onProfileChanged,
+    required this.onRename,
+    required this.onOpenNotifications,
     required this.onLogout,
   });
 
@@ -70,7 +73,13 @@ class SettingsScreen extends StatelessWidget {
   final bool isLight;
   final VoidCallback onThemeToggle;
   final VoidCallback onBack;
+
+  /// Cambios locales (objetivo o entrenador).
   final ValueChanged<UserProfile> onProfileChanged;
+
+  /// Guarda el nombre en el servidor. Lanza [ApiException] si falla.
+  final Future<void> Function(String name) onRename;
+  final VoidCallback onOpenNotifications;
   final VoidCallback onLogout;
 
   static const Color _cyan400 = Color(0xFF22D3EE);
@@ -109,8 +118,15 @@ class SettingsScreen extends StatelessWidget {
       email: userProfile.email,
     );
     if (name == null || name == userProfile.name) return;
-    onProfileChanged(userProfile.copyWith(name: name));
-    _toast(messenger, 'Perfil actualizado');
+
+    try {
+      await onRename(name);
+      _toast(messenger, 'Perfil actualizado');
+    } on ApiException catch (e) {
+      _toast(messenger, e.message);
+    } catch (_) {
+      _toast(messenger, 'No se pudo actualizar el perfil');
+    }
   }
 
   Future<void> _changeGoal(BuildContext context) async {
@@ -175,8 +191,9 @@ class SettingsScreen extends StatelessWidget {
   // ── Perfil ────────────────────────────────────────────────────────────────
   Widget _buildProfileCard(BuildContext context) {
     final String trimmed = userProfile.name.trim();
-    final String initial =
-        trimmed.isEmpty ? '?' : String.fromCharCode(trimmed.runes.first).toUpperCase();
+    final String initial = trimmed.isEmpty
+        ? '?'
+        : String.fromCharCode(trimmed.runes.first).toUpperCase();
 
     return HomeCard(
       child: Column(
@@ -282,8 +299,6 @@ class SettingsScreen extends StatelessWidget {
 
   // ── Preferencias ──────────────────────────────────────────────────────────
   Widget _buildPreferencesCard(BuildContext context, Trainer? trainer) {
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-
     return HomeCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -316,10 +331,7 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.notifications_none_rounded,
             iconColor: _cyan400,
             label: 'Notificaciones',
-            onTap: () => _toast(
-              messenger,
-              'Las notificaciones estarán disponibles pronto',
-            ),
+            onTap: onOpenNotifications,
           ),
         ],
       ),

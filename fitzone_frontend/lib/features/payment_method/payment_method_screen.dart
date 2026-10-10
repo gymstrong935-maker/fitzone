@@ -1,12 +1,10 @@
-import 'dart:async';
-
-import '../../core/network/api_exception.dart';
-
 import 'package:flutter/material.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import '../../core/widgets/ellipse_glow.dart';
+import '../../core/widgets/error_box.dart';
 import '../../core/widgets/fade_slide_in.dart';
 import '../../core/widgets/shimmer_top_bar.dart';
 import '../plan_selection/models/plan.dart';
@@ -24,7 +22,10 @@ class PaymentMethodScreen extends StatefulWidget {
 
   /// Plan elegido (mensual o anual). Se muestra en la etiqueta superior.
   final PlanId planType;
-  final Future<void> Function(PayMethod) onContinue;
+
+  /// Se llama al pulsar "Continuar". Si lanza [ApiException], se muestra el
+  /// mensaje y el usuario puede intentarlo otra vez.
+  final Future<void> Function(PayMethod method) onContinue;
   final VoidCallback onBack;
 
   @override
@@ -34,35 +35,31 @@ class PaymentMethodScreen extends StatefulWidget {
 class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
   PayMethod? _selected;
   bool _confirming = false;
-  Timer? _timer;
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
+  String _error = '';
 
   Future<void> _handleContinue() async {
     final PayMethod? method = _selected;
     if (method == null || _confirming) return;
 
-    setState(() => _confirming = true);
+    setState(() {
+      _confirming = true;
+      _error = '';
+    });
+
     try {
       await widget.onContinue(method);
-    } on ApiException catch (error) {
-      if (mounted) {
-        setState(() => _confirming = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        setState(() => _confirming = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No se pudo registrar el pago: $error')),
-        );
-      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _confirming = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _confirming = false;
+        _error = 'Ocurrió un error inesperado. Inténtalo de nuevo.';
+      });
     }
   }
 
@@ -150,7 +147,10 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
             child: PaymentMethodCard(
               option: kPaymentMethods[i],
               isSelected: _selected == kPaymentMethods[i].id,
-              onTap: () => setState(() => _selected = kPaymentMethods[i].id),
+              onTap: () {
+                if (_confirming) return;
+                setState(() => _selected = kPaymentMethods[i].id);
+              },
             ),
           ),
         ],
@@ -220,11 +220,15 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
             ),
           ),
         ),
+        if (_error.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 16),
+          ErrorBox(_error),
+        ],
         const SizedBox(height: 24),
         _ContinueButton(
           hasSelection: _selected != null,
           confirming: _confirming,
-          onTap: () { _handleContinue(); },
+          onTap: _handleContinue,
         ),
       ],
     );
@@ -348,19 +352,21 @@ class _ContinueButtonState extends State<_ContinueButton> {
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     Text(
-                      'Continuar',
+                      widget.confirming ? 'Procesando...' : 'Continuar',
                       style: AppText.body(
                         size: 15.2,
                         weight: FontWeight.w600,
                         color: color ?? contentColor,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_forward_rounded,
-                      size: 18,
-                      color: color ?? contentColor,
-                    ),
+                    if (!widget.confirming) ...<Widget>[
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 18,
+                        color: color ?? contentColor,
+                      ),
+                    ],
                   ],
                 );
               },

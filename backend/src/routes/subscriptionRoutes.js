@@ -5,13 +5,13 @@ import {
   obtenerPendientes, aprobarSuscripcion, rechazarSuscripcion,
   obtenerMiSuscripcion
 } from '../controllers/subscriptionController.js';
-import verificarToken, { verificarDueño, verificarAdmin } from '../middleware/authMiddleware.js';
+import verificarToken, { verificarDueño, verificarAdmin, usuarioDelToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 router.get('/me', verificarToken, obtenerMiSuscripcion);
 router.get('/usuario/:usuarioId', verificarToken, verificarDueño, obtenerSuscripcionPorUsuario);
-router.post('/cambiar-plan', verificarToken, cambiarPlan);
+router.post('/cambiar-plan', verificarToken, usuarioDelToken, cambiarPlan);
 
 // Solo admin
 router.get('/pendientes', verificarToken, verificarAdmin, obtenerPendientes);

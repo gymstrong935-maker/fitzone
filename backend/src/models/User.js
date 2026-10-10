@@ -33,19 +33,17 @@ const userSchema = new mongoose.Schema({
 
   telefono: String,
 
-  // Datos capturados por el onboarding
-  edad: Number,
-  genero: { type: String, enum: ['male', 'female', 'other'] },
-  peso: Number,
-  unidadPeso: { type: String, enum: ['kg', 'lb'] },
-  alturaCm: Number,
-  condicionFisica: { type: Number, min: 0, max: 10 },
-  nivelExperiencia: { type: String, enum: ['beginner', 'intermediate', 'advanced'] },
-  condicionesMedicas: String,
-
   fechaRegistro: {
     type: Date,
     default: Date.now
+  },
+
+    // Datos personales del onboarding
+  edad: Number,
+
+  genero: {
+    type: String,
+    enum: ['masculino', 'femenino', 'otro']
   },
 
   rol: {

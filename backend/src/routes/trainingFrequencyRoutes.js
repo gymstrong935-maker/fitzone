@@ -1,12 +1,12 @@
 import express from 'express';
 import { crearFrecuencia, obtenerFrecuenciaPorUsuario } from '../controllers/trainingFrequencyController.js';
-import verificarToken, { verificarDueño } from '../middleware/authMiddleware.js';
+import verificarToken, { verificarDueño, usuarioDelToken } from '../middleware/authMiddleware.js';
 import validar from '../middleware/validar.js';
 import { frecuenciaSchema } from '../validators/trainingFrequencyValidator.js';
 import checkSubscription from '../middleware/checkSubscription.js';
 
 const router = express.Router();
-router.post('/', verificarToken, checkSubscription, validar(frecuenciaSchema), crearFrecuencia);
+router.post('/', verificarToken, checkSubscription, usuarioDelToken, validar(frecuenciaSchema), crearFrecuencia);
 router.get('/usuario/:usuarioId', verificarToken, verificarDueño, obtenerFrecuenciaPorUsuario);
 
 export default router;

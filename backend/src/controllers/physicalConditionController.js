@@ -1,28 +1,89 @@
 import PhysicalCondition from '../models/PhysicalCondition.js';
 import Group from '../models/Group.js';
 
+const sinUndefined = (obj) =>
+  Object.fromEntries(
+    Object.entries(obj).filter(([, value]) => value !== undefined)
+  );
+
 export const crearCondicion = async (req, res) => {
   try {
-    const condicion = await PhysicalCondition.create(req.body);
+    const {
+      usuarioId,
+      nivel,
+      lesiones,
+      restricciones,
+      observacionesMedicas,
+      valoraciones
+    } = req.body;
 
-    // Busca un grupo que coincida con el nivel del usuario y lo asigna
-    const grupoDisponible = await Group.findOne({ nivel: condicion.nivel });
+    // Una condición física por usuario.
+    // Si ya existe, se actualiza; si no existe, se crea.
+    const condicion = await PhysicalCondition.findOneAndUpdate(
+      { usuarioId },
+      {
+        $set: sinUndefined({
+          usuarioId,
+          nivel,
+          lesiones,
+          restricciones,
+          observacionesMedicas,
+          valoraciones
+        })
+      },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true
+      }
+    );
 
-    if (grupoDisponible && !grupoDisponible.miembros.includes(condicion.usuarioId)) {
-      grupoDisponible.miembros.push(condicion.usuarioId);
-      await grupoDisponible.save();
+    // Busca un grupo compatible con el nivel del usuario.
+    const grupoDisponible = condicion.nivel
+      ? await Group.findOne({ nivel: condicion.nivel })
+      : null;
+
+    if (grupoDisponible) {
+      const yaEsMiembro = grupoDisponible.miembros.some(
+        (miembroId) =>
+          miembroId.toString() === condicion.usuarioId.toString()
+      );
+
+      if (!yaEsMiembro) {
+        grupoDisponible.miembros.push(condicion.usuarioId);
+        await grupoDisponible.save();
+      }
     }
 
-    res.status(201).json({
+    return res.status(201).json({
       condicion,
-      grupoAsignado: grupoDisponible ? grupoDisponible.nombre : 'Sin grupo disponible para este nivel'
+      grupoAsignado: grupoDisponible
+        ? grupoDisponible.nombre
+        : 'Sin grupo disponible para este nivel'
     });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+  } catch (error) {
+    console.error('❌ Error al guardar condición física:', error);
+
+    return res.status(500).json({
+      mensaje: 'Error al guardar la condición física',
+      error: error.message
+    });
   }
 };
 
 export const obtenerCondicionPorUsuario = async (req, res) => {
-  try { res.json(await PhysicalCondition.find({ usuarioId: req.params.usuarioId })); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  try {
+    const condiciones = await PhysicalCondition.find({
+      usuarioId: req.params.usuarioId
+    });
+
+    return res.json(condiciones);
+  } catch (error) {
+    console.error('❌ Error al obtener condición física:', error);
+
+    return res.status(500).json({
+      mensaje: 'Error al obtener la condición física',
+      error: error.message
+    });
+  }
 };

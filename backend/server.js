@@ -1,3 +1,4 @@
+import dns from 'node:dns';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -20,36 +21,27 @@ import trainingParameterRoutes from './src/routes/trainingParameterRoutes.js';
 import trainingPeriodRoutes from './src/routes/trainingPeriodRoutes.js';
 import dietaryControlRoutes from './src/routes/dietaryControlRoutes.js';
 import appointmentRoutes from './src/routes/appointmentRoutes.js';
-import onboardingRoutes from './src/routes/onboardingRoutes.js';
-
 import { iniciarJobVencimientos } from './src/jobs/verificarVencimientosJob.js';
+
+// =====================================================
+// DNS
+// =====================================================
+// Forzamos DNS públicos porque la red local estaba
+// rechazando las consultas SRV utilizadas por MongoDB.
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const app = express();
 
-const PORT = process.env.PORT || 4000;
-
-// ======================================================
+// =====================================================
 // MIDDLEWARES
-// ======================================================
+// =====================================================
 
 app.use(cors());
 app.use(express.json());
 
-// ======================================================
-// RUTA PRINCIPAL
-// ======================================================
-
-app.get('/', (req, res) => {
-  res.json({
-    mensaje: '🚀 FitZone Backend funcionando correctamente',
-    estado: 'online',
-    puerto: PORT
-  });
-});
-
-// ======================================================
-// RUTAS API
-// ======================================================
+// =====================================================
+// RUTAS
+// =====================================================
 
 app.use('/api/users', userRoutes);
 app.use('/api/plans', planRoutes);
@@ -67,54 +59,59 @@ app.use('/api/training-parameters', trainingParameterRoutes);
 app.use('/api/training-periods', trainingPeriodRoutes);
 app.use('/api/dietary-control', dietaryControlRoutes);
 app.use('/api/appointments', appointmentRoutes);
-app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/chat', chatRoutes);
 
-// ======================================================
-// RUTA NO ENCONTRADA
-// ======================================================
+// =====================================================
+// RUTA 404
+// =====================================================
 
 app.use((req, res) => {
-  res.status(404).json({
-    mensaje: 'Ruta no encontrada'
-  });
+res.status(404).json({
+mensaje: 'Ruta no encontrada'
+});
 });
 
-// ======================================================
+// =====================================================
 // MANEJADOR GLOBAL DE ERRORES
-// ======================================================
+// =====================================================
 
 app.use((err, req, res, next) => {
-  console.error('❌ Error no controlado:', err.stack);
+console.error('❌ Error no controlado:', err.stack);
 
-  res.status(500).json({
-    mensaje: 'Error interno del servidor'
-  });
+res.status(500).json({
+mensaje: 'Error interno del servidor'
+});
 });
 
-// ======================================================
-// ARRANQUE DEL SERVIDOR
-// ======================================================
+// =====================================================
+// SERVIDOR
+// =====================================================
+
+const PORT = process.env.PORT || 4000;
+
+// =====================================================
+// INICIO DE LA APLICACIÓN
+// =====================================================
 
 const iniciarServidor = async () => {
-  try {
-    // 1. Primero conectamos MongoDB
-    await connectDB();
+try {
+console.log('🔄 Conectando a MongoDB...');
 
-    // 2. Cuando MongoDB ya está conectado,
-    //    iniciamos el job de vencimientos
-    iniciarJobVencimientos();
+await connectDB();
 
-    // 3. Finalmente levantamos Express
-    app.listen(PORT, () => {
-      console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-      console.log(`🌐 http://localhost:${PORT}`);
-    });
+console.log('✅ MongoDB conectado correctamente');
 
-  } catch (error) {
-    console.error('❌ No se pudo iniciar el servidor:', error.message);
-    process.exit(1);
-  }
+// Iniciar el job solamente después de conectar MongoDB.
+iniciarJobVencimientos();
+
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+});
+
+} catch (error) {
+console.error('❌ No se pudo iniciar el servidor:', error.message);
+process.exit(1);
+}
 };
 
 iniciarServidor();

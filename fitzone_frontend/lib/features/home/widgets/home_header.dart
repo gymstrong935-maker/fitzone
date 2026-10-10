@@ -17,12 +17,16 @@ class HomeHeader extends StatelessWidget {
     required this.name,
     required this.quote,
     required this.pills,
+    this.trailing,
   });
 
   final String greeting;
   final String name;
   final String quote;
   final List<Widget> pills;
+
+  /// Widget de la esquina superior derecha (la campana de notificaciones).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -139,59 +143,71 @@ class HomeHeader extends StatelessWidget {
                 constraints: const BoxConstraints(maxWidth: 512),
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(20, paddingTop, 20, 24),
-                  child: FadeSlideIn(
-                    duration: const Duration(milliseconds: 450),
-                    offsetY: 16,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Text(
-                          '$greeting 👋',
-                          style: AppText.body(
-                            size: 14,
-                            color: AppColors.whiteA(0.45),
-                            height: 1.43,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          name,
-                          style: AppText.display(
-                            size: 24,
-                            letterSpacing: -0.48,
-                            height: 1.333,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 320),
-                          child: Text(
-                            quote,
-                            style: AppText.body(
-                              size: 12,
-                              color: AppColors.whiteA(0.38),
-                              height: 1.625,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: <Widget>[
+                      FadeSlideIn(
+                        duration: const Duration(milliseconds: 450),
+                        offsetY: 16,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Text(
+                              '$greeting 👋',
+                              style: AppText.body(
+                                size: 14,
+                                color: AppColors.whiteA(0.45),
+                                height: 1.43,
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ScrollConfiguration(
-                          behavior: pillsBehavior,
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: <Widget>[
-                                for (int i = 0; i < pills.length; i++) ...<Widget>[
-                                  if (i > 0) const SizedBox(width: 8),
-                                  pills[i],
-                                ],
-                              ],
+                            const SizedBox(height: 2),
+                            Padding(
+                              padding: const EdgeInsets.only(right: 52),
+                              child: Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppText.display(
+                                  size: 24,
+                                  letterSpacing: -0.48,
+                                  height: 1.333,
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 4),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 320),
+                              child: Text(
+                                quote,
+                                style: AppText.body(
+                                  size: 12,
+                                  color: AppColors.whiteA(0.38),
+                                  height: 1.625,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ScrollConfiguration(
+                              behavior: pillsBehavior,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: <Widget>[
+                                    for (int i = 0; i < pills.length; i++) ...<Widget>[
+                                      if (i > 0) const SizedBox(width: 8),
+                                      pills[i],
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                      if (trailing != null)
+                        Positioned(top: 0, right: 0, child: trailing!),
+                    ],
                   ),
                 ),
               ),

@@ -8,6 +8,7 @@ import Plan from '../models/Plan.js';
 import transporter from '../utils/mailer.js';
 import { crearSuscripcionParaPlan } from '../helpers/suscripciones.js';
 import { borrarImagenCloudinary } from '../utils/cloudinary.js';
+import { enviarCorreoSeguro } from '../utils/enviarCorreoSeguro.js';
 
 const googleClient = new OAuth2Client();
 
@@ -62,22 +63,20 @@ export const registrarUsuario = async (req, res) => {
       codigoVerificacionExpira: Date.now() + 15 * 60 * 1000
     });
 
-    // El plan gratuito se activa inmediatamente.
-    // Para planes pagos, si el usuario todavía no eligió método de pago,
-    // dejamos la cuenta creada y la suscripción se genera desde
-    // /api/subscriptions/cambiar-plan después de la pantalla de pago.
-    if (plan.esGratuito || metodoPago) {
-      await crearSuscripcionParaPlan(
-        nuevoUsuario,
-        plan,
-        metodoPago
-      );
+    await crearSuscripcionParaPlan(
+      nuevoUsuario,
+      plan,
+      metodoPago
+    );
+
+    if (process.env.NODE_ENV !== 'production') {
+    console.log(`🔐 [DEV] Código de verificación de ${nuevoUsuario.email}: ${codigoVerificacion}`);
     }
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: nuevoUsuario.email,
-      subject: 'Verifica tu cuenta - FitZone',
+    await enviarCorreoSeguro({
+    from: process.env.EMAIL_USER,
+    to: nuevoUsuario.email,
+    subject: 'Verifica tu cuenta - FitZone',
       html: `
         <p>Hola ${nuevoUsuario.nombre},</p>
 
@@ -193,7 +192,11 @@ export const reenviarCodigo = async (req, res) => {
 
     await usuario.save();
 
-    await transporter.sendMail({
+    if (process.env.NODE_ENV !== 'production') {
+    console.log(`🔐 [DEV] Nuevo código de ${usuario.email}: ${codigoVerificacion}`);
+    }
+
+    await enviarCorreoSeguro({
       from: process.env.EMAIL_USER,
       to: usuario.email,
       subject: 'Nuevo código de verificación - FitZone',
@@ -259,9 +262,10 @@ export const iniciarSesion = async (req, res) => {
     }
 
     if (usuario.cuentaVerificada === false) {
-      return res.status(403).json({
-        mensaje: 'Debes verificar tu cuenta antes de iniciar sesión'
-      });
+    return res.status(403).json({
+    mensaje: 'Debes verificar tu cuenta antes de iniciar sesión',
+    codigo: 'CUENTA_NO_VERIFICADA'
+    });
     }
 
     if (usuario.estadoCuenta !== 'activo') {
@@ -485,17 +489,50 @@ export const obtenerUsuario = async (req, res) => {
 
 export const actualizarUsuario = async (req, res) => {
   try {
-    const camposPermitidos = [
-      'nombre',
-      'telefono'
-    ];
-
     const datosActualizar = {};
 
-    for (const campo of camposPermitidos) {
-      if (req.body[campo] !== undefined) {
-        datosActualizar[campo] = req.body[campo];
+    // Nombre (2 a 60 caracteres)
+    if (req.body.nombre !== undefined) {
+      const nombre = String(req.body.nombre).trim();
+
+      if (nombre.length < 2 || nombre.length > 60) {
+        return res.status(400).json({
+          mensaje: 'El nombre debe tener entre 2 y 60 caracteres'
+        });
       }
+
+      datosActualizar.nombre = nombre;
+    }
+
+    if (req.body.telefono !== undefined) {
+      datosActualizar.telefono = req.body.telefono;
+    }
+
+    // Edad (entero de 10 a 120)
+    if (req.body.edad !== undefined) {
+      const edad = Number(req.body.edad);
+
+      if (!Number.isInteger(edad) || edad < 10 || edad > 120) {
+        return res.status(400).json({
+          mensaje: 'La edad debe ser un número entero entre 10 y 120'
+        });
+      }
+
+      datosActualizar.edad = edad;
+    }
+
+    // Género
+    if (req.body.genero !== undefined) {
+      const generosPermitidos = ['masculino', 'femenino', 'otro'];
+
+      if (!generosPermitidos.includes(req.body.genero)) {
+        return res.status(400).json({
+          mensaje: 'Género no válido',
+          generosPermitidos
+        });
+      }
+
+      datosActualizar.genero = req.body.genero;
     }
 
     // Solo un administrador puede cambiar estos campos

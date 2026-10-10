@@ -34,22 +34,6 @@ class Trainer {
   final String priceDescription;
   final List<String> services;
   final TrainerLevel level;
-
-  Trainer copyWith({
-    String? id, String? name, String? photo, String? specialty, int? experience,
-    List<String>? certifications, double? rating, String? description,
-    String? trainingType, int? price, String? priceDescription,
-    List<String>? services, TrainerLevel? level,
-  }) {
-    return Trainer(
-      id: id ?? this.id, name: name ?? this.name, photo: photo ?? this.photo,
-      specialty: specialty ?? this.specialty, experience: experience ?? this.experience,
-      certifications: certifications ?? this.certifications, rating: rating ?? this.rating,
-      description: description ?? this.description, trainingType: trainingType ?? this.trainingType,
-      price: price ?? this.price, priceDescription: priceDescription ?? this.priceDescription,
-      services: services ?? this.services, level: level ?? this.level,
-    );
-  }
 }
 
 /// Beneficio que se muestra en el panel "¿Por qué necesitas un entrenador?".

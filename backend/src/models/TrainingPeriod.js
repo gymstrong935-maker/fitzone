@@ -5,8 +5,7 @@ const trainingPeriodSchema = new mongoose.Schema({
   duracionSemanas: Number,
   fechaInicio: Date,
   fechaFin: Date,
-  objetivo: String,
-  nivelExperiencia: { type: String, enum: ['beginner', 'intermediate', 'advanced'] }
+  objetivo: String
 }, { collection: 'training_periods' });
 
 export default mongoose.model('TrainingPeriod', trainingPeriodSchema);
