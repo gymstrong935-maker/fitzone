@@ -5,7 +5,6 @@ const sleepQualitySchema = new mongoose.Schema({
   fecha: { type: Date, default: Date.now },
   horasDormidas: Number,
   calidadPercibida: Number,
-  calidadTexto: { type: String, enum: ['poor', 'fair', 'good', 'excellent'] },
   interrupciones: Number
 }, { collection: 'sleep_quality' });
 

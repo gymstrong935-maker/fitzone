@@ -14,12 +14,10 @@ class TrainerStep extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onSelect,
-    required this.trainers,
   });
 
   final Trainer? selected;
   final ValueChanged<Trainer> onSelect;
-  final List<Trainer> trainers;
 
   @override
   Widget build(BuildContext context) {
@@ -56,11 +54,11 @@ class TrainerStep extends StatelessWidget {
             child: ListView.separated(
               shrinkWrap: true,
               padding: const EdgeInsets.only(bottom: 16),
-              itemCount: trainers.length,
+              itemCount: kTrainers.length,
               separatorBuilder: (BuildContext context, int index) =>
                   const SizedBox(height: 12),
               itemBuilder: (BuildContext context, int index) {
-                final Trainer trainer = trainers[index];
+                final Trainer trainer = kTrainers[index];
                 return TrainerCard(
                   trainer: trainer,
                   isSelected: selected?.id == trainer.id,

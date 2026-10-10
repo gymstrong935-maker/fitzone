@@ -6,17 +6,38 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import '../../core/widgets/ellipse_glow.dart';
 import '../../core/widgets/fade_slide_in.dart';
+import '../../core/widgets/shimmer_top_bar.dart';
 import 'data/plans_data.dart';
 import 'models/plan.dart';
 import 'widgets/continuing_indicator.dart';
 import 'widgets/fz_logo.dart';
 import 'widgets/plan_card.dart';
-import '../../core/widgets/shimmer_top_bar.dart';
 
 class PlanSelectionScreen extends StatefulWidget {
-  const PlanSelectionScreen({super.key, required this.onSelectPlan});
+  const PlanSelectionScreen({
+    super.key,
+    required this.onSelectPlan,
+    this.plans = kPlans,
+    this.errorMessage,
+    this.onRetry,
+    this.allowFree = true,
+    this.onLogout,
+  });
 
   final ValueChanged<PlanId> onSelectPlan;
+
+  /// Planes a mostrar (por defecto, los del diseño).
+  final List<Plan> plans;
+
+  /// Si no se pudieron cargar los planes del servidor.
+  final String? errorMessage;
+  final VoidCallback? onRetry;
+
+  /// `false` oculta el plan gratuito (usuarios que ya tienen cuenta).
+  final bool allowFree;
+
+  /// Si se da, muestra "Cerrar sesión" abajo.
+  final VoidCallback? onLogout;
 
   @override
   State<PlanSelectionScreen> createState() => _PlanSelectionScreenState();
@@ -38,6 +59,12 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
     _navTimer = Timer(const Duration(milliseconds: 320), () {
       if (mounted) widget.onSelectPlan(id);
     });
+  }
+
+  List<Plan> get _visiblePlans {
+    return widget.plans
+        .where((Plan p) => widget.allowFree || p.id != PlanId.free)
+        .toList();
   }
 
   @override
@@ -88,6 +115,10 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: <Widget>[
+                                if (widget.errorMessage != null) ...<Widget>[
+                                  _buildErrorBanner(),
+                                  const SizedBox(height: 20),
+                                ],
                                 _buildHeader(),
                                 const SizedBox(height: 28),
                                 _buildPlans(),
@@ -111,6 +142,52 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
             right: 0,
             child: ShimmerTopBar(),
           ),
+        ],
+      ),
+    );
+  }
+
+  // ── Aviso de error al cargar los planes ───────────────────────────────────
+  Widget _buildErrorBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color.fromRGBO(239, 68, 68, 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color.fromRGBO(239, 68, 68, 0.22)),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.cloud_off_rounded, size: 18, color: Color(0xFFF87171)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              widget.errorMessage!,
+              style: AppText.body(
+                size: 12,
+                color: const Color(0xFFF87171),
+                height: 1.4,
+              ),
+            ),
+          ),
+          if (widget.onRetry != null) ...<Widget>[
+            const SizedBox(width: 8),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onRetry,
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Text(
+                  'Reintentar',
+                  style: AppText.body(
+                    size: 12,
+                    weight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -158,17 +235,19 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
 
   // ── Tarjetas de planes ────────────────────────────────────────────────────
   Widget _buildPlans() {
+    final List<Plan> plans = _visiblePlans;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        for (int i = 0; i < kPlans.length; i++) ...<Widget>[
+        for (int i = 0; i < plans.length; i++) ...<Widget>[
           if (i > 0) const SizedBox(height: 14),
           FadeSlideIn(
             delay: Duration(milliseconds: 80 + i * 100),
             child: PlanCard(
-              plan: kPlans[i],
-              isSelected: _selected == kPlans[i].id,
-              onSelect: () => _handleSelect(kPlans[i].id),
+              plan: plans[i],
+              isSelected: _selected == plans[i].id,
+              onSelect: () => _handleSelect(plans[i].id),
             ),
           ),
         ],
@@ -176,7 +255,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
     );
   }
 
-  // ── Parte inferior: "Continuando..." o nota al pie ────────────────────────
+  // ── Parte inferior ────────────────────────────────────────────────────────
   Widget _buildBottom() {
     if (_selected != null) {
       return const Padding(
@@ -187,14 +266,36 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
 
     return Padding(
       padding: const EdgeInsets.only(top: 20),
-      child: Text(
-        'Puedes cambiar o cancelar tu plan en cualquier momento',
-        textAlign: TextAlign.center,
-        style: AppText.body(
-          size: 11.2,
-          color: AppColors.whiteA(0.22),
-          height: 1.5,
-        ),
+      child: Column(
+        children: <Widget>[
+          Text(
+            'Puedes cambiar o cancelar tu plan en cualquier momento',
+            textAlign: TextAlign.center,
+            style: AppText.body(
+              size: 11.2,
+              color: AppColors.whiteA(0.22),
+              height: 1.5,
+            ),
+          ),
+          if (widget.onLogout != null) ...<Widget>[
+            const SizedBox(height: 12),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onLogout,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Text(
+                  'Cerrar sesión',
+                  style: AppText.body(
+                    size: 12,
+                    weight: FontWeight.w600,
+                    color: AppColors.whiteA(0.45),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

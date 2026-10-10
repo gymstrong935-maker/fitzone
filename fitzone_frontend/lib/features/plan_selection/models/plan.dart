@@ -18,6 +18,7 @@ class Plan {
     required this.cta,
     required this.highlighted,
     required this.features,
+    this.backendId,
   });
 
   final PlanId id;
@@ -32,4 +33,7 @@ class Plan {
   final String cta;
   final bool highlighted;
   final List<String> features;
+
+  /// Id del plan en el backend (`null` si todavía no se cargó del servidor).
+  final String? backendId;
 }

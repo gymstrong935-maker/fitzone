@@ -12,7 +12,6 @@ class OnboardingFooter extends StatelessWidget {
     required this.nextEnabled,
     required this.onBack,
     required this.onNext,
-    this.loading = false,
   });
 
   final bool showBack;
@@ -20,7 +19,6 @@ class OnboardingFooter extends StatelessWidget {
   final bool nextEnabled;
   final VoidCallback onBack;
   final VoidCallback onNext;
-  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +71,7 @@ class OnboardingFooter extends StatelessWidget {
                       opacity: nextEnabled ? 1.0 : 0.3,
                       duration: const Duration(milliseconds: 200),
                       child: _Pressable(
-                        onTap: nextEnabled && !loading ? onNext : null,
+                        onTap: nextEnabled ? onNext : null,
                         child: Container(
                           height: 56,
                           alignment: Alignment.center,

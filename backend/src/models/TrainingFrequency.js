@@ -5,9 +5,8 @@ const trainingFrequencySchema = new mongoose.Schema({
   diasPorSemana: Number,
   diasPreferidos: [String],
   horarioPreferido: String,
-  duracionMinutos: Number,
-  nivelActividad: { type: String, enum: ['sedentary', 'light', 'moderate', 'active', 'very-active'] },
-  disponibilidad: [String]
+  duracionSesionMinutos: Number,
+  nivelActividad: String
 }, { collection: 'training_frequency' });
 
 export default mongoose.model('TrainingFrequency', trainingFrequencySchema);

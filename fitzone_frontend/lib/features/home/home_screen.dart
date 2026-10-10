@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../core/models/user_profile.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/fade_slide_in.dart';
+import '../notifications/notifications_controller.dart';
+import '../notifications/widgets/notification_bell.dart';
 import '../onboarding/models/onboarding_data.dart';
 import 'data/home_data.dart';
 import 'widgets/home_header.dart';
@@ -21,8 +23,10 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.userProfile,
     required this.weekProgress,
+    required this.notifications,
     required this.onNavigate,
     required this.onStartWorkout,
+    required this.onOpenNotifications,
   });
 
   final UserProfile userProfile;
@@ -30,9 +34,13 @@ class HomeScreen extends StatefulWidget {
   /// 7 valores (lunes a domingo): `true` = día completado.
   final List<bool> weekProgress;
 
+  /// Notificaciones del usuario (para el globito de la campana).
+  final NotificationsController notifications;
+
   /// Navega a otra pantalla por id ("stats", "history", "nutrition", ...).
   final ValueChanged<String> onNavigate;
   final VoidCallback onStartWorkout;
+  final VoidCallback onOpenNotifications;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -75,6 +83,15 @@ class _HomeScreenState extends State<HomeScreen> {
             greeting: _greeting,
             name: widget.userProfile.name,
             quote: _quote,
+            trailing: ListenableBuilder(
+              listenable: widget.notifications,
+              builder: (BuildContext context, Widget? _) {
+                return NotificationBell(
+                  unread: widget.notifications.unreadCount,
+                  onTap: widget.onOpenNotifications,
+                );
+              },
+            ),
             pills: <Widget>[
               StatPill(
                 icon: Icons.local_fire_department_outlined,

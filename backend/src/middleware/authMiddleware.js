@@ -93,6 +93,25 @@ export const verificarDueño = (req, res, next) => {
 
 
 // ======================================================
+// FORZAR EL usuarioId DEL TOKEN EN EL BODY
+// Evita que un usuario cree datos a nombre de otro.
+// Un admin sí puede indicar otro usuarioId.
+// Debe ir DESPUÉS de verificarToken y ANTES de validar(...).
+// ======================================================
+
+export const usuarioDelToken = (req, res, next) => {
+  const esAdmin = req.usuario?.rol === 'admin';
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+
+  if (!esAdmin || !body.usuarioId) {
+    req.body = { ...body, usuarioId: req.usuario.id };
+  }
+
+  next();
+};
+
+
+// ======================================================
 // EXPORTACIÓN POR DEFECTO
 // ======================================================
 

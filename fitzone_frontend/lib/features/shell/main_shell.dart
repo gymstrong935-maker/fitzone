@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/user_profile.dart';
+import '../../core/services/app_services.dart';
 import '../../core/widgets/ambient_background.dart';
 import '../../core/widgets/shimmer_top_bar.dart';
 import '../achievements/achievements_screen.dart';
 import '../community/community_screen.dart';
 import '../history/history_screen.dart';
 import '../home/home_screen.dart';
+import '../notifications/notifications_controller.dart';
+import '../notifications/notifications_screen.dart';
 import '../nutrition/nutrition_screen.dart';
 import '../plan/plan_screen.dart';
 import '../settings/settings_screen.dart';
@@ -25,6 +28,7 @@ const List<String> kSubScreens = <String>[
   'history',
   'achievements',
   'community',
+  'notifications',
 ];
 
 class MainShell extends StatefulWidget {
@@ -32,12 +36,20 @@ class MainShell extends StatefulWidget {
     super.key,
     required this.userProfile,
     required this.onLogout,
+    required this.onRename,
+    required this.onProfileChanged,
   });
 
   final UserProfile userProfile;
 
   /// Se llama cuando el usuario confirma "Cerrar Sesión".
   final VoidCallback onLogout;
+
+  /// Guarda el nombre en el servidor. Lanza `ApiException` si falla.
+  final Future<void> Function(String name) onRename;
+
+  /// Avisa que cambió el objetivo o el entrenador (para guardarlo).
+  final void Function(UserProfile previous, UserProfile next) onProfileChanged;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -53,11 +65,29 @@ class _MainShellState extends State<MainShell> {
   /// Ajustes).
   late UserProfile _profile = widget.userProfile;
 
+  /// Notificaciones reales del servidor (se actualizan cada minuto).
+  late final NotificationsController _notifications = NotificationsController(
+    service: AppServices.instance.notifications,
+    userId: widget.userProfile.id,
+  );
+
   /// Lunes a domingo: `true` = día con entrenamiento completado.
   List<bool> _weekProgress = List<bool>.filled(7, false);
 
   /// Entrenamientos guardados (los usaremos cuando conectemos el historial).
   final List<WorkoutLog> _workoutLogs = <WorkoutLog>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _notifications.start();
+  }
+
+  @override
+  void dispose() {
+    _notifications.dispose();
+    super.dispose();
+  }
 
   // ── Acciones ──────────────────────────────────────────────────────────────
 
@@ -86,7 +116,19 @@ class _MainShellState extends State<MainShell> {
 
   void _toggleTheme() => setState(() => _isLight = !_isLight);
 
-  void _updateProfile(UserProfile profile) => setState(() => _profile = profile);
+  /// Objetivo o entrenador cambiados desde Ajustes.
+  void _updateProfile(UserProfile profile) {
+    final UserProfile previous = _profile;
+    setState(() => _profile = profile);
+    widget.onProfileChanged(previous, profile);
+  }
+
+  /// Nombre: primero el servidor; solo si responde bien se cambia en pantalla.
+  Future<void> _rename(String name) async {
+    await widget.onRename(name);
+    if (!mounted) return;
+    setState(() => _profile = _profile.copyWith(name: name));
+  }
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
@@ -165,7 +207,15 @@ class _MainShellState extends State<MainShell> {
           onThemeToggle: _toggleTheme,
           onBack: backHome,
           onProfileChanged: _updateProfile,
+          onRename: _rename,
+          onOpenNotifications: () => _navigate('notifications'),
           onLogout: widget.onLogout,
+        );
+      case 'notifications':
+        return NotificationsScreen(
+          key: key,
+          controller: _notifications,
+          onBack: backHome,
         );
       case 'nutrition':
         return NutritionScreen(key: key, onBack: backHome);
@@ -181,8 +231,10 @@ class _MainShellState extends State<MainShell> {
           key: key,
           userProfile: _profile,
           weekProgress: _weekProgress,
+          notifications: _notifications,
           onNavigate: _navigate,
           onStartWorkout: _startWorkout,
+          onOpenNotifications: () => _navigate('notifications'),
         );
     }
   }

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/network/fitzone_api.dart';
-
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/ellipse_glow.dart';
 import '../plan_selection/models/plan.dart';
@@ -13,7 +11,6 @@ import 'models/onboarding_step.dart';
 import 'models/personal_info.dart';
 import 'models/trainer.dart';
 import 'models/training_habits.dart';
-import 'data/trainers_data.dart';
 import 'steps/experience_step.dart';
 import 'steps/goals_step.dart';
 import 'steps/habits_step.dart';
@@ -32,7 +29,7 @@ class OnboardingFlow extends StatefulWidget {
   });
 
   final PlanId planType;
-  final Future<void> Function(OnboardingData) onComplete;
+  final ValueChanged<OnboardingData> onComplete;
 
   @override
   State<OnboardingFlow> createState() => _OnboardingFlowState();
@@ -45,26 +42,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   int _step = 0;
   int _direction = 1;
   OnboardingData _data = const OnboardingData();
-  List<Trainer> _trainers = kTrainers;
-  bool _saving = false;
 
   OnboardingStep get _current => _steps[_step];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadTrainers();
-  }
-
-  Future<void> _loadTrainers() async {
-    if (widget.planType == PlanId.free) return;
-    try {
-      final List<Trainer> remote = await FitZoneApi.getCoaches();
-      if (remote.isNotEmpty && mounted) setState(() => _trainers = remote);
-    } catch (_) {
-      // Si el endpoint todavía no tiene entrenadores, mantenemos el catálogo visual.
-    }
-  }
   bool get _isLast => _step == _steps.length - 1;
 
   bool get _nextEnabled {
@@ -92,8 +71,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     if (_scroll.hasClients) _scroll.jumpTo(0);
   }
 
-  Future<void> _goNext() async {
-    if (!_nextEnabled || _saving) return;
+  void _goNext() {
+    if (!_nextEnabled) return;
     FocusManager.instance.primaryFocus?.unfocus();
 
     // Aplica los mínimos de Información Personal antes de avanzar.
@@ -102,18 +81,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     );
 
     if (_isLast) {
-      setState(() => _saving = true);
-      try {
-        await widget.onComplete(data);
-      } catch (error) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
-          );
-        }
-      } finally {
-        if (mounted) setState(() => _saving = false);
-      }
+      widget.onComplete(data);
       return;
     }
     setState(() {
@@ -233,8 +201,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               isLast: _isLast,
               nextEnabled: _nextEnabled,
               onBack: _goBack,
-              onNext: () { _goNext(); },
-          loading: _saving,
+              onNext: _goNext,
             ),
           ),
         ],
@@ -281,7 +248,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           key: key,
           selected: _data.trainer,
           onSelect: _selectTrainer,
-          trainers: _trainers,
         );
       case OnboardingStep.personalInfo:
         return PersonalInfoStep(

@@ -1,12 +1,9 @@
 import 'dart:async';
 
-import '../../core/network/api_exception.dart';
-import '../../core/network/fitzone_api.dart';
-import '../plan_selection/models/plan.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import '../../core/widgets/fade_slide_in.dart';
@@ -23,13 +20,24 @@ import 'widgets/social_auth_section.dart';
 class AuthScreen extends StatefulWidget {
   const AuthScreen({
     super.key,
-    required this.onAuthSuccess,
-    required this.planType,
+    required this.onLogin,
+    required this.onRegister,
+    required this.onForgotPassword,
     this.onBack,
   });
 
-  final ValueChanged<AuthUser> onAuthSuccess;
-  final PlanId planType;
+  /// Inicia sesión. Debe devolver la acción a ejecutar cuando termine la
+  /// animación de éxito (normalmente: navegar a la siguiente pantalla).
+  /// Lanza [ApiException] si algo sale mal.
+  final Future<VoidCallback> Function(String email, String password) onLogin;
+
+  final Future<VoidCallback> Function(
+    String name,
+    String email,
+    String password,
+  ) onRegister;
+
+  final Future<void> Function(String email) onForgotPassword;
   final VoidCallback? onBack;
 
   @override
@@ -43,7 +51,6 @@ class _AuthScreenState extends State<AuthScreen>
   final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _emailCtrl = TextEditingController();
   final TextEditingController _passCtrl = TextEditingController();
-  final TextEditingController _codeCtrl = TextEditingController();
 
   late final AnimationController _shakeCtrl;
   late final Animation<double> _shake;
@@ -55,9 +62,6 @@ class _AuthScreenState extends State<AuthScreen>
   bool _loading = false;
   bool _success = false;
   bool _showPassword = false;
-  bool _verifying = false;
-  String _verificationMessage = '';
-  String _registrationPassword = '';
 
   bool get _busy => _loading || _success;
 
@@ -69,15 +73,16 @@ class _AuthScreenState extends State<AuthScreen>
       duration: const Duration(milliseconds: 420),
     );
 
-    Animatable<double> step(double from, double to, double weight) => Tween<double>(begin: from, end: to)
-        .chain(CurveTween(curve: Curves.easeInOut));
+    Animatable<double> step(double from, double to) =>
+        Tween<double>(begin: from, end: to)
+            .chain(CurveTween(curve: Curves.easeInOut));
 
     _shake = TweenSequence<double>(<TweenSequenceItem<double>>[
-      TweenSequenceItem<double>(tween: step(0, -7, 18), weight: 18),
-      TweenSequenceItem<double>(tween: step(-7, 7, 18), weight: 18),
-      TweenSequenceItem<double>(tween: step(7, -4, 18), weight: 18),
-      TweenSequenceItem<double>(tween: step(-4, 4, 18), weight: 18),
-      TweenSequenceItem<double>(tween: step(4, 0, 28), weight: 28),
+      TweenSequenceItem<double>(tween: step(0, -7), weight: 18),
+      TweenSequenceItem<double>(tween: step(-7, 7), weight: 18),
+      TweenSequenceItem<double>(tween: step(7, -4), weight: 18),
+      TweenSequenceItem<double>(tween: step(-4, 4), weight: 18),
+      TweenSequenceItem<double>(tween: step(4, 0), weight: 28),
     ]).animate(_shakeCtrl);
   }
 
@@ -88,14 +93,13 @@ class _AuthScreenState extends State<AuthScreen>
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passCtrl.dispose();
-    _codeCtrl.dispose();
     super.dispose();
   }
 
   // ── Lógica ────────────────────────────────────────────────────────────────
 
   void _switchMode(AuthMode next, int direction) {
-    if (_busy || _verifying) return;
+    if (_busy) return;
     setState(() {
       _direction = direction;
       _mode = next;
@@ -108,21 +112,8 @@ class _AuthScreenState extends State<AuthScreen>
     _shakeCtrl.forward(from: 0);
   }
 
-  Future<String?> _backendPlanId() async {
-    final List<BackendPlan> plans = await FitZoneApi.getPlans();
-    final String expected = switch (widget.planType) {
-      PlanId.free => 'Gratuito',
-      PlanId.monthly => 'Mensual',
-      PlanId.annual => 'Anual',
-    };
-    for (final BackendPlan plan in plans) {
-      if (plan.name.toLowerCase() == expected.toLowerCase()) return plan.id;
-    }
-    throw const ApiException('No se encontró el plan seleccionado en el backend. Ejecuta npm run seed.');
-  }
-
   Future<void> _submit() async {
-    if (_busy || _verifying) return;
+    if (_busy) return;
     FocusManager.instance.primaryFocus?.unfocus();
 
     final AuthMode mode = _mode;
@@ -138,139 +129,74 @@ class _AuthScreenState extends State<AuthScreen>
       _showError('Por favor ingresa tu nombre');
       return;
     }
+    if (mode == AuthMode.register && name.length < 2) {
+      _showError('El nombre debe tener al menos 2 caracteres');
+      return;
+    }
     if (!_emailRegex.hasMatch(email)) {
       _showError('Ingresa un email válido');
       return;
     }
-
-    setState(() {
-      _error = '';
-      _loading = true;
-    });
-
-    try {
-      if (mode == AuthMode.login) {
-        final AuthResult result = await FitZoneApi.login(email: email, password: password);
-        await _completeLogin(result);
-        return;
-      }
-
-      if (mode == AuthMode.forgot) {
-        await FitZoneApi.forgotPassword(email);
-        if (!mounted) return;
-        setState(() {
-          _loading = false;
-          _success = true;
-        });
-        _pending?.cancel();
-        _pending = Timer(const Duration(milliseconds: 1200), () {
-          if (!mounted) return;
-          setState(() {
-            _success = false;
-            _direction = -1;
-            _mode = AuthMode.login;
-          });
-        });
-        return;
-      }
-
-      final String? planId = await _backendPlanId();
-      final RegisterResult result = await FitZoneApi.register(
-        name: name,
-        email: email,
-        password: password,
-        planId: planId,
-      );
-      _registrationPassword = password;
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _success = false;
-        _verifying = true;
-        _verificationMessage = result.message.isEmpty
-            ? 'Revisa tu correo e ingresa el código de 6 dígitos.'
-            : '${result.message} Revisa tu correo e ingresa el código de 6 dígitos.';
-      });
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      _showError(error.message);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      _showError('Ocurrió un error inesperado: $error');
-    }
-  }
-
-  Future<void> _verifyRegistration() async {
-    if (_loading) return;
-    final String code = _codeCtrl.text.trim();
-    if (code.length < 4) {
-      _showError('Ingresa el código que recibiste por correo.');
+    if (mode == AuthMode.register && password.length < 6) {
+      _showError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
+
     setState(() {
       _error = '';
       _loading = true;
     });
+
+    VoidCallback? proceed;
     try {
-      await FitZoneApi.verifyAccount(email: _emailCtrl.text.trim(), code: code);
-      final AuthResult result = await FitZoneApi.login(
-        email: _emailCtrl.text.trim(),
-        password: _registrationPassword,
-      );
-      await _completeLogin(result);
-    } on ApiException catch (error) {
+      switch (mode) {
+        case AuthMode.login:
+          proceed = await widget.onLogin(email, password);
+        case AuthMode.register:
+          proceed = await widget.onRegister(name, email, password);
+        case AuthMode.forgot:
+          await widget.onForgotPassword(email);
+      }
+    } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      _showError(error.message);
-    }
-  }
-
-  Future<void> _resendVerification() async {
-    if (_loading) return;
-    setState(() {
-      _error = '';
-      _loading = true;
-    });
-    try {
-      await FitZoneApi.resendVerification(_emailCtrl.text.trim());
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _verificationMessage = 'Te enviamos un nuevo código. Revisa tu correo.';
-      });
-    } on ApiException catch (error) {
+      _showError(e.message);
+      return;
+    } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
-      _showError(error.message);
+      _showError('Ocurrió un error inesperado. Inténtalo de nuevo.');
+      return;
     }
-  }
 
-  Future<void> _completeLogin(AuthResult result) async {
     if (!mounted) return;
     setState(() {
       _loading = false;
       _success = true;
-      _verifying = false;
     });
-    _pending?.cancel();
-    _pending = Timer(const Duration(milliseconds: 450), () {
-      if (!mounted) return;
-      widget.onAuthSuccess(
-        AuthUser(
-          id: result.user.id,
-          email: result.user.email,
-          name: result.user.name,
-          createdAt: result.user.createdAt,
-        ),
-      );
+
+    if (mode == AuthMode.forgot) {
+      // Recuperar contraseña: confirma y vuelve a "Ingresar".
+      _pending = Timer(const Duration(milliseconds: 1200), () {
+        if (!mounted) return;
+        setState(() {
+          _success = false;
+          _direction = -1;
+          _mode = AuthMode.login;
+        });
+      });
+      return;
+    }
+
+    _pending = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) proceed?.call();
     });
   }
 
   void _handleSocial(String provider) {
-    if (_busy || _verifying) return;
-    _showError('El acceso con $provider requiere configurar OAuth. Por ahora usa correo y contraseña.');
+    if (_busy) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    _showError('El inicio de sesión con $provider estará disponible pronto');
   }
 
   String get _submitLabel {
@@ -398,10 +324,7 @@ class _AuthScreenState extends State<AuthScreen>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          if (_verifying) ...<Widget>[
-            Text('Verificación de cuenta', style: AppText.display(size: 20)),
-            const SizedBox(height: 20),
-          ] else if (!isForgot) ...<Widget>[
+          if (!isForgot) ...<Widget>[
             AuthModeTabs(
               mode: _mode,
               onChanged: (AuthMode m) =>
@@ -418,7 +341,7 @@ class _AuthScreenState extends State<AuthScreen>
             const SizedBox(height: 20),
           ],
           _buildFormArea(),
-          if (!isForgot && !_verifying)
+          if (!isForgot)
             SocialAuthSection(enabled: !_busy, onPressed: _handleSocial),
           const SizedBox(height: 20),
           _buildBottomLink(),
@@ -471,8 +394,6 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   Widget _buildForm() {
-    if (_verifying) return _buildVerificationForm();
-
     final bool isRegister = _mode == AuthMode.register;
     final bool isForgot = _mode == AuthMode.forgot;
 
@@ -520,7 +441,9 @@ class _AuthScreenState extends State<AuthScreen>
                 child: Padding(
                   padding: const EdgeInsets.all(4),
                   child: Icon(
-                    _showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    _showPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
                     size: 17,
                     color: AppColors.whiteA(0.35),
                   ),
@@ -536,46 +459,7 @@ class _AuthScreenState extends State<AuthScreen>
           successLabel: isForgot ? '¡Enviado!' : '¡Bienvenido!',
           loading: _loading,
           success: _success,
-          onPressed: () { _submit(); },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVerificationForm() {
-    return Column(
-      key: const ValueKey<String>('verification'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Text('Verifica tu cuenta', style: AppText.display(size: 20)),
-        const SizedBox(height: 6),
-        Text(
-          _verificationMessage,
-          style: AppText.body(size: 13.12, color: AppColors.whiteA(0.45), height: 1.45),
-        ),
-        const SizedBox(height: 20),
-        FancyInput(
-          icon: Icons.verified_outlined,
-          hint: 'Código de 6 dígitos',
-          controller: _codeCtrl,
-          keyboardType: TextInputType.number,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _verifyRegistration(),
-        ),
-        _buildErrorBox(),
-        const SizedBox(height: 12),
-        AuthSubmitButton(
-          label: 'Verificar cuenta',
-          successLabel: '¡Verificado!',
-          loading: _loading,
-          success: _success,
-          onPressed: () { _verifyRegistration(); },
-        ),
-        const SizedBox(height: 8),
-        _LinkButton(
-          label: 'Reenviar código',
-          color: AppColors.cyan,
-          onTap: _resendVerification,
+          onPressed: _submit,
         ),
       ],
     );
@@ -617,7 +501,6 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   Widget _buildBottomLink() {
-    if (_verifying) return const SizedBox.shrink();
     switch (_mode) {
       case AuthMode.login:
         return _LinkButton(

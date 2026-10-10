@@ -3,10 +3,13 @@ import mongoose from 'mongoose';
 const physicalMeasurementSchema = new mongoose.Schema({
   usuarioId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   fecha: { type: Date, default: Date.now },
-  peso: Number,
-  altura: Number,
+  peso: Number,            // siempre en kg
+  altura: Number,          // siempre en metros
   imc: Number,
   porcentajeGrasa: Number,
+  unidadPeso: { type: String, enum: ['kg', 'lb'], default: 'kg' }, // unidad que prefiere el usuario
+
+  // Circunferencias (cm)
   medidas: {
     cintura: Number,
     cadera: Number,
@@ -15,14 +18,16 @@ const physicalMeasurementSchema = new mongoose.Schema({
     muslo: Number,
     pantorrilla: Number
   },
+
+  // Pliegues cutáneos / plicometría (mm)
   pliegues: {
     triceps: Number,
-    subscapular: Number,
-    chest: Number,
+    subescapular: Number,
+    pecho: Number,
     abdominal: Number,
-    thigh: Number,
-    suprailiac: Number,
-    midaxillary: Number
+    muslo: Number,
+    suprailiaco: Number,
+    axilarMedio: Number
   }
 }, { collection: 'physical_measurements' });
 

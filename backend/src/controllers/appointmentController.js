@@ -42,7 +42,19 @@ export const obtenerCitasPorUsuario = async (req, res) => {
 
 export const cancelarCita = async (req, res) => {
   try {
-    const cita = await Appointment.findByIdAndUpdate(req.params.id, { estado: 'cancelada' }, { new: true });
+    const filtro = { _id: req.params.id };
+
+    // Un usuario normal solo puede cancelar sus propias citas.
+    if (req.usuario?.rol !== 'admin') {
+      filtro.usuarioId = req.usuario.id;
+    }
+
+    const cita = await Appointment.findOneAndUpdate(
+      filtro,
+      { estado: 'cancelada' },
+      { new: true }
+    );
+
     if (!cita) return res.status(404).json({ mensaje: 'Cita no encontrada' });
     res.json(cita);
   } catch (error) {

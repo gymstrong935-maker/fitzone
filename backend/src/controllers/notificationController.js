@@ -10,7 +10,12 @@ export const crearNotificacion = async (req, res) => {
 
 export const obtenerNotificacionesPorUsuario = async (req, res) => {
   try {
-    res.json(await Notification.find({ usuarioId: req.params.usuarioId }));
+    const notificaciones = await Notification
+      .find({ usuarioId: req.params.usuarioId })
+      .sort({ fechaEnvio: -1 })
+      .limit(100);
+
+    res.json(notificaciones);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -18,11 +23,19 @@ export const obtenerNotificacionesPorUsuario = async (req, res) => {
 
 export const marcarComoLeida = async (req, res) => {
   try {
-    const notificacion = await Notification.findByIdAndUpdate(
-      req.params.id,
+    const filtro = { _id: req.params.id };
+
+    // Un usuario normal solo puede marcar sus propias notificaciones.
+    if (req.usuario?.rol !== 'admin') {
+      filtro.usuarioId = req.usuario.id;
+    }
+
+    const notificacion = await Notification.findOneAndUpdate(
+      filtro,
       { leida: true },
       { new: true }
     );
+
     if (!notificacion) return res.status(404).json({ mensaje: 'Notificación no encontrada' });
     res.json(notificacion);
   } catch (error) {
