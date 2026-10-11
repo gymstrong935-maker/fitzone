@@ -24,6 +24,8 @@ class AuthScreen extends StatefulWidget {
     required this.onRegister,
     required this.onForgotPassword,
     this.onBack,
+    this.initialEmail,
+    this.notice,
   });
 
   /// Inicia sesión. Debe devolver la acción a ejecutar cuando termine la
@@ -37,8 +39,16 @@ class AuthScreen extends StatefulWidget {
     String password,
   ) onRegister;
 
-  final Future<void> Function(String email) onForgotPassword;
+  /// Envía el código de recuperación. Devuelve la acción a ejecutar al
+  /// terminar la animación (ir a la pantalla de restablecer).
+  final Future<VoidCallback> Function(String email) onForgotPassword;
   final VoidCallback? onBack;
+
+  /// Correo que aparece ya escrito (p. ej. tras cambiar la contraseña).
+  final String? initialEmail;
+
+  /// Aviso verde sobre el formulario (p. ej. "Contraseña actualizada").
+  final String? notice;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -68,6 +78,10 @@ class _AuthScreenState extends State<AuthScreen>
   @override
   void initState() {
     super.initState();
+
+    final String? initial = widget.initialEmail;
+    if (initial != null && initial.isNotEmpty) _emailCtrl.text = initial;
+
     _shakeCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 420),
@@ -155,7 +169,7 @@ class _AuthScreenState extends State<AuthScreen>
         case AuthMode.register:
           proceed = await widget.onRegister(name, email, password);
         case AuthMode.forgot:
-          await widget.onForgotPassword(email);
+          proceed = await widget.onForgotPassword(email);
       }
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -175,19 +189,6 @@ class _AuthScreenState extends State<AuthScreen>
       _success = true;
     });
 
-    if (mode == AuthMode.forgot) {
-      // Recuperar contraseña: confirma y vuelve a "Ingresar".
-      _pending = Timer(const Duration(milliseconds: 1200), () {
-        if (!mounted) return;
-        setState(() {
-          _success = false;
-          _direction = -1;
-          _mode = AuthMode.login;
-        });
-      });
-      return;
-    }
-
     _pending = Timer(const Duration(milliseconds: 700), () {
       if (mounted) proceed?.call();
     });
@@ -206,7 +207,7 @@ class _AuthScreenState extends State<AuthScreen>
       case AuthMode.register:
         return 'Crear Cuenta';
       case AuthMode.forgot:
-        return 'Enviar Instrucciones';
+        return 'Enviar código';
     }
   }
 
@@ -318,12 +319,46 @@ class _AuthScreenState extends State<AuthScreen>
   // ── Tarjeta ───────────────────────────────────────────────────────────────
   Widget _buildCard() {
     final bool isForgot = _mode == AuthMode.forgot;
+    final String? notice = widget.notice;
 
     return AuthGlassCard(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
+          if (notice != null && notice.isNotEmpty && !isForgot) ...<Widget>[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color.fromRGBO(52, 211, 153, 0.10),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color.fromRGBO(52, 211, 153, 0.25),
+                ),
+              ),
+              child: Row(
+                children: <Widget>[
+                  const Icon(
+                    Icons.check_circle_outline_rounded,
+                    size: 16,
+                    color: Color(0xFF34D399),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      notice,
+                      style: AppText.body(
+                        size: 12,
+                        color: const Color(0xFF34D399),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           if (!isForgot) ...<Widget>[
             AuthModeTabs(
               mode: _mode,
@@ -335,7 +370,7 @@ class _AuthScreenState extends State<AuthScreen>
             Text('Recuperar contraseña', style: AppText.display(size: 20)),
             const SizedBox(height: 4),
             Text(
-              'Te enviaremos las instrucciones por email',
+              'Te enviaremos un código de 6 dígitos por email',
               style: AppText.body(size: 13.12, color: AppColors.whiteA(0.45)),
             ),
             const SizedBox(height: 20),
@@ -456,7 +491,7 @@ class _AuthScreenState extends State<AuthScreen>
         const SizedBox(height: 12),
         AuthSubmitButton(
           label: _submitLabel,
-          successLabel: isForgot ? '¡Enviado!' : '¡Bienvenido!',
+          successLabel: isForgot ? '¡Código enviado!' : '¡Bienvenido!',
           loading: _loading,
           success: _success,
           onPressed: _submit,

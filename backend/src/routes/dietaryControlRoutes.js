@@ -1,12 +1,18 @@
 import express from 'express';
-import { crearRegistroAlimentacion, obtenerAlimentacionPorUsuario } from '../controllers/dietaryControlController.js';
+import {
+  crearRegistroAlimentacion,
+  obtenerAlimentacionPorUsuario,
+  eliminarRegistroAlimentacion
+} from '../controllers/dietaryControlController.js';
 import verificarToken, { verificarDueño, usuarioDelToken } from '../middleware/authMiddleware.js';
 import validar from '../middleware/validar.js';
 import { dietaSchema } from '../validators/dietaryControlValidator.js';
 import checkSubscription from '../middleware/checkSubscription.js';
 
 const router = express.Router();
+
 router.post('/', verificarToken, checkSubscription, usuarioDelToken, validar(dietaSchema), crearRegistroAlimentacion);
 router.get('/usuario/:usuarioId', verificarToken, verificarDueño, obtenerAlimentacionPorUsuario);
+router.delete('/:id', verificarToken, eliminarRegistroAlimentacion);
 
 export default router;

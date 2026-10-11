@@ -5,8 +5,12 @@ const dietaryControlSchema = new mongoose.Schema({
   fecha: { type: Date, default: Date.now },
   comidas: [{
     tipo: { type: String, enum: ['desayuno', 'almuerzo', 'cena', 'snack'] },
-    alimentos: [String],
-    calorias: Number
+    hora: String,               // "08:00"
+    alimentos: [String],        // "Avena (80 g)"
+    calorias: Number,
+    proteina: Number,           // g
+    carbohidratos: Number,      // g
+    grasas: Number              // g
   }],
   aguaLitros: Number
 }, { collection: 'dietary_control' });

@@ -9,6 +9,7 @@ import '../notifications/notifications_controller.dart';
 import '../notifications/widgets/notification_bell.dart';
 import '../onboarding/models/onboarding_data.dart';
 import 'data/home_data.dart';
+import 'widgets/assistant_banner.dart';
 import 'widgets/home_header.dart';
 import 'widgets/quick_actions_section.dart';
 import 'widgets/quick_stats_row.dart';
@@ -27,6 +28,8 @@ class HomeScreen extends StatefulWidget {
     required this.onNavigate,
     required this.onStartWorkout,
     required this.onOpenNotifications,
+    required this.onOpenAssistant,
+    required this.onOpenAppointments,
   });
 
   final UserProfile userProfile;
@@ -41,6 +44,8 @@ class HomeScreen extends StatefulWidget {
   final ValueChanged<String> onNavigate;
   final VoidCallback onStartWorkout;
   final VoidCallback onOpenNotifications;
+  final VoidCallback onOpenAssistant;
+  final VoidCallback onOpenAppointments;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -163,6 +168,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       offsetY: 14,
                       child: QuickActionsSection(onNavigate: widget.onNavigate),
                     ),
+                    const SizedBox(height: 16),
+
+                    // ── Asistente con IA ──
+                    FadeSlideIn(
+                      delay: const Duration(milliseconds: 210),
+                      duration: const Duration(milliseconds: 400),
+                      offsetY: 14,
+                      child: AssistantBanner(onTap: widget.onOpenAssistant),
+                    ),
 
                     // ── Tu entrenador (solo si eligió uno) ──
                     if (trainer != null) ...<Widget>[
@@ -171,7 +185,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         delay: const Duration(milliseconds: 250),
                         duration: const Duration(milliseconds: 400),
                         offsetY: 14,
-                        child: TrainerCard(trainer: trainer),
+                        child: TrainerCard(
+                          trainer: trainer,
+                          onSchedule: widget.onOpenAppointments,
+                        ),
                       ),
                     ],
                   ],

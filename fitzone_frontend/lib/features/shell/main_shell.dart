@@ -1,15 +1,25 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/models/user_profile.dart';
 import '../../core/services/app_services.dart';
+import '../../core/services/workouts_service.dart';
 import '../../core/widgets/ambient_background.dart';
 import '../../core/widgets/shimmer_top_bar.dart';
 import '../achievements/achievements_screen.dart';
+import '../appointments/appointments_screen.dart';
+import '../assistant/assistant_controller.dart';
+import '../assistant/assistant_screen.dart';
 import '../community/community_screen.dart';
 import '../history/history_screen.dart';
+import '../history/workouts_controller.dart';
 import '../home/home_screen.dart';
 import '../notifications/notifications_controller.dart';
 import '../notifications/notifications_screen.dart';
+import '../nutrition/data/nutrition_goals.dart';
+import '../nutrition/nutrition_controller.dart';
 import '../nutrition/nutrition_screen.dart';
 import '../plan/plan_screen.dart';
 import '../settings/settings_screen.dart';
@@ -29,6 +39,8 @@ const List<String> kSubScreens = <String>[
   'achievements',
   'community',
   'notifications',
+  'assistant',
+  'appointments',
 ];
 
 class MainShell extends StatefulWidget {
@@ -71,21 +83,39 @@ class _MainShellState extends State<MainShell> {
     userId: widget.userProfile.id,
   );
 
-  /// Lunes a domingo: `true` = día con entrenamiento completado.
-  List<bool> _weekProgress = List<bool>.filled(7, false);
+  /// Entrenamientos guardados (Historial y progreso semanal).
+  late final WorkoutsController _workouts = WorkoutsController(
+    service: AppServices.instance.workouts,
+    storage: AppServices.instance.session,
+    userId: widget.userProfile.id,
+  );
 
-  /// Entrenamientos guardados (los usaremos cuando conectemos el historial).
-  final List<WorkoutLog> _workoutLogs = <WorkoutLog>[];
+  /// Comidas del día.
+  late final NutritionController _nutrition = NutritionController(
+    service: AppServices.instance.nutrition,
+    userId: widget.userProfile.id,
+  );
+
+  /// Conversación con el asistente (se conserva mientras la app está abierta).
+  late final AssistantController _assistant = AssistantController(
+    service: AppServices.instance.chat,
+    userName: widget.userProfile.name,
+  );
 
   @override
   void initState() {
     super.initState();
     _notifications.start();
+    unawaited(_workouts.start());
+    unawaited(_nutrition.load(silent: true));
   }
 
   @override
   void dispose() {
     _notifications.dispose();
+    _workouts.dispose();
+    _nutrition.dispose();
+    _assistant.dispose();
     super.dispose();
   }
 
@@ -103,11 +133,33 @@ class _MainShellState extends State<MainShell> {
 
   void _cancelWorkout() => setState(() => _workoutActive = false);
 
+  /// Entrenamiento terminado: se guarda en el servidor (o queda pendiente
+  /// si no hay conexión) y se vuelve a Inicio.
   void _completeWorkout(WorkoutLog log) {
-    final int index = DateTime.now().weekday - 1; // lunes = 0 ... domingo = 6
-    _workoutLogs.add(log);
+    final SavedWorkout workout = SavedWorkout(
+      id: '',
+      clientId:
+          'w${log.date.millisecondsSinceEpoch}${math.Random().nextInt(9000) + 1000}',
+      date: log.date,
+      durationMinutes: log.duration,
+      calories: log.duration * 8,
+      exercises: <SavedExercise>[
+        for (final exercise in kExercises)
+          SavedExercise(
+            name: exercise.name,
+            muscleGroup: exercise.muscleGroup,
+            sets: exercise.sets,
+            reps: exercise.reps,
+          ),
+      ],
+      fatigue: log.fatigue.name,
+      soreness: log.soreness.name,
+      restingHeartRate: log.restingHeartRate,
+    );
+
+    unawaited(_workouts.record(workout));
+
     setState(() {
-      _weekProgress = List<bool>.of(_weekProgress)..[index] = true;
       _workoutActive = false;
       _prev = _active;
       _active = 'home';
@@ -151,12 +203,17 @@ class _MainShellState extends State<MainShell> {
           children: <Widget>[
             Positioned.fill(child: AmbientBackground(isLight: _isLight)),
 
-            // ── Contenido ──
+            // ── Contenido (se redibuja cuando cambian los entrenamientos) ──
             Positioned.fill(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 280),
-                transitionBuilder: _buildTransition,
-                child: _buildScreen(),
+              child: ListenableBuilder(
+                listenable: _workouts,
+                builder: (BuildContext context, Widget? _) {
+                  return AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 280),
+                    transitionBuilder: _buildTransition,
+                    child: _buildScreen(),
+                  );
+                },
               ),
             ),
 
@@ -189,6 +246,7 @@ class _MainShellState extends State<MainShell> {
   Widget _buildScreen() {
     final ValueKey<String> key = ValueKey<String>(_active);
     void backHome() => _navigate('home');
+    final List<bool> weekProgress = _workouts.weekProgress;
 
     switch (_active) {
       case 'stats':
@@ -196,7 +254,7 @@ class _MainShellState extends State<MainShell> {
       case 'plan':
         return PlanScreen(
           key: key,
-          weekProgress: _weekProgress,
+          weekProgress: weekProgress,
           onStartWorkout: _startWorkout,
         );
       case 'settings':
@@ -217,10 +275,29 @@ class _MainShellState extends State<MainShell> {
           controller: _notifications,
           onBack: backHome,
         );
+      case 'assistant':
+        return AssistantScreen(
+          key: key,
+          controller: _assistant,
+          onBack: backHome,
+        );
+      case 'appointments':
+        return AppointmentsScreen(
+          key: key,
+          userId: _profile.id,
+          trainer: _profile.onboardingData.trainer,
+          onBack: backHome,
+          onChanged: () => _notifications.refresh(silent: true),
+        );
       case 'nutrition':
-        return NutritionScreen(key: key, onBack: backHome);
+        return NutritionScreen(
+          key: key,
+          controller: _nutrition,
+          goals: computeNutritionGoals(_profile.onboardingData),
+          onBack: backHome,
+        );
       case 'history':
-        return HistoryScreen(key: key, onBack: backHome);
+        return HistoryScreen(key: key, controller: _workouts, onBack: backHome);
       case 'achievements':
         return AchievementsScreen(key: key, onBack: backHome);
       case 'community':
@@ -230,11 +307,13 @@ class _MainShellState extends State<MainShell> {
         return HomeScreen(
           key: key,
           userProfile: _profile,
-          weekProgress: _weekProgress,
+          weekProgress: weekProgress,
           notifications: _notifications,
           onNavigate: _navigate,
           onStartWorkout: _startWorkout,
           onOpenNotifications: () => _navigate('notifications'),
+          onOpenAssistant: () => _navigate('assistant'),
+          onOpenAppointments: () => _navigate('appointments'),
         );
     }
   }

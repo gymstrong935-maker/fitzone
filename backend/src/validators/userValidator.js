@@ -22,6 +22,13 @@ export const resetPasswordSchema = z.object({
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres')
 });
 
+// Restablecer con el código de 6 dígitos enviado al correo
+export const resetConCodigoSchema = z.object({
+  email: z.string().email('Correo electrónico inválido'),
+  codigo: z.string().regex(/^\d{6}$/, 'El código debe tener 6 dígitos'),
+  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres')
+});
+
 export const verificarCuentaSchema = z.object({
   email: z.string().email('Correo electrónico inválido'),
   codigo: z.string().min(4, 'El código es obligatorio')

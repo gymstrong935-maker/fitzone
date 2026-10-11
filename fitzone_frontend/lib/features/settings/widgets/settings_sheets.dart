@@ -4,7 +4,8 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../onboarding/data/goals_data.dart';
-import '../../onboarding/data/trainers_data.dart';
+import '../../../core/utils/format.dart';
+import '../../onboarding/data/trainers_repository.dart';
 import '../../onboarding/models/goal.dart';
 import '../../onboarding/models/trainer.dart';
 import '../../onboarding/widgets/fz_field_frame.dart';
@@ -75,16 +76,16 @@ Future<Trainer?> showTrainerSheet(BuildContext context, {Trainer? current}) {
       subtitle: 'Elige al profesional que mejor se adapte a ti',
       child: ListView.separated(
         shrinkWrap: true,
-        itemCount: kTrainers.length,
+        itemCount: TrainersRepository.current.length,
         separatorBuilder: (BuildContext context, int index) =>
             const SizedBox(height: 8),
         itemBuilder: (BuildContext context, int index) {
-          final Trainer trainer = kTrainers[index];
+          final Trainer trainer = TrainersRepository.current[index];
           return _OptionRow(
             selected: trainer.id == current?.id,
             title: trainer.name,
             subtitle: trainer.specialty,
-            trailingText: '\$${trainer.price}${trainer.priceDescription}',
+            trailingText: '${formatCop(trainer.price)}${trainer.priceDescription}',
             leading: _TrainerPhoto(url: trainer.photo),
             onTap: () => Navigator.of(context).pop(trainer),
           );

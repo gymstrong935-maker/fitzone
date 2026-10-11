@@ -70,10 +70,27 @@ class AuthService {
     );
   }
 
+  /// Envía un código de 6 dígitos al correo para restablecer la contraseña.
   Future<void> forgotPassword(String email) async {
     await _api.post(
       '/api/users/forgot-password',
       body: <String, dynamic>{'email': email},
+    );
+  }
+
+  /// Cambia la contraseña con el código recibido por correo.
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+  }) async {
+    await _api.post(
+      '/api/users/reset-password',
+      body: <String, dynamic>{
+        'email': email,
+        'codigo': code,
+        'password': password,
+      },
     );
   }
 

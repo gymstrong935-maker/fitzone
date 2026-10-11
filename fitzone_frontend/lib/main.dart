@@ -14,7 +14,9 @@ import 'core/session/session_storage.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/auth/email_verification_screen.dart';
+import 'features/auth/reset_password_screen.dart';
 import 'features/boot/boot_screen.dart';
+import 'features/onboarding/data/trainers_repository.dart';
 import 'features/onboarding/models/onboarding_data.dart';
 import 'features/onboarding/onboarding_flow.dart';
 import 'features/payment_method/models/payment_models.dart';
@@ -58,6 +60,7 @@ enum AppStage {
   planSelection,
   auth,
   emailVerification,
+  resetPassword,
   paymentMethod,
   paymentValidation,
   onboarding,
@@ -93,11 +96,17 @@ class _AppFlowState extends State<AppFlow> {
   List<Plan> _plans = kPlans;
   String? _plansError;
   Future<void>? _plansFuture;
+  Future<void>? _trainersFuture;
 
   _RegistrationDraft? _draft;
   BackendUser? _user;
   SubscriptionStatus? _subscriptionStatus;
   UserProfile? _profile;
+
+  /// Recuperar contraseña: correo al que se envió el código y aviso para
+  /// mostrar al volver al inicio de sesión.
+  String? _resetEmail;
+  String? _authNotice;
 
   /// Reintenta enviar el onboarding al servidor mientras falte algo
   /// (por ejemplo, hasta que aprueben el pago).
@@ -118,13 +127,18 @@ class _AppFlowState extends State<AppFlow> {
   }
 
   void _goTo(AppStage stage) {
-    if (mounted) setState(() => _stage = stage);
+    if (!mounted) return;
+    setState(() {
+      _stage = stage;
+      if (stage != AppStage.auth) _authNotice = null;
+    });
   }
 
   // ── Arranque y sesión guardada ────────────────────────────────────────────
 
   Future<void> _boot() async {
     unawaited(_loadPlans());
+    _trainersFuture = _loadTrainers();
 
     final StoredSession? stored = await _services.session.readSession();
     if (stored == null) {
@@ -160,6 +174,7 @@ class _AppFlowState extends State<AppFlow> {
   /// Decide a dónde va un usuario que ya tiene sesión.
   Future<void> _enterApp(BackendUser user) async {
     await _plansFuture;
+    await _trainersFuture;
 
     SubscriptionStatus? status;
     try {
@@ -220,6 +235,7 @@ class _AppFlowState extends State<AppFlow> {
         onboardingData: data,
       );
       _stage = AppStage.main;
+      _authNotice = null;
     });
     _startSyncLoop(user.id);
   }
@@ -255,7 +271,7 @@ class _AppFlowState extends State<AppFlow> {
     );
   }
 
-  // ── Planes ────────────────────────────────────────────────────────────────
+  // ── Planes y entrenadores ─────────────────────────────────────────────────
 
   Future<void> _loadPlans() {
     final Future<void> future = _fetchPlans();
@@ -272,6 +288,15 @@ class _AppFlowState extends State<AppFlow> {
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _plansError = e.message);
+    }
+  }
+
+  /// Entrenadores reales del servidor (si no hay, se usan los del diseño).
+  Future<void> _loadTrainers() async {
+    try {
+      TrainersRepository.set(await _services.coaches.fetch());
+    } on ApiException {
+      // Sin conexión: se quedan los entrenadores de respaldo.
     }
   }
 
@@ -363,8 +388,39 @@ class _AppFlowState extends State<AppFlow> {
     );
   }
 
-  Future<void> _handleForgotPassword(String email) {
-    return _services.auth.forgotPassword(email);
+  // ── Recuperar contraseña ──────────────────────────────────────────────────
+
+  Future<VoidCallback> _handleForgotPassword(String email) async {
+    await _services.auth.forgotPassword(email);
+    _resetEmail = email;
+    return () => _goTo(AppStage.resetPassword);
+  }
+
+  Future<void> _handleResendResetCode() async {
+    final String? email = _resetEmail;
+    if (email == null) return;
+    await _services.auth.forgotPassword(email);
+  }
+
+  Future<VoidCallback> _handleResetPassword(String code, String password) async {
+    final String? email = _resetEmail;
+    if (email == null) {
+      throw const ApiException('Falta el correo. Vuelve a empezar.');
+    }
+
+    await _services.auth.resetPassword(
+      email: email,
+      code: code,
+      password: password,
+    );
+
+    return () {
+      if (!mounted) return;
+      setState(() {
+        _authNotice = 'Contraseña actualizada. Ya puedes iniciar sesión.';
+        _stage = AppStage.auth;
+      });
+    };
   }
 
   // ── Verificación de correo ────────────────────────────────────────────────
@@ -450,6 +506,7 @@ class _AppFlowState extends State<AppFlow> {
   Future<void> _continueAfterPayment() async {
     final BackendUser? user = _user;
     if (user == null) return;
+    await _trainersFuture;
     final OnboardingData? saved = await _services.session.readOnboarding(user.id);
     if (!mounted) return;
     if (saved == null) {
@@ -502,6 +559,18 @@ class _AppFlowState extends State<AppFlow> {
         }),
       );
     }
+
+    // Un nuevo entrenador real se asigna en el servidor.
+    final trainer = next.onboardingData.trainer;
+    if (trainer != null &&
+        trainer.id != previous.onboardingData.trainer?.id &&
+        TrainersRepository.isRemote(trainer.id)) {
+      unawaited(
+        _services.coaches.assign(trainer.id).catchError((Object e) {
+          debugPrint('No se pudo asignar el entrenador en el servidor: $e');
+        }),
+      );
+    }
   }
 
   void _handleLogout() {
@@ -514,6 +583,7 @@ class _AppFlowState extends State<AppFlow> {
       _draft = null;
       _selectedPlan = null;
       _subscriptionStatus = null;
+      _authNotice = null;
       _stage = AppStage.planSelection;
     });
   }
@@ -546,6 +616,8 @@ class _AppFlowState extends State<AppFlow> {
       case AppStage.auth:
         return AuthScreen(
           key: key,
+          initialEmail: _resetEmail,
+          notice: _authNotice,
           onBack: () => _goTo(AppStage.planSelection),
           onLogin: _handleLogin,
           onRegister: _handleRegister,
@@ -558,6 +630,15 @@ class _AppFlowState extends State<AppFlow> {
           email: _draft?.email ?? '',
           onVerify: _handleVerify,
           onResend: _handleResend,
+          onBack: () => _goTo(AppStage.auth),
+        );
+
+      case AppStage.resetPassword:
+        return ResetPasswordScreen(
+          key: key,
+          email: _resetEmail ?? '',
+          onSubmit: _handleResetPassword,
+          onResend: _handleResendResetCode,
           onBack: () => _goTo(AppStage.auth),
         );
 

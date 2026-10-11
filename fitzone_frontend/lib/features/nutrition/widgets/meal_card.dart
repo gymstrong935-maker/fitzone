@@ -7,9 +7,12 @@ import 'nutrition_card.dart';
 
 /// Tarjeta de una comida: nombre, hora, calorías, macros y alimentos.
 class MealCard extends StatelessWidget {
-  const MealCard({super.key, required this.meal});
+  const MealCard({super.key, required this.meal, this.onDelete});
 
   final Meal meal;
+
+  /// Si se da, muestra el botón de borrar.
+  final VoidCallback? onDelete;
 
   static const Color _green400 = Color(0xFF4ADE80);
   static const Color _cyan400 = Color(0xFF22D3EE);
@@ -28,40 +31,69 @@ class MealCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      meal.name,
+                      style: AppText.display(
+                        size: 18,
+                        weight: FontWeight.w600,
+                        height: 1.556,
+                      ),
+                    ),
+                    Text(
+                      meal.time,
+                      style: AppText.body(
+                        size: 14,
+                        color: AppColors.whiteA(0.60),
+                        height: 1.43,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Text(
-                    meal.name,
-                    style: AppText.display(
-                      size: 18,
-                      weight: FontWeight.w600,
-                      height: 1.556,
-                    ),
-                  ),
-                  Text(
-                    meal.time,
+                    '${meal.calories} kcal',
                     style: AppText.body(
-                      size: 14,
-                      color: AppColors.whiteA(0.60),
-                      height: 1.43,
+                      size: 16,
+                      weight: FontWeight.w700,
+                      color: _green400,
+                      height: 1.5,
                     ),
                   ),
+                  if (onDelete != null) ...<Widget>[
+                    const SizedBox(width: 6),
+                    Semantics(
+                      button: true,
+                      label: 'Borrar comida',
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: onDelete,
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: Icon(
+                              Icons.delete_outline_rounded,
+                              size: 18,
+                              color: AppColors.whiteA(0.35),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ),
-              Text(
-                '${meal.calories} kcal',
-                style: AppText.body(
-                  size: 16,
-                  weight: FontWeight.w700,
-                  color: _green400,
-                  height: 1.5,
-                ),
               ),
             ],
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 24),
 
           // ── Macros ──
           Row(
@@ -91,7 +123,7 @@ class MealCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 24),
 
           // ── Alimentos ──
           for (int i = 0; i < meal.foods.length; i++) ...<Widget>[
@@ -109,15 +141,17 @@ class MealCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  '${meal.foods[i].quantity} ${meal.foods[i].unit}',
-                  style: AppText.body(
-                    size: 14,
-                    color: AppColors.whiteA(0.60),
-                    height: 1.43,
+                if (meal.foods[i].amount.isNotEmpty) ...<Widget>[
+                  const SizedBox(width: 8),
+                  Text(
+                    meal.foods[i].amount,
+                    style: AppText.body(
+                      size: 14,
+                      color: AppColors.whiteA(0.60),
+                      height: 1.43,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ],
