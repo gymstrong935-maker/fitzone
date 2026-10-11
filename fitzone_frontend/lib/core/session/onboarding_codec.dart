@@ -1,4 +1,4 @@
-import '../../features/onboarding/data/trainers_data.dart';
+import '../../features/onboarding/data/trainers_repository.dart';
 import '../../features/onboarding/models/body_measurements.dart';
 import '../../features/onboarding/models/experience_level.dart';
 import '../../features/onboarding/models/goal.dart';
@@ -75,11 +75,7 @@ OnboardingData onboardingFromJson(Map<String, dynamic> json) {
 
   Trainer? trainer;
   final Object? trainerId = json['trainerId'];
-  if (trainerId is String) {
-    for (final Trainer t in kTrainers) {
-      if (t.id == trainerId) trainer = t;
-    }
-  }
+  if (trainerId is String) trainer = TrainersRepository.byId(trainerId);
 
   final Map<SkinfoldSite, double> skinfolds = <SkinfoldSite, double>{};
   _map(m['skinfolds']).forEach((String key, Object? value) {

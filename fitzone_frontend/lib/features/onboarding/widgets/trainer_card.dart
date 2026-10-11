@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
+import '../../../core/utils/format.dart';
 import '../models/trainer.dart';
 
 /// Tarjeta seleccionable de un entrenador.
@@ -29,7 +30,9 @@ class _TrainerCardState extends State<TrainerCard> {
   bool _pressing = false;
 
   void _setPressing(bool value) {
-    if (_pressing != value) setState(() => _pressing = value);
+    if (_pressing != value) {
+      setState(() => _pressing = value);
+    }
   }
 
   @override
@@ -56,15 +59,22 @@ class _TrainerCardState extends State<TrainerCard> {
             curve: Curves.ease,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: selected ? AppColors.cyanA(0.09) : AppColors.whiteA(0.04),
+              color: selected
+                  ? AppColors.cyanA(0.09)
+                  : AppColors.whiteA(0.04),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: selected ? AppColors.cyan : AppColors.whiteA(0.10),
+                color: selected
+                    ? AppColors.cyan
+                    : AppColors.whiteA(0.10),
                 width: 1.5,
               ),
               boxShadow: selected
                   ? <BoxShadow>[
-                      BoxShadow(color: AppColors.cyanA(0.12), blurRadius: 20),
+                      BoxShadow(
+                        color: AppColors.cyanA(0.12),
+                        blurRadius: 20,
+                      ),
                     ]
                   : <BoxShadow>[],
             ),
@@ -76,7 +86,9 @@ class _TrainerCardState extends State<TrainerCard> {
                   children: <Widget>[
                     _buildPhoto(t.photo),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildInfo(t, selected)),
+                    Expanded(
+                      child: _buildInfo(t, selected),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -121,7 +133,7 @@ class _TrainerCardState extends State<TrainerCard> {
     );
   }
 
-  // ── Foto (con respaldo si no carga) ───────────────────────────────────────
+  // Foto del entrenador con respaldo si no carga.
   Widget _buildPhoto(String url) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
@@ -137,7 +149,10 @@ class _TrainerCardState extends State<TrainerCard> {
             ImageChunkEvent? progress,
           ) {
             if (progress == null) return child;
-            return ColoredBox(color: AppColors.whiteA(0.08));
+
+            return ColoredBox(
+              color: AppColors.whiteA(0.08),
+            );
           },
           errorBuilder: (
             BuildContext context,
@@ -158,7 +173,7 @@ class _TrainerCardState extends State<TrainerCard> {
     );
   }
 
-  // ── Nombre, especialidad, precio, check y valoración ──────────────────────
+  // Nombre, especialidad, precio, selección y valoración.
   Widget _buildInfo(Trainer t, bool selected) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,7 +196,10 @@ class _TrainerCardState extends State<TrainerCard> {
                   const SizedBox(height: 2),
                   Text(
                     t.specialty,
-                    style: AppText.body(size: 12, color: AppColors.cyanLight),
+                    style: AppText.body(
+                      size: 12,
+                      color: AppColors.cyanLight,
+                    ),
                   ),
                 ],
               ),
@@ -192,7 +210,7 @@ class _TrainerCardState extends State<TrainerCard> {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 Text(
-                  '\$${t.price}',
+                  formatCop(t.price),
                   style: AppText.body(
                     size: 16,
                     weight: FontWeight.w700,
@@ -201,7 +219,10 @@ class _TrainerCardState extends State<TrainerCard> {
                 ),
                 Text(
                   t.priceDescription,
-                  style: AppText.body(size: 12, color: AppColors.whiteA(0.4)),
+                  style: AppText.body(
+                    size: 12,
+                    color: AppColors.whiteA(0.4),
+                  ),
                 ),
               ],
             ),
@@ -215,7 +236,11 @@ class _TrainerCardState extends State<TrainerCard> {
                   shape: BoxShape.circle,
                   color: AppColors.cyan,
                 ),
-                child: const Icon(Icons.check_rounded, size: 12, color: _ink),
+                child: const Icon(
+                  Icons.check_rounded,
+                  size: 12,
+                  color: _ink,
+                ),
               ),
             ],
           ],
@@ -223,18 +248,31 @@ class _TrainerCardState extends State<TrainerCard> {
         const SizedBox(height: 6),
         Row(
           children: <Widget>[
-            const Icon(Icons.star_rounded, size: 14, color: _yellow400),
+            const Icon(
+              Icons.star_rounded,
+              size: 14,
+              color: _yellow400,
+            ),
             const SizedBox(width: 6),
-            Text('${t.rating}', style: AppText.body(size: 12)),
+            Text(
+              '${t.rating}',
+              style: AppText.body(size: 12),
+            ),
             const SizedBox(width: 6),
             Text(
               '•',
-              style: AppText.body(size: 12, color: AppColors.whiteA(0.3)),
+              style: AppText.body(
+                size: 12,
+                color: AppColors.whiteA(0.3),
+              ),
             ),
             const SizedBox(width: 6),
             Text(
               '${t.experience} años exp.',
-              style: AppText.body(size: 12, color: AppColors.whiteA(0.5)),
+              style: AppText.body(
+                size: 12,
+                color: AppColors.whiteA(0.5),
+              ),
             ),
           ],
         ),

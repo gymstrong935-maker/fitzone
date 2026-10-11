@@ -1,11 +1,16 @@
 import '../api/api_client.dart';
 import '../session/session_storage.dart';
+import 'appointments_service.dart';
 import 'auth_service.dart';
+import 'chat_service.dart';
+import 'coaches_service.dart';
 import 'notifications_service.dart';
+import 'nutrition_service.dart';
 import 'onboarding_sync_service.dart';
 import 'plans_service.dart';
 import 'subscription_service.dart';
 import 'user_service.dart';
+import 'workouts_service.dart';
 
 /// Contenedor de servicios. Uso: `AppServices.instance.auth.login(...)`.
 class AppServices {
@@ -16,6 +21,11 @@ class AppServices {
     users = UserService(api);
     notifications = NotificationsService(api);
     onboardingSync = OnboardingSyncService(api, session);
+    coaches = CoachesService(api);
+    appointments = AppointmentsService(api);
+    chat = ChatService(api);
+    workouts = WorkoutsService(api);
+    nutrition = NutritionService(api);
   }
 
   static final AppServices instance = AppServices._();
@@ -29,4 +39,9 @@ class AppServices {
   late final UserService users;
   late final NotificationsService notifications;
   late final OnboardingSyncService onboardingSync;
+  late final CoachesService coaches;
+  late final AppointmentsService appointments;
+  late final ChatService chat;
+  late final WorkoutsService workouts;
+  late final NutritionService nutrition;
 }

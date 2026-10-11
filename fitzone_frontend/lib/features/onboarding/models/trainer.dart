@@ -15,6 +15,7 @@ class Trainer {
     required this.priceDescription,
     required this.services,
     required this.level,
+    this.availability = const <String>[],
   });
 
   final String id;
@@ -29,11 +30,14 @@ class Trainer {
   final String description;
   final String trainingType;
 
-  /// Precio mensual en USD.
+  /// Precio mensual (pesos colombianos si viene del servidor).
   final int price;
   final String priceDescription;
   final List<String> services;
   final TrainerLevel level;
+
+  /// Horarios de atención, p. ej. "lunes 06:00-12:00".
+  final List<String> availability;
 }
 
 /// Beneficio que se muestra en el panel "¿Por qué necesitas un entrenador?".

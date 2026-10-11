@@ -1,5 +1,7 @@
+import '../../features/onboarding/data/trainers_repository.dart';
 import '../../features/onboarding/models/goal.dart';
 import '../../features/onboarding/models/onboarding_data.dart';
+import '../../features/onboarding/models/trainer.dart';
 import '../api/api_client.dart';
 import '../api/api_exception.dart';
 import '../session/session_storage.dart';
@@ -15,14 +17,14 @@ class SyncResult {
   /// Pasos ya guardados en el servidor.
   final Set<String> completed;
 
-  /// Paso -> mensaje de error (por ejemplo, sin conexión).
+  /// Paso -> mensaje de error.
   final Map<String, String> failures;
 
   /// `true` si el servidor rechazó el envío por no tener plan activo todavía.
   final bool needsActiveSubscription;
 
   bool get isComplete =>
-      completed.length >= OnboardingSyncService.steps.length;
+      OnboardingSyncService.steps.every(completed.contains);
 }
 
 class OnboardingSyncService {
@@ -34,6 +36,7 @@ class OnboardingSyncService {
   /// Orden en que se envían las partes del onboarding.
   static const List<String> steps = <String>[
     'profile',
+    'trainer',
     'condition',
     'measurement',
     'sleep',
@@ -54,21 +57,24 @@ class OnboardingSyncService {
       if (done.contains(step)) continue;
 
       try {
-        final bool sent = await _run(step, userId, data);
-        if (sent) {
-          done.add(step);
-          await _storage.saveSyncedSteps(userId, done);
-        } else {
-          // Paso que no aplica (p. ej. sin objetivo): se da por resuelto.
-          done.add(step);
-        }
+        await _run(step, userId, data);
+        done.add(step);
+        await _storage.saveSyncedSteps(userId, done);
       } on ApiException catch (e) {
         if (_isSubscriptionBlock(e)) {
           blocked = true;
           break;
         }
+
         failures[step] = e.message;
-        if (e.isNetwork) break; // sin conexión: no insistir con el resto
+
+        final int status = e.statusCode ?? 0;
+        // Sin conexión, sesión vencida o fallo del servidor: se reintenta luego.
+        if (e.isNetwork || status == 401 || status >= 500) break;
+
+        // Error 4xx: reintentar no lo arregla; se da por resuelto.
+        done.add(step);
+        await _storage.saveSyncedSteps(userId, done);
       }
     }
 
@@ -88,11 +94,16 @@ class OnboardingSyncService {
     return e.statusCode == 403 && e.message.toLowerCase().contains('suscripci');
   }
 
-  /// Ejecuta un paso. Devuelve `false` si no había nada que enviar.
-  Future<bool> _run(String step, String userId, OnboardingData data) async {
+  Future<void> _run(String step, String userId, OnboardingData data) async {
     switch (step) {
       case 'profile':
         await _api.put('/api/users/$userId', body: userProfilePayload(data));
+      case 'trainer':
+        final Trainer? trainer = data.trainer;
+        // Solo los entrenadores reales (del servidor) se pueden asignar.
+        if (trainer != null && TrainersRepository.isRemote(trainer.id)) {
+          await _api.put('/api/coaches/${trainer.id}/asignarme');
+        }
       case 'condition':
         await _api.post(
           '/api/physical-conditions',
@@ -114,10 +125,10 @@ class OnboardingSyncService {
         );
       case 'period':
         final Goal? goal = data.goal;
-        if (goal == null) return false;
-        await _api.post('/api/training-periods', body: periodPayload(userId, goal));
+        if (goal != null) {
+          await _api.post('/api/training-periods', body: periodPayload(userId, goal));
+        }
     }
-    return true;
   }
 
   // ── Restaurar ─────────────────────────────────────────────────────────────
@@ -145,12 +156,19 @@ class OnboardingSyncService {
       frequency: r[3],
       period: r[4],
     );
+    if (data == null) return null;
+
+    // Entrenador asignado en el servidor.
+    final Object? assigned = userJson['entrenadorAsignado'];
+    final String? coachId = assigned is Map<String, dynamic>
+        ? (assigned['_id'] ?? '').toString()
+        : assigned?.toString();
+    final Trainer? trainer = TrainersRepository.byId(coachId);
 
     // Lo que se acaba de leer del servidor ya está sincronizado.
-    if (data != null) {
-      await _storage.saveSyncedSteps(userId, steps.toSet());
-    }
-    return data;
+    await _storage.saveSyncedSteps(userId, steps.toSet());
+
+    return trainer == null ? data : data.copyWith(trainer: trainer);
   }
 
   /// El registro más reciente de una lista (el `_id` mayor).

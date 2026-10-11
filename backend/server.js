@@ -21,6 +21,7 @@ import trainingParameterRoutes from './src/routes/trainingParameterRoutes.js';
 import trainingPeriodRoutes from './src/routes/trainingPeriodRoutes.js';
 import dietaryControlRoutes from './src/routes/dietaryControlRoutes.js';
 import appointmentRoutes from './src/routes/appointmentRoutes.js';
+import workoutRoutes from './src/routes/workoutRoutes.js';
 import { iniciarJobVencimientos } from './src/jobs/verificarVencimientosJob.js';
 
 // =====================================================
@@ -59,6 +60,7 @@ app.use('/api/training-parameters', trainingParameterRoutes);
 app.use('/api/training-periods', trainingPeriodRoutes);
 app.use('/api/dietary-control', dietaryControlRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/workouts', workoutRoutes);
 app.use('/api/chat', chatRoutes);
 
 // =====================================================

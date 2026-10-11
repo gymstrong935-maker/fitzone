@@ -3,10 +3,12 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 
 import '../data/trainers_data.dart';
+import '../data/trainers_repository.dart';
 import '../models/trainer.dart';
 import '../widgets/step_header.dart';
 import '../widgets/trainer_benefits_panel.dart';
 import '../widgets/trainer_card.dart';
+import '../../../core/utils/format.dart';
 
 /// Paso 1 (solo planes mensual y anual): elegir entrenador.
 class TrainerStep extends StatelessWidget {
@@ -21,6 +23,9 @@ class TrainerStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Entrenadores reales del servidor (o los del diseño si no hay conexión).
+    final List<Trainer> trainers = TrainersRepository.current;
+
     // La lista ocupa como máximo el 40 % del alto de la pantalla y hace scroll
     // por dentro (igual que max-h-[40vh] del diseño).
     final double maxListHeight = MediaQuery.sizeOf(context).height * 0.4;
@@ -54,11 +59,11 @@ class TrainerStep extends StatelessWidget {
             child: ListView.separated(
               shrinkWrap: true,
               padding: const EdgeInsets.only(bottom: 16),
-              itemCount: kTrainers.length,
+              itemCount: trainers.length,
               separatorBuilder: (BuildContext context, int index) =>
                   const SizedBox(height: 12),
               itemBuilder: (BuildContext context, int index) {
-                final Trainer trainer = kTrainers[index];
+                final Trainer trainer = trainers[index];
                 return TrainerCard(
                   trainer: trainer,
                   isSelected: selected?.id == trainer.id,

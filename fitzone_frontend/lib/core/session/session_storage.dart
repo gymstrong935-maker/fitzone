@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/onboarding/models/onboarding_data.dart';
+import '../services/workouts_service.dart';
 import 'onboarding_codec.dart';
 
 class StoredSession {
@@ -18,6 +19,7 @@ class SessionStorage {
   static const String _userKey = 'fz_user';
   static const String _onboardingPrefix = 'fz_onboarding_';
   static const String _syncPrefix = 'fz_synced_';
+  static const String _pendingWorkoutsPrefix = 'fz_pending_workouts_';
 
   Future<void> saveSession({
     required String token,
@@ -85,5 +87,37 @@ class SessionStorage {
   Future<void> saveSyncedSteps(String userId, Set<String> steps) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('$_syncPrefix$userId', steps.toList());
+  }
+
+  // ── Entrenamientos que todavía no se enviaron al servidor ─────────────────
+
+  Future<List<SavedWorkout>> readPendingWorkouts(String userId) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final List<String>? raw = prefs.getStringList('$_pendingWorkoutsPrefix$userId');
+    if (raw == null) return <SavedWorkout>[];
+
+    final List<SavedWorkout> items = <SavedWorkout>[];
+    for (final String entry in raw) {
+      try {
+        final Object? decoded = jsonDecode(entry);
+        if (decoded is Map<String, dynamic>) {
+          items.add(SavedWorkout.fromStorageJson(decoded));
+        }
+      } catch (_) {
+        // Registro dañado: se ignora.
+      }
+    }
+    return items;
+  }
+
+  Future<void> savePendingWorkouts(
+    String userId,
+    List<SavedWorkout> items,
+  ) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      '$_pendingWorkoutsPrefix$userId',
+      <String>[for (final SavedWorkout w in items) jsonEncode(w.toStorageJson())],
+    );
   }
 }

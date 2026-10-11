@@ -662,64 +662,108 @@ export const cambiarRolUsuario = async (req, res) => {
 // SOLICITAR RECUPERACIÓN DE CONTRASEÑA
 // ======================================================
 
+// Código de recuperación: se guarda solo su hash (SHA-256)
+const hashCodigo = (codigo) =>
+  crypto.createHash('sha256').update(String(codigo)).digest('hex');
+
 export const solicitarRecuperacion = async (req, res) => {
   try {
     const { email } = req.body;
 
+    // La respuesta es igual exista o no el correo:
+    // así nadie puede averiguar qué correos están registrados.
+    const respuesta = {
+      mensaje:
+        'Si el correo está registrado, te enviamos un código para restablecer tu contraseña'
+    };
+
     const usuario = await User.findOne({ email });
 
     if (!usuario) {
-      return res.status(404).json({
-        mensaje: 'No existe una cuenta con ese correo'
-      });
+      return res.json(respuesta);
     }
 
-    const token = crypto
-      .randomBytes(32)
-      .toString('hex');
+    const codigo = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
 
-    usuario.resetPasswordToken = token;
-
-    usuario.resetPasswordExpira =
-      Date.now() + 3600000;
+    usuario.resetPasswordToken = hashCodigo(codigo);
+    usuario.resetPasswordExpira = Date.now() + 15 * 60 * 1000;
 
     await usuario.save();
 
-    const enlace =
-      `http://localhost:4000/api/users/reset-password/${token}`;
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`🔐 [DEV] Código para restablecer la contraseña de ${usuario.email}: ${codigo}`);
+    }
 
-    await transporter.sendMail({
+    await enviarCorreoSeguro({
       from: process.env.EMAIL_USER,
       to: usuario.email,
       subject: 'Recuperación de contraseña - FitZone',
       html: `
-        <p>Hola ${usuario.nombre},</p>
+        <p>Hola ${usuario.nombre || ''},</p>
 
         <p>
-          Solicitaste recuperar tu contraseña.
-          Este enlace vence en 1 hora:
+          Tu código para restablecer la contraseña es:
+          <strong style="font-size:20px">${codigo}</strong>
         </p>
 
-        <p>
-          <a href="${enlace}">
-            ${enlace}
-          </a>
-        </p>
+        <p>Este código vence en 15 minutos.</p>
 
         <p>Si no solicitaste este cambio, puedes ignorar este correo.</p>
       `
     });
 
+    return res.json(respuesta);
+
+  } catch (error) {
+    console.error('❌ Error en recuperación de contraseña:', error);
+
+    return res.status(500).json({
+      error: error.message
+    });
+  }
+};
+
+
+// ======================================================
+// RESTABLECER CONTRASEÑA CON CÓDIGO
+// ======================================================
+
+export const restablecerConCodigo = async (req, res) => {
+  try {
+    const { email, codigo, password } = req.body;
+
+    const usuario = await User.findOne({
+      email,
+      resetPasswordToken: hashCodigo(codigo),
+      resetPasswordExpira: { $gt: Date.now() }
+    });
+
+    if (!usuario) {
+      return res.status(400).json({
+        mensaje: 'Código inválido o expirado'
+      });
+    }
+
+    usuario.passwordHash = await bcrypt.hash(password, 10);
+
+    usuario.resetPasswordToken = undefined;
+    usuario.resetPasswordExpira = undefined;
+
+    // Si recibió el código en su correo, el correo es suyo
+    usuario.cuentaVerificada = true;
+    usuario.codigoVerificacion = undefined;
+    usuario.codigoVerificacionExpira = undefined;
+
+    await usuario.save();
+
     return res.json({
-      mensaje:
-        'Se envió un correo con las instrucciones'
+      mensaje: 'Contraseña actualizada correctamente'
     });
 
   } catch (error) {
-    console.error(
-      '❌ Error en recuperación de contraseña:',
-      error
-    );
+    console.error('❌ Error al restablecer contraseña con código:', error);
 
     return res.status(500).json({
       error: error.message

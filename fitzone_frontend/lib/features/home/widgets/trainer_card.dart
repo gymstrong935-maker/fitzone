@@ -5,14 +5,14 @@ import '../../../core/theme/app_text.dart';
 import '../../onboarding/models/trainer.dart';
 import 'home_card.dart';
 
-/// "Tu Entrenador": foto, nombre, especialidad, valoración y botón "Mensaje".
+/// "Tu Entrenador": foto, nombre, especialidad, valoración y botón "Agendar".
 class TrainerCard extends StatelessWidget {
-  const TrainerCard({super.key, required this.trainer, this.onMessage});
+  const TrainerCard({super.key, required this.trainer, this.onSchedule});
 
   final Trainer trainer;
 
-  /// Acción del botón "Mensaje" (el diseño aún no define ninguna).
-  final VoidCallback? onMessage;
+  /// Abre la pantalla de citas.
+  final VoidCallback? onSchedule;
 
   @override
   Widget build(BuildContext context) {
@@ -90,25 +90,44 @@ class TrainerCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onMessage,
-                child: Container(
-                  height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.whiteA(0.08),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.whiteA(0.15)),
-                  ),
-                  child: Text(
-                    'Mensaje',
-                    style: AppText.body(
-                      size: 12,
-                      weight: FontWeight.w500,
-                      color: Colors.white,
+              const SizedBox(width: 12),
+              Semantics(
+                button: true,
+                label: 'Agendar cita',
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onSchedule,
+                    child: Container(
+                      height: 34,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        gradient: const LinearGradient(
+                          colors: <Color>[AppColors.cyan, AppColors.teal],
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const Icon(
+                            Icons.event_available_rounded,
+                            size: 14,
+                            color: Color(0xFF0A0A0A),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Agendar',
+                            style: AppText.body(
+                              size: 12,
+                              weight: FontWeight.w600,
+                              color: const Color(0xFF0A0A0A),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -121,6 +140,15 @@ class TrainerCard extends StatelessWidget {
   }
 
   Widget _buildPhoto() {
+    final Widget fallback = ColoredBox(
+      color: AppColors.whiteA(0.08),
+      child: Icon(
+        Icons.person_outline_rounded,
+        size: 24,
+        color: AppColors.whiteA(0.4),
+      ),
+    );
+
     return Container(
       width: 56,
       height: 56,
@@ -131,32 +159,26 @@ class TrainerCard extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(22),
-        child: Image.network(
-          trainer.photo,
-          fit: BoxFit.cover,
-          loadingBuilder: (
-            BuildContext context,
-            Widget child,
-            ImageChunkEvent? progress,
-          ) {
-            if (progress == null) return child;
-            return ColoredBox(color: AppColors.whiteA(0.08));
-          },
-          errorBuilder: (
-            BuildContext context,
-            Object error,
-            StackTrace? stackTrace,
-          ) {
-            return ColoredBox(
-              color: AppColors.whiteA(0.08),
-              child: Icon(
-                Icons.person_outline_rounded,
-                size: 24,
-                color: AppColors.whiteA(0.4),
+        child: trainer.photo.isEmpty
+            ? fallback
+            : Image.network(
+                trainer.photo,
+                fit: BoxFit.cover,
+                loadingBuilder: (
+                  BuildContext context,
+                  Widget child,
+                  ImageChunkEvent? progress,
+                ) {
+                  if (progress == null) return child;
+                  return ColoredBox(color: AppColors.whiteA(0.08));
+                },
+                errorBuilder: (
+                  BuildContext context,
+                  Object error,
+                  StackTrace? stackTrace,
+                ) =>
+                    fallback,
               ),
-            );
-          },
-        ),
       ),
     );
   }

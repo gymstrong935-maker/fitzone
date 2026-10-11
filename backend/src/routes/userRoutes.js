@@ -7,6 +7,7 @@ import {
   obtenerUsuario,
   solicitarRecuperacion,
   restablecerPassword,
+  restablecerConCodigo,
   actualizarUsuario,
   verificarCuenta,
   reenviarCodigo,
@@ -31,6 +32,7 @@ import {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  resetConCodigoSchema,
   verificarCuentaSchema,
   reenviarCodigoSchema
 } from '../validators/userValidator.js';
@@ -102,7 +104,7 @@ router.post(
 
 
 // ======================================================
-// RECUPERAR CONTRASEÑA
+// RECUPERAR CONTRASEÑA (envía un código de 6 dígitos)
 // ======================================================
 
 router.post(
@@ -114,7 +116,19 @@ router.post(
 
 
 // ======================================================
-// RESTABLECER CONTRASEÑA
+// RESTABLECER CONTRASEÑA CON CÓDIGO
+// ======================================================
+
+router.post(
+  '/reset-password',
+  limitarLogin,
+  validar(resetConCodigoSchema),
+  restablecerConCodigo
+);
+
+
+// ======================================================
+// RESTABLECER CONTRASEÑA (enlace antiguo, se conserva)
 // ======================================================
 
 router.post(
@@ -163,4 +177,3 @@ router.put(
 
 
 export default router;
-
