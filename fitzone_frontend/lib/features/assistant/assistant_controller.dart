@@ -62,6 +62,17 @@ class AssistantController extends ChangeNotifier {
 
   /// `true` mientras solo está el mensaje de bienvenida.
   bool get isFresh => _messages.length == 1;
+  
+    /// Los últimos mensajes reales (sin bienvenida ni errores), para adjuntarlos
+  /// a una solicitud de soporte.
+  List<ChatTurn> get transcript {
+    final List<ChatTurn> all = <ChatTurn>[
+      for (final ChatMessage m in _messages)
+        if (!m.isWelcome && !m.isError)
+          ChatTurn(role: m.fromUser ? 'user' : 'assistant', content: m.text),
+    ];
+    return all.length > 12 ? all.sublist(all.length - 12) : all;
+  }
 
   Future<void> send(String text) async {
     final String clean = text.trim();

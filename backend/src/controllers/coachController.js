@@ -1,15 +1,24 @@
 import Coach from '../models/Coach.js';
 import User from '../models/User.js';
 import Plan from '../models/Plan.js';
+import Appointment from '../models/Appointment.js';
 import { borrarImagenCloudinary } from '../utils/cloudinary.js';
+
+// El admin puede indicar la foto como una URL pública (https://...)
+const urlDeFoto = (valor) =>
+  typeof valor === 'string' && /^https?:\/\/\S+$/i.test(valor.trim()) ? valor.trim() : undefined;
 
 export const crearCoach = async (req, res) => {
   try {
     const datosCoach = { ...req.body };
 
-    // Nunca permitir que el cliente asigne estos campos directamente
+    // Estos campos solo se asignan de forma controlada
     delete datosCoach.fotoPerfil;
     delete datosCoach.fotoPerfilId;
+    delete datosCoach.clientesAsignados;
+
+    const url = urlDeFoto(req.body.fotoPerfil);
+    if (url) datosCoach.fotoPerfil = url;
 
     if (req.file) {
       datosCoach.fotoPerfil = req.file.secure_url;
@@ -31,16 +40,19 @@ export const obtenerCoaches = async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 };
 
-// Actualizar entrenador (con foto de perfil opcional)
+// Actualizar entrenador (foto por archivo o por URL)
 export const actualizarCoach = async (req, res) => {
   try {
     const datosActualizar = { ...req.body };
 
     delete datosActualizar.fotoPerfil;
     delete datosActualizar.fotoPerfilId;
+    delete datosActualizar.clientesAsignados;
 
     const coachActual = await Coach.findById(req.params.id);
     if (!coachActual) return res.status(404).json({ mensaje: 'Entrenador no encontrado' });
+
+    const url = urlDeFoto(req.body.fotoPerfil);
 
     if (req.file) {
       if (coachActual.fotoPerfilId) {
@@ -48,9 +60,17 @@ export const actualizarCoach = async (req, res) => {
       }
       datosActualizar.fotoPerfil = req.file.secure_url;
       datosActualizar.fotoPerfilId = req.file.public_id;
+    } else if (url && url !== coachActual.fotoPerfil) {
+      if (coachActual.fotoPerfilId) {
+        await borrarImagenCloudinary(coachActual.fotoPerfilId);
+      }
+      datosActualizar.fotoPerfil = url;
+      datosActualizar.fotoPerfilId = null;
     }
 
-    const coach = await Coach.findByIdAndUpdate(req.params.id, datosActualizar, { new: true });
+    const coach = await Coach
+      .findByIdAndUpdate(req.params.id, datosActualizar, { new: true })
+      .select('-clientesAsignados');
     res.json(coach);
   } catch (e) {
     if (e.code === 11000) return res.status(409).json({ mensaje: 'Ya existe un entrenador con ese nombre' });
@@ -66,6 +86,13 @@ export const eliminarCoach = async (req, res) => {
     if (coach.fotoPerfilId) {
       await borrarImagenCloudinary(coach.fotoPerfilId);
     }
+
+    // Limpieza: sus clientes quedan sin entrenador y se cancelan sus citas futuras
+    await User.updateMany({ entrenadorAsignado: coach._id }, { $unset: { entrenadorAsignado: 1 } });
+    await Appointment.updateMany(
+      { entrenadorId: coach._id, estado: 'confirmada' },
+      { $set: { estado: 'cancelada' } }
+    );
 
     res.json({ mensaje: 'Entrenador eliminado' });
   } catch (e) {

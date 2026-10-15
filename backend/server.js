@@ -22,6 +22,8 @@ import trainingPeriodRoutes from './src/routes/trainingPeriodRoutes.js';
 import dietaryControlRoutes from './src/routes/dietaryControlRoutes.js';
 import appointmentRoutes from './src/routes/appointmentRoutes.js';
 import workoutRoutes from './src/routes/workoutRoutes.js';
+import adminRoutes from './src/routes/adminRoutes.js';
+import supportRoutes from './src/routes/supportRoutes.js';
 import { iniciarJobVencimientos } from './src/jobs/verificarVencimientosJob.js';
 
 // =====================================================
@@ -32,13 +34,14 @@ import { iniciarJobVencimientos } from './src/jobs/verificarVencimientosJob.js';
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const app = express();
+app.disable('x-powered-by');
 
 // =====================================================
 // MIDDLEWARES
 // =====================================================
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // =====================================================
 // RUTAS
@@ -61,6 +64,8 @@ app.use('/api/training-periods', trainingPeriodRoutes);
 app.use('/api/dietary-control', dietaryControlRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/workouts', workoutRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/support', supportRoutes);
 app.use('/api/chat', chatRoutes);
 
 // =====================================================

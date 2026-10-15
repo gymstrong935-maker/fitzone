@@ -5,16 +5,17 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import '../../core/widgets/pulsing_dots.dart';
 import '../../core/widgets/sub_screen_frame.dart';
+import '../support/widgets/support_sheets.dart';
 import 'assistant_controller.dart';
 
 const List<String> _suggestions = <String>[
   '¿Qué planes tienen?',
-  '¿Qué entrenadores hay disponibles?',
+  '¿Cómo agendo una cita?',
   '¿Cuándo vence mi plan?',
-  '¿Qué horarios tienen los grupos?',
+  'Mi pago no se ha aprobado',
 ];
 
-/// Pantalla "Asistente FitZone": chat con la IA.
+/// Pantalla "Soporte": chat con la IA + contacto con una persona.
 class AssistantScreen extends StatefulWidget {
   const AssistantScreen({
     super.key,
@@ -76,6 +77,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
     widget.controller.send(text);
   }
 
+  Future<void> _contactSupport() async {
+    await showSupportRequestSheet(context, transcript: widget.controller.transcript);
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -89,17 +94,18 @@ class _AssistantScreenState extends State<AssistantScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             SubScreenHeader(
-              title: 'Asistente FitZone',
-              subtitle: 'Respuestas al instante',
+              title: 'Soporte FitZone',
+              subtitle: 'Asistente con IA · respuestas al instante',
               onBack: widget.onBack,
             ),
+            _buildToolbar(c),
             Expanded(
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 512),
                   child: ListView(
                     controller: _scroll,
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                     children: <Widget>[
                       for (final ChatMessage m in messages)
                         Padding(
@@ -107,6 +113,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                           child: _Bubble(
                             message: m,
                             onRetry: m.isError && !c.sending ? c.retry : null,
+                            onContact: m.isError ? _contactSupport : null,
                           ),
                         ),
                       if (c.sending)
@@ -115,24 +122,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
                           child: _TypingBubble(),
                         ),
                       if (showSuggestions) _buildSuggestions(),
-                      if (!c.isFresh && !c.sending)
-                        Align(
-                          alignment: Alignment.center,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: c.clear,
-                            child: Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: Text(
-                                'Nueva conversación',
-                                style: AppText.body(
-                                  size: 12,
-                                  color: AppColors.whiteA(0.40),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -142,6 +131,43 @@ class _AssistantScreenState extends State<AssistantScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildToolbar(AssistantController c) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.whiteA(0.06))),
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 512 - 32),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _ToolChip(
+                icon: Icons.headset_mic_outlined,
+                label: 'Hablar con una persona',
+                highlighted: true,
+                onTap: _contactSupport,
+              ),
+              _ToolChip(
+                icon: Icons.forum_outlined,
+                label: 'Mis solicitudes',
+                onTap: () => showMyTicketsSheet(context),
+              ),
+              if (!c.isFresh && !c.sending)
+                _ToolChip(
+                  icon: Icons.restart_alt_rounded,
+                  label: 'Nueva conversación',
+                  onTap: c.clear,
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -206,9 +232,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                     color: AppColors.whiteA(0.08),
                     borderRadius: BorderRadius.circular(23),
                     border: Border.all(
-                      color: _focus.hasFocus
-                          ? AppColors.cyan
-                          : AppColors.whiteA(0.15),
+                      color: _focus.hasFocus ? AppColors.cyan : AppColors.whiteA(0.15),
                     ),
                   ),
                   child: TextField(
@@ -226,10 +250,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                       hintText: 'Escribe tu pregunta...',
-                      hintStyle: AppText.body(
-                        size: 15,
-                        color: AppColors.whiteA(0.35),
-                      ),
+                      hintStyle: AppText.body(size: 15, color: AppColors.whiteA(0.35)),
                     ),
                   ),
                 ),
@@ -272,8 +293,56 @@ class _AssistantScreenState extends State<AssistantScreen> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Burbujas
+// Piezas privadas
 // ═══════════════════════════════════════════════════════════════════════════
+
+class _ToolChip extends StatelessWidget {
+  const _ToolChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.highlighted = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = highlighted ? AppColors.cyan : AppColors.whiteA(0.70);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: highlighted ? AppColors.cyanA(0.12) : AppColors.whiteA(0.06),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: highlighted ? AppColors.cyanA(0.35) : AppColors.whiteA(0.10),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(icon, size: 15, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: AppText.body(size: 12.5, weight: FontWeight.w600, color: color),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _AssistantAvatar extends StatelessWidget {
   const _AssistantAvatar();
@@ -298,10 +367,11 @@ class _AssistantAvatar extends StatelessWidget {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.message, this.onRetry});
+  const _Bubble({required this.message, this.onRetry, this.onContact});
 
   final ChatMessage message;
   final VoidCallback? onRetry;
+  final VoidCallback? onContact;
 
   @override
   Widget build(BuildContext context) {
@@ -379,19 +449,39 @@ class _Bubble extends StatelessWidget {
                       height: 1.5,
                     ),
                   ),
-                  if (onRetry != null) ...<Widget>[
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: onRetry,
-                      child: Text(
-                        'Reintentar',
-                        style: AppText.body(
-                          size: 12.5,
-                          weight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
+                  if (onRetry != null || onContact != null) ...<Widget>[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 14,
+                      runSpacing: 6,
+                      children: <Widget>[
+                        if (onRetry != null)
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: onRetry,
+                            child: Text(
+                              'Reintentar',
+                              style: AppText.body(
+                                size: 12.5,
+                                weight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        if (onContact != null)
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: onContact,
+                            child: Text(
+                              'Hablar con una persona',
+                              style: AppText.body(
+                                size: 12.5,
+                                weight: FontWeight.w600,
+                                color: AppColors.cyan,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ],

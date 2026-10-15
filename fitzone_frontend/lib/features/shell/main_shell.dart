@@ -28,6 +28,7 @@ import '../workout/data/exercises_data.dart';
 import '../workout/models/workout_log.dart';
 import '../workout/workout_screen.dart';
 import 'widgets/fz_bottom_nav.dart';
+import '../support/widgets/support_fab.dart';
 
 /// Pestañas con barra de navegación inferior.
 const List<String> kMainTabs = <String>['home', 'stats', 'plan', 'settings'];
@@ -226,6 +227,9 @@ class _MainShellState extends State<MainShell> {
                 child: FzBottomNav(activeTab: _active, onTabChange: _navigate),
               ),
 
+            // ── Botón flotante de soporte ──
+            if (_active != 'assistant') _buildSupportFab(context),
+
             // ── Línea brillante superior ──
             Positioned(
               top: 0,
@@ -240,6 +244,19 @@ class _MainShellState extends State<MainShell> {
           ],
         ),
       ),
+    );
+  }
+
+    /// Botón flotante de soporte: va encima de la barra inferior en las
+  /// pestañas y más abajo en las demás pantallas.
+  Widget _buildSupportFab(BuildContext context) {
+    final MediaQueryData mq = MediaQuery.of(context);
+    final bool hasNav = kMainTabs.contains(_active);
+
+    return Positioned(
+      right: math.max(16.0, (mq.size.width - 512) / 2 + 16),
+      bottom: (hasNav ? 92.0 : 24.0) + mq.padding.bottom,
+      child: SupportFab(onTap: () => _navigate('assistant')),
     );
   }
 
