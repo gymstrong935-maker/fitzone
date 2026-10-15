@@ -27,6 +27,7 @@ import 'features/plan_selection/data/plans_mapper.dart';
 import 'features/plan_selection/models/plan.dart';
 import 'features/plan_selection/plan_selection_screen.dart';
 import 'features/shell/main_shell.dart';
+import 'features/admin/admin_shell.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -65,6 +66,7 @@ enum AppStage {
   paymentValidation,
   onboarding,
   main,
+  admin,
 }
 
 /// Datos del registro que se guardan en memoria hasta crear la cuenta.
@@ -173,6 +175,17 @@ class _AppFlowState extends State<AppFlow> {
 
   /// Decide a dónde va un usuario que ya tiene sesión.
   Future<void> _enterApp(BackendUser user) async {
+      // Cuenta de administrador: va directo al panel (sin plan ni onboarding).
+    if (user.rol == 'admin') {
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+        _stage = AppStage.admin;
+        _authNotice = null;
+      });
+      return;
+    }
+
     await _plansFuture;
     await _trainersFuture;
 
@@ -687,6 +700,17 @@ class _AppFlowState extends State<AppFlow> {
           onRename: _handleRename,
           onProfileChanged: _handleProfileChanged,
         );
+
+            case AppStage.admin:
+        final BackendUser? admin = _user;
+        if (admin == null) {
+          return PlanSelectionScreen(
+            key: key,
+            plans: _plans,
+            onSelectPlan: _handleSelectPlan,
+          );
+        }
+        return AdminShell(key: key, user: admin, onLogout: _handleLogout);
     }
   }
 
