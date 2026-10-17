@@ -6,12 +6,15 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/utils/format.dart';
 import '../widgets/admin_widgets.dart';
+import '../admin_controller.dart';
 
 /// Usuarios: búsqueda, rol, estado, historial y avisos.
+/// Usuarios: búsqueda, aprobación de cuentas nuevas, rol, estado y avisos.
 class AdminUsersScreen extends StatefulWidget {
-  const AdminUsersScreen({super.key, required this.service});
+  const AdminUsersScreen({super.key, required this.service, required this.controller});
 
   final AdminService service;
+  final AdminController controller;
 
   @override
   State<AdminUsersScreen> createState() => _AdminUsersScreenState();
@@ -19,19 +22,73 @@ class AdminUsersScreen extends StatefulWidget {
 
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
   String _query = '';
-  String _rol = '';
+
+  /// '' = todos · 'pendiente' = por aprobar · 'cliente' / 'admin' = por rol
+  String _filter = '';
   int _version = 0;
+  String? _busyId;
 
   Future<void> _open(Map<String, dynamic> user) async {
     final bool? changed = await showAdminSheet<bool>(
       context,
       (BuildContext ctx) => _UserSheet(service: widget.service, userId: str(user['_id'])),
     );
-    if (changed == true && mounted) setState(() => _version++);
+    if (changed == true && mounted) {
+      widget.controller.refresh(silent: true);
+      setState(() => _version++);
+    }
+  }
+
+  Future<void> _approve(Map<String, dynamic> user) async {
+    final bool ok = await adminConfirm(
+      context,
+      title: '¿Aprobar esta cuenta?',
+      message:
+          '${str(user['nombre'])} podrá continuar en FitZone y recibirá una notificación y un correo.',
+      confirmLabel: 'Aprobar',
+      danger: false,
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busyId = str(user['_id']));
+    try {
+      await widget.service.approveUser(str(user['_id']));
+      if (!mounted) return;
+      adminToast(context, 'Cuenta aprobada');
+      widget.controller.refresh(silent: true);
+      setState(() => _version++);
+    } on ApiException catch (e) {
+      if (mounted) adminToast(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _busyId = null);
+    }
+  }
+
+  Future<void> _reject(Map<String, dynamic> user) async {
+    final String? reason = await showAdminSheet<String>(
+      context,
+      (BuildContext ctx) => _RejectSheet(name: str(user['nombre'])),
+    );
+    if (reason == null || !mounted) return; // cancelado
+
+    setState(() => _busyId = str(user['_id']));
+    try {
+      await widget.service.rejectUser(str(user['_id']), reason: reason);
+      if (!mounted) return;
+      adminToast(context, 'Cuenta rechazada');
+      widget.controller.refresh(silent: true);
+      setState(() => _version++);
+    } on ApiException catch (e) {
+      if (mounted) adminToast(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _busyId = null);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool pendingOnly = _filter == 'pendiente';
+
     return AdminPage(
       title: 'Usuarios',
       subtitle: 'Todas las cuentas de FitZone',
@@ -46,26 +103,33 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           AdminChoiceChips<String>(
             options: const <(String, String)>[
               ('', 'Todos'),
+              ('pendiente', 'Por aprobar'),
               ('cliente', 'Clientes'),
               ('admin', 'Administradores'),
             ],
-            selected: _rol,
-            onChanged: (String v) => setState(() => _rol = v),
+            selected: _filter,
+            onChanged: (String v) => setState(() => _filter = v),
           ),
           const SizedBox(height: 18),
           AdminFuture<Map<String, dynamic>>(
-            key: ValueKey<String>('$_query|$_rol|$_version'),
-            load: () => widget.service.users(q: _query, rol: _rol),
+            key: ValueKey<String>('$_query|$_filter|$_version'),
+            load: () => widget.service.users(
+              q: _query,
+              rol: pendingOnly ? '' : _filter,
+              estado: pendingOnly ? 'pendiente' : '',
+            ),
             builder: (BuildContext context, Map<String, dynamic> data,
                 Future<void> Function() reload) {
               final List<Map<String, dynamic>> users = asList(data['usuarios']);
               final int total = asNum(data['total']).toInt();
 
               if (users.isEmpty) {
-                return const AdminEmpty(
-                  icon: Icons.person_search_outlined,
-                  title: 'No se encontraron usuarios',
-                  message: 'Prueba con otra búsqueda o cambia el filtro.',
+                return AdminEmpty(
+                  icon: pendingOnly ? Icons.how_to_reg_outlined : Icons.person_search_outlined,
+                  title: pendingOnly ? 'No hay cuentas por aprobar' : 'No se encontraron usuarios',
+                  message: pendingOnly
+                      ? 'Las cuentas nuevas aparecerán aquí cuando verifiquen su correo.'
+                      : 'Prueba con otra búsqueda o cambia el filtro.',
                 );
               }
 
@@ -81,7 +145,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   const SizedBox(height: 10),
                   for (int i = 0; i < users.length; i++) ...<Widget>[
                     if (i > 0) const SizedBox(height: 10),
-                    _UserCard(user: users[i], onTap: () => _open(users[i])),
+                    _UserCard(
+                      user: users[i],
+                      busy: _busyId == str(users[i]['_id']),
+                      onTap: () => _open(users[i]),
+                      onApprove: () => _approve(users[i]),
+                      onReject: () => _reject(users[i]),
+                    ),
                   ],
                 ],
               );
@@ -94,10 +164,19 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 }
 
 class _UserCard extends StatelessWidget {
-  const _UserCard({required this.user, required this.onTap});
+  const _UserCard({
+    required this.user,
+    required this.busy,
+    required this.onTap,
+    required this.onApprove,
+    required this.onReject,
+  });
 
   final Map<String, dynamic> user;
+  final bool busy;
   final VoidCallback onTap;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
 
   @override
   Widget build(BuildContext context) {
@@ -105,62 +184,168 @@ class _UserCard extends StatelessWidget {
     final String rol = str(user['rol']);
     final String estado = str(user['estadoCuenta']);
     final String plan = str(asMap(user['planActual'])['nombre']);
+    final bool pending = estado == 'pendiente' && rol != 'admin';
+    final bool verified = user['cuentaVerificada'] != false;
 
     return AdminCard(
       onTap: onTap,
       padding: const EdgeInsets.all(14),
-      child: Row(
+      highlight: pending ? const Color.fromRGBO(251, 191, 36, 0.35) : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Container(
-            width: 42,
-            height: 42,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(colors: <Color>[AppColors.cyan, AppColors.teal]),
-            ),
-            child: Text(
-              name.isEmpty ? '?' : name[0].toUpperCase(),
-              style: AppText.body(size: 18, weight: FontWeight.w700, color: Colors.black),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.body(size: 14.5, weight: FontWeight.w700, color: Colors.white),
+          Row(
+            children: <Widget>[
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(colors: <Color>[AppColors.cyan, AppColors.teal]),
                 ),
-                Text(
-                  str(user['email']),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.body(size: 12.5, color: AppColors.whiteA(0.45)),
+                child: Text(
+                  name.isEmpty ? '?' : name[0].toUpperCase(),
+                  style: AppText.body(size: 18, weight: FontWeight.w700, color: Colors.black),
                 ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    if (rol.isNotEmpty)
-                      StatusBadge(
-                        label: statusLabel(rol),
-                        color: rol == 'admin' ? const Color(0xFFA78BFA) : AppColors.cyan,
-                      ),
-                    if (estado.isNotEmpty)
-                      StatusBadge(label: statusLabel(estado), color: statusColor(estado)),
-                    if (plan.isNotEmpty)
-                      StatusBadge(label: plan, color: const Color(0xFF2DD4BF)),
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body(size: 14.5, weight: FontWeight.w700, color: Colors.white),
+                    ),
+                    Text(
+                      str(user['email']),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body(size: 12.5, color: AppColors.whiteA(0.45)),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: <Widget>[
+                        if (rol.isNotEmpty)
+                          StatusBadge(
+                            label: statusLabel(rol),
+                            color: rol == 'admin' ? const Color(0xFFA78BFA) : AppColors.cyan,
+                          ),
+                        if (estado.isNotEmpty)
+                          StatusBadge(
+                            label: estado == 'pendiente' ? 'Por aprobar' : statusLabel(estado),
+                            color: statusColor(estado),
+                          ),
+                        if (plan.isNotEmpty)
+                          StatusBadge(label: plan, color: const Color(0xFF2DD4BF)),
+                        if (!verified)
+                          const StatusBadge(label: 'Correo sin verificar', color: Color(0xFFF87171)),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.whiteA(0.30)),
+            ],
           ),
-          Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.whiteA(0.30)),
+          if (pending) ...<Widget>[
+            const SizedBox(height: 14),
+            if (!verified)
+              Text(
+                'Todavía no verificó su correo: puedes aprobarla cuando lo haga.',
+                style: AppText.body(size: 12, color: AppColors.whiteA(0.45), height: 1.4),
+              )
+            else
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: <Widget>[
+                  AdminButton(
+                    label: 'Aprobar cuenta',
+                    icon: Icons.check_rounded,
+                    kind: AdminButtonKind.primary,
+                    compact: true,
+                    loading: busy,
+                    onTap: onApprove,
+                  ),
+                  AdminButton(
+                    label: 'Rechazar',
+                    icon: Icons.close_rounded,
+                    kind: AdminButtonKind.danger,
+                    compact: true,
+                    onTap: busy ? null : onReject,
+                  ),
+                ],
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Hoja para rechazar una cuenta (con motivo opcional).
+class _RejectSheet extends StatefulWidget {
+  const _RejectSheet({required this.name});
+
+  final String name;
+
+  @override
+  State<_RejectSheet> createState() => _RejectSheetState();
+}
+
+class _RejectSheetState extends State<_RejectSheet> {
+  final TextEditingController _reason = TextEditingController();
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AdminSheet(
+      title: 'Rechazar cuenta',
+      subtitle: widget.name,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          AdminTextField(
+            controller: _reason,
+            label: 'Motivo (opcional, lo verá el usuario)',
+            hint: 'Ej. No pudimos validar tus datos',
+            maxLines: 3,
+            maxLength: 200,
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Center(
+                  child: AdminButton(
+                    label: 'Cancelar',
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Center(
+                  child: AdminButton(
+                    label: 'Rechazar cuenta',
+                    kind: AdminButtonKind.danger,
+                    onTap: () => Navigator.of(context).pop(_reason.text.trim()),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

@@ -57,6 +57,12 @@ class BackendUser {
   /// JSON original (se guarda para recordar la sesión).
   final Map<String, dynamic> raw;
 
+  /// pendiente | activo | rechazado | inactivo | suspendido
+  String get estadoCuenta => (raw['estadoCuenta'] ?? 'activo').toString();
+
+  /// Motivo que dejó el equipo al rechazar la cuenta (si hubo).
+  String get motivoRechazo => (raw['motivoRechazo'] ?? '').toString();
+
   factory BackendUser.fromJson(Map<String, dynamic> json) {
     final Object? plan = json['planActual'];
     return BackendUser(

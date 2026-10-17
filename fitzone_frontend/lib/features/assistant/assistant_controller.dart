@@ -15,6 +15,8 @@ class ChatMessage {
   final int id;
   final bool fromUser;
   final String text;
+
+  /// Mensaje de "no pude responder" (se muestra con botones de ayuda).
   final bool isError;
   final bool isWelcome;
 }
@@ -33,6 +35,14 @@ String cleanAssistantText(String raw) {
   return text.trim();
 }
 
+/// Mensaje amable según el tipo de fallo (nunca un texto técnico).
+String _friendlyMessage(Object error) {
+  if (error is ApiException && error.isNetwork) {
+    return 'Parece que no tengo conexión con el servidor en este momento. Revisa tu internet e inténtalo de nuevo.';
+  }
+  return 'Estoy teniendo problemas para responder ahora mismo. Inténtalo de nuevo en unos segundos o toca «Hablar con una persona».';
+}
+
 class AssistantController extends ChangeNotifier {
   AssistantController({required ChatService service, required String userName})
       : _service = service {
@@ -44,7 +54,7 @@ class AssistantController extends ChangeNotifier {
         isWelcome: true,
         text:
             '¡Hola${first.isEmpty ? '' : ', $first'}! Soy el asistente de FitZone. '
-            'Puedo ayudarte con planes, entrenadores, horarios y tu suscripción.',
+            'Puedo ayudarte con planes, entrenadores, citas, tu cuenta y el uso de la app.',
       ),
     );
   }
@@ -62,31 +72,28 @@ class AssistantController extends ChangeNotifier {
 
   /// `true` mientras solo está el mensaje de bienvenida.
   bool get isFresh => _messages.length == 1;
-  
-    /// Los últimos mensajes reales (sin bienvenida ni errores), para adjuntarlos
-  /// a una solicitud de soporte.
+
+  /// Los últimos mensajes reales (sin bienvenida ni avisos de fallo), para
+  /// adjuntarlos a una solicitud de soporte.
   List<ChatTurn> get transcript {
-    final List<ChatTurn> all = <ChatTurn>[
-      for (final ChatMessage m in _messages)
-        if (!m.isWelcome && !m.isError)
-          ChatTurn(role: m.fromUser ? 'user' : 'assistant', content: m.text),
-    ];
+    final List<ChatTurn> all = _realTurns();
     return all.length > 12 ? all.sublist(all.length - 12) : all;
   }
+
+  List<ChatTurn> _realTurns() => <ChatTurn>[
+        for (final ChatMessage m in _messages)
+          if (!m.isWelcome && !m.isError)
+            ChatTurn(role: m.fromUser ? 'user' : 'assistant', content: m.text),
+      ];
 
   Future<void> send(String text) async {
     final String clean = text.trim();
     if (clean.isEmpty || _sending) return;
 
-    // Contexto: los últimos mensajes reales (sin bienvenida ni errores).
-    final List<ChatTurn> history = <ChatTurn>[
-      for (final ChatMessage m in _messages)
-        if (!m.isWelcome && !m.isError)
-          ChatTurn(role: m.fromUser ? 'user' : 'assistant', content: m.text),
-    ];
-    final List<ChatTurn> recent = history.length > 8
-        ? history.sublist(history.length - 8)
-        : history;
+    // Contexto: los últimos mensajes reales.
+    final List<ChatTurn> history = _realTurns();
+    final List<ChatTurn> recent =
+        history.length > 8 ? history.sublist(history.length - 8) : history;
 
     _messages.add(ChatMessage(id: _nextId++, fromUser: true, text: clean));
     _sending = true;
@@ -95,21 +102,23 @@ class AssistantController extends ChangeNotifier {
 
     try {
       final String reply = await _service.send(message: clean, history: recent);
+      final String shown = cleanAssistantText(reply);
       _messages.add(
-        ChatMessage(id: _nextId++, fromUser: false, text: cleanAssistantText(reply)),
+        ChatMessage(
+          id: _nextId++,
+          fromUser: false,
+          text: shown.isEmpty
+              ? 'No tengo una respuesta para eso. Toca «Hablar con una persona» y el equipo te ayudará.'
+              : shown,
+        ),
       );
-    } on ApiException catch (e) {
-      _failedText = clean;
-      _messages.add(
-        ChatMessage(id: _nextId++, fromUser: false, text: e.message, isError: true),
-      );
-    } catch (_) {
+    } catch (e) {
       _failedText = clean;
       _messages.add(
         ChatMessage(
           id: _nextId++,
           fromUser: false,
-          text: 'No pude responder en este momento. Inténtalo de nuevo.',
+          text: _friendlyMessage(e),
           isError: true,
         ),
       );
@@ -124,7 +133,7 @@ class AssistantController extends ChangeNotifier {
     final String? text = _failedText;
     if (text == null || _sending) return;
 
-    // Quita el error y el mensaje que lo causó para no duplicarlo.
+    // Quita el aviso y el mensaje que lo causó para no duplicarlo.
     if (_messages.isNotEmpty && _messages.last.isError) _messages.removeLast();
     if (_messages.isNotEmpty && _messages.last.fromUser) _messages.removeLast();
     _failedText = null;

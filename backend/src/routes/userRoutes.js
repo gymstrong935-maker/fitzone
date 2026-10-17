@@ -86,6 +86,7 @@ router.post(
 
 router.post(
   '/verificar-cuenta',
+  limitarLogin,
   validar(verificarCuentaSchema),
   verificarCuenta
 );

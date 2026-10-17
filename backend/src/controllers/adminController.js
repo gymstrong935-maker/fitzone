@@ -10,6 +10,8 @@ import Notification from '../models/Notification.js';
 import WorkoutSession from '../models/WorkoutSession.js';
 import SupportTicket from '../models/SupportTicket.js';
 import { aprobarSuscripcion, rechazarSuscripcion } from './subscriptionController.js';
+import { enviarCorreoSeguro } from '../utils/enviarCorreoSeguro.js';
+import { correoCuentaAprobada, correoCuentaRechazada } from '../utils/emailTemplates.js';
 
 const OCULTOS = '-passwordHash -resetPasswordToken -resetPasswordExpira -codigoVerificacion -codigoVerificacionExpira';
 const escapeRegex = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -64,6 +66,11 @@ export const obtenerEstadisticas = async (req, res) => {
 
     const facet = ingresos[0] || { total: [], mensual: [] };
 
+    const cuentasPendientes = await User.countDocuments({
+      estadoCuenta: 'pendiente',
+      rol: { $ne: 'admin' }
+    });
+
     const mensuales = [];
     for (let i = 5; i >= 0; i--) {
       const f = new Date(ahora.getFullYear(), ahora.getMonth() - i, 1);
@@ -72,7 +79,7 @@ export const obtenerEstadisticas = async (req, res) => {
     }
 
     res.json({
-      usuarios: { total: totalUsuarios, nuevosSemana },
+      usuarios: { total: totalUsuarios, nuevosSemana, pendientes: cuentasPendientes },
       suscripciones: { activas, pendientes },
       entrenadores,
       citasProximas,
@@ -467,6 +474,104 @@ export const cambiarEstadoTicket = async (req, res) => {
     if (!ticket) return res.status(404).json({ mensaje: 'Solicitud no encontrada' });
 
     res.json(ticket);
+  } catch (e) {
+    errorServidor(res, e);
+  }
+};
+
+// ======================================================
+// APROBAR / RECHAZAR CUENTAS NUEVAS
+// ======================================================
+
+export const aprobarCuenta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!idValido(id)) return res.status(400).json({ mensaje: 'Usuario no válido' });
+
+    const usuario = await User.findById(id);
+    if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+
+    if (usuario.estadoCuenta === 'activo') {
+      return res.status(400).json({ mensaje: 'La cuenta ya está activa' });
+    }
+    if (!['pendiente', 'rechazado'].includes(usuario.estadoCuenta)) {
+      return res.status(400).json({ mensaje: 'Solo se pueden aprobar cuentas pendientes o rechazadas' });
+    }
+
+    usuario.estadoCuenta = 'activo';
+    usuario.motivoRechazo = undefined;
+    await usuario.save();
+
+    // La prueba gratuita empieza a contar desde que se aprueba la cuenta
+    const suscripcion = await Subscription
+      .findOne({ usuarioId: usuario._id })
+      .sort({ _id: -1 })
+      .populate('planId', 'esGratuito duracionDias');
+
+    if (suscripcion?.planId?.esGratuito) {
+      const inicio = new Date();
+      suscripcion.fechaInicio = inicio;
+      suscripcion.fechaFin = new Date(inicio.getTime() + suscripcion.planId.duracionDias * 24 * 60 * 60 * 1000);
+      suscripcion.estado = 'activa';
+      await suscripcion.save();
+    }
+
+    await Notification.create({
+      usuarioId: usuario._id,
+      tipo: 'sistema',
+      mensaje: '¡Tu cuenta fue aprobada! Ya puedes continuar en FitZone.'
+    });
+
+    const correo = correoCuentaAprobada({ nombre: usuario.nombre });
+    await enviarCorreoSeguro({
+      from: process.env.EMAIL_USER,
+      to: usuario.email,
+      subject: correo.asunto,
+      html: correo.html
+    });
+
+    res.json({ mensaje: 'Cuenta aprobada', usuario });
+  } catch (e) {
+    errorServidor(res, e);
+  }
+};
+
+export const rechazarCuenta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!idValido(id)) return res.status(400).json({ mensaje: 'Usuario no válido' });
+    if (id === req.usuario.id) return res.status(400).json({ mensaje: 'No puedes rechazar tu propia cuenta' });
+
+    const usuario = await User.findById(id);
+    if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    if (usuario.rol === 'admin') return res.status(400).json({ mensaje: 'No se puede rechazar a un administrador' });
+    if (usuario.estadoCuenta !== 'pendiente') {
+      return res.status(400).json({ mensaje: 'Solo se pueden rechazar cuentas pendientes' });
+    }
+
+    const motivo = (req.body.motivo || '').trim();
+
+    usuario.estadoCuenta = 'rechazado';
+    usuario.motivoRechazo = motivo || undefined;
+    await usuario.save();
+
+    await Notification.create({
+      usuarioId: usuario._id,
+      tipo: 'sistema',
+      mensaje: motivo
+        ? `Tu solicitud de registro no fue aprobada. Motivo: ${motivo}`
+        : 'Tu solicitud de registro no fue aprobada.'
+    });
+
+    const correo = correoCuentaRechazada({ nombre: usuario.nombre, motivo });
+    await enviarCorreoSeguro({
+      from: process.env.EMAIL_USER,
+      to: usuario.email,
+      subject: correo.asunto,
+      html: correo.html
+    });
+
+    res.json({ mensaje: 'Cuenta rechazada', usuario });
   } catch (e) {
     errorServidor(res, e);
   }

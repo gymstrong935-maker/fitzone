@@ -51,10 +51,10 @@ String shortDateTime(DateTime? d) {
 Color statusColor(String estado) {
   switch (estado) {
     case 'activa':
+    case 'activo':
     case 'aprobado':
     case 'confirmada':
     case 'cerrado':
-    case 'activo':
       return const Color(0xFF34D399);
     case 'pendiente':
     case 'abierto':
@@ -66,7 +66,9 @@ Color statusColor(String estado) {
     case 'cancelada':
     case 'vencida':
     case 'suspendida':
+    case 'suspendido':
     case 'inactiva':
+    case 'inactivo':
       return const Color(0xFFF87171);
     default:
       return const Color(0xFFA78BFA);

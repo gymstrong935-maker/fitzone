@@ -28,6 +28,7 @@ import 'features/plan_selection/models/plan.dart';
 import 'features/plan_selection/plan_selection_screen.dart';
 import 'features/shell/main_shell.dart';
 import 'features/admin/admin_shell.dart';
+import 'features/auth/account_pending_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,6 +63,7 @@ enum AppStage {
   auth,
   emailVerification,
   resetPassword,
+  accountPending,
   paymentMethod,
   paymentValidation,
   onboarding,
@@ -118,6 +120,7 @@ class _AppFlowState extends State<AppFlow> {
   void initState() {
     super.initState();
     _services.api.onSessionExpired = _handleSessionExpired;
+    _services.api.onAccountBlocked = _handleAccountBlocked;
     _boot();
   }
 
@@ -125,6 +128,7 @@ class _AppFlowState extends State<AppFlow> {
   void dispose() {
     _syncTimer?.cancel();
     _services.api.onSessionExpired = null;
+    _services.api.onAccountBlocked = null;
     super.dispose();
   }
 
@@ -168,6 +172,49 @@ class _AppFlowState extends State<AppFlow> {
     await _enterApp(user);
   }
 
+  /// Vuelve a pedir el usuario al servidor (para ver si ya aprobaron la cuenta).
+  Future<BackendUser> _refreshUser() async {
+    final BackendUser? current = _user;
+    if (current == null) {
+      throw const ApiException('Sesión no disponible. Inicia sesión de nuevo.');
+    }
+
+    final BackendUser fresh = await _services.auth.fetchUser(current.id);
+    final String? token = _services.api.token;
+    if (token != null) {
+      await _services.session.saveSession(token: token, userJson: fresh.raw);
+    }
+    _user = fresh;
+    return fresh;
+  }
+
+  void _handleAccountApproved(BackendUser user) {
+    _enterApp(user);
+  }
+
+  /// El servidor avisó que la cuenta quedó pendiente, rechazada o suspendida.
+  void _handleAccountBlocked(String code) {
+    if (!mounted) return;
+
+    if (code == 'CUENTA_SUSPENDIDA') {
+      _handleLogout();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tu cuenta fue suspendida. Contacta al equipo de FitZone.'),
+          ),
+        );
+      });
+      return;
+    }
+
+    // Pendiente o rechazada: se muestra la pantalla de revisión.
+    if (_user == null || _stage == AppStage.accountPending) return;
+    _syncTimer?.cancel();
+    setState(() => _stage = AppStage.accountPending);
+  }
+
   Future<void> _clearSession() async {
     _services.api.setToken(null);
     await _services.session.clearSession();
@@ -181,6 +228,17 @@ class _AppFlowState extends State<AppFlow> {
       setState(() {
         _user = user;
         _stage = AppStage.admin;
+        _authNotice = null;
+      });
+      return;
+    }
+
+    // Cuenta nueva: el equipo de FitZone debe aprobarla antes de continuar.
+    if (user.estadoCuenta == 'pendiente' || user.estadoCuenta == 'rechazado') {
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+        _stage = AppStage.accountPending;
         _authNotice = null;
       });
       return;
@@ -711,6 +769,23 @@ class _AppFlowState extends State<AppFlow> {
           );
         }
         return AdminShell(key: key, user: admin, onLogout: _handleLogout);
+
+            case AppStage.accountPending:
+        final BackendUser? waiting = _user;
+        if (waiting == null) {
+          return PlanSelectionScreen(
+            key: key,
+            plans: _plans,
+            onSelectPlan: _handleSelectPlan,
+          );
+        }
+        return AccountPendingScreen(
+          key: key,
+          user: waiting,
+          refresh: _refreshUser,
+          onApproved: _handleAccountApproved,
+          onLogout: _handleLogout,
+        );
     }
   }
 

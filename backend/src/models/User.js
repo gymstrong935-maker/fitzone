@@ -54,9 +54,12 @@ const userSchema = new mongoose.Schema({
 
   estadoCuenta: {
     type: String,
-    enum: ['activo', 'inactivo', 'suspendido'],
-    default: 'activo'
+    // pendiente: espera aprobación del equipo · rechazado: no fue aprobada
+    enum: ['pendiente', 'activo', 'rechazado', 'inactivo', 'suspendido'],
+    default: 'pendiente'
   },
+
+  motivoRechazo: String,
 
   entrenadorAsignado: {
     type: mongoose.Schema.Types.ObjectId,

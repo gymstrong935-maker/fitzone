@@ -1,5 +1,6 @@
 import Notification from '../models/Notification.js';
-import transporter from '../utils/mailer.js';
+import { enviarCorreoSeguro } from '../utils/enviarCorreoSeguro.js';
+import { correoAviso, escapeHtml } from '../utils/emailTemplates.js';
 
 const notificarUsuario = async (usuario, { mensaje, asuntoCorreo, htmlCorreo }) => {
   try {
@@ -11,11 +12,14 @@ const notificarUsuario = async (usuario, { mensaje, asuntoCorreo, htmlCorreo }) 
     });
 
     if (usuario.email) {
-      await transporter.sendMail({
+      await enviarCorreoSeguro({
         from: process.env.EMAIL_USER,
         to: usuario.email,
-        subject: asuntoCorreo,
-        html: htmlCorreo
+        subject: asuntoCorreo || 'FitZone',
+        html: correoAviso({
+          titulo: asuntoCorreo,
+          contenidoHtml: htmlCorreo || `<p>${escapeHtml(mensaje)}</p>`
+        })
       });
     }
   } catch (error) {
