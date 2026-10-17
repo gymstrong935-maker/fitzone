@@ -24,7 +24,8 @@ import '../nutrition/nutrition_screen.dart';
 import '../plan/plan_screen.dart';
 import '../settings/settings_screen.dart';
 import '../stats/stats_screen.dart';
-import '../workout/data/exercises_data.dart';
+import '../workout/data/routines_data.dart';
+import '../workout/models/exercise.dart';
 import '../workout/models/workout_log.dart';
 import '../workout/workout_screen.dart';
 import 'widgets/fz_bottom_nav.dart';
@@ -72,6 +73,8 @@ class _MainShellState extends State<MainShell> {
   String _active = 'home';
   String _prev = 'home';
   bool _workoutActive = false;
+  /// Ejercicios de la rutina que se está haciendo.
+  List<Exercise> _workoutExercises = const <Exercise>[];
   bool _isLight = false;
 
   /// Perfil editable (nombre, objetivo y entrenador se pueden cambiar en
@@ -130,7 +133,14 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
-  void _startWorkout() => setState(() => _workoutActive = true);
+  void _startWorkout() {
+    final List<Exercise> exercises = routineForDate(DateTime.now())
+        .exercisesFor(_profile.onboardingData.experienceLevel);
+    setState(() {
+      _workoutExercises = exercises;
+      _workoutActive = true;
+    });
+  }
 
   void _cancelWorkout() => setState(() => _workoutActive = false);
 
@@ -145,7 +155,7 @@ class _MainShellState extends State<MainShell> {
       durationMinutes: log.duration,
       calories: log.duration * 8,
       exercises: <SavedExercise>[
-        for (final exercise in kExercises)
+        for (final Exercise exercise in _workoutExercises)
           SavedExercise(
             name: exercise.name,
             muscleGroup: exercise.muscleGroup,
@@ -189,7 +199,7 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     if (_workoutActive) {
       return WorkoutScreen(
-        exercises: kExercises,
+        exercises: _workoutExercises,
         onComplete: _completeWorkout,
         onCancel: _cancelWorkout,
       );

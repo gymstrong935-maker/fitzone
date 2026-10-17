@@ -3,10 +3,11 @@ import verificarToken, { verificarAdmin } from '../middleware/authMiddleware.js'
 import validar from '../middleware/validar.js';
 import {
   usuarioAdminSchema, planAdminSchema, grupoAdminSchema, anuncioSchema,
-  respuestaTicketSchema, estadoTicketSchema
+  respuestaTicketSchema, estadoTicketSchema, rechazoSchema
 } from '../validators/adminValidator.js';
 import {
   obtenerEstadisticas, listarUsuarios, detalleUsuario, actualizarUsuarioAdmin,
+  aprobarCuenta, rechazarCuenta,
   listarSuscripciones, aprobarConPago, rechazarConPago, listarPagos,
   listarPlanes, actualizarPlan,
   listarGrupos, crearGrupo, actualizarGrupo, eliminarGrupo,
@@ -25,6 +26,8 @@ router.get('/stats', obtenerEstadisticas);
 router.get('/users', listarUsuarios);
 router.get('/users/:id', detalleUsuario);
 router.put('/users/:id', validar(usuarioAdminSchema), actualizarUsuarioAdmin);
+router.put('/users/:id/aprobar', aprobarCuenta);
+router.put('/users/:id/rechazar', validar(rechazoSchema), rechazarCuenta);
 
 router.get('/subscriptions', listarSuscripciones);
 router.put('/subscriptions/:id/aprobar', aprobarConPago);

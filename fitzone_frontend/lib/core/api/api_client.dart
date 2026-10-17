@@ -7,15 +7,25 @@ import 'api_config.dart';
 import 'api_exception.dart';
 
 /// Cliente HTTP del backend: agrega el token, convierte errores en
-/// [ApiException] y avisa cuando el token deja de servir.
+/// [ApiException] y avisa cuando el token o la cuenta dejan de servir.
 class ApiClient {
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
+
+  static const Set<String> _blockedCodes = <String>{
+    'CUENTA_PENDIENTE',
+    'CUENTA_RECHAZADA',
+    'CUENTA_SUSPENDIDA',
+  };
 
   final http.Client _client;
   String? _token;
 
   /// Se ejecuta cuando el servidor rechaza el token (vencido o inválido).
   void Function()? onSessionExpired;
+
+  /// Se ejecuta cuando la cuenta está pendiente, rechazada o suspendida
+  /// (recibe el código: CUENTA_PENDIENTE, CUENTA_RECHAZADA o CUENTA_SUSPENDIDA).
+  void Function(String code)? onAccountBlocked;
 
   String? get token => _token;
 
@@ -83,6 +93,11 @@ class ApiClient {
     if (status >= 200 && status < 300) return data;
 
     final ApiException error = _toException(status, data);
+
+    if (status == 403 && error.code != null && _blockedCodes.contains(error.code)) {
+      onAccountBlocked?.call(error.code!);
+      throw error;
+    }
 
     final bool tokenRejected = _token != null &&
         (status == 401 ||

@@ -17,6 +17,7 @@ import 'widgets/stat_pill.dart';
 import 'widgets/today_workout_card.dart';
 import 'widgets/trainer_card.dart';
 import 'widgets/weekly_progress_card.dart';
+import '../workout/data/routines_data.dart';
 
 /// Pantalla "Inicio".
 class HomeScreen extends StatefulWidget {
@@ -76,7 +77,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final int workoutsThisWeek = widget.weekProgress.where((bool d) => d).length;
     final int weeklyGoal = habits.frequency;
-    final TodayWorkout workout = todayWorkoutFor(data.experienceLevel);
+    final routine = routineForDate(DateTime.now());
+    final routineExercises = routine.exercisesFor(data.experienceLevel);
+    final TodayWorkout workout = TodayWorkout(
+      name: routine.name,
+      exercises: routineExercises.length,
+      duration: estimateMinutes(routineExercises),
+    );
     final double bottomPadding = 96 + MediaQuery.paddingOf(context).bottom;
 
     return SingleChildScrollView(

@@ -422,14 +422,8 @@ class _Bubble extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: error
-                    ? const Color.fromRGBO(239, 68, 68, 0.10)
-                    : AppColors.whiteA(0.06),
-                border: Border.all(
-                  color: error
-                      ? const Color.fromRGBO(239, 68, 68, 0.25)
-                      : AppColors.whiteA(0.10),
-                ),
+                color: AppColors.whiteA(0.06),
+                border: Border.all(color: AppColors.whiteA(0.10)),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(4),
                   topRight: Radius.circular(18),
@@ -445,7 +439,7 @@ class _Bubble extends StatelessWidget {
                     message.text,
                     style: AppText.body(
                       size: 14,
-                      color: error ? const Color(0xFFF87171) : Colors.white,
+                      color: Colors.white,
                       height: 1.5,
                     ),
                   ),

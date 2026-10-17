@@ -84,6 +84,7 @@ class _AdminShellState extends State<AdminShell> {
   int _badge(AdminSection s) {
     if (s == AdminSection.payments) return _controller.pendingPayments;
     if (s == AdminSection.support) return _controller.openTickets;
+    if (s == AdminSection.users) return _controller.pendingAccounts;
     return 0;
   }
 
@@ -95,7 +96,7 @@ class _AdminShellState extends State<AdminShell> {
       case AdminSection.payments:
         page = AdminPaymentsScreen(service: _service, controller: _controller);
       case AdminSection.users:
-        page = AdminUsersScreen(service: _service);
+        page = AdminUsersScreen(service: _service, controller: _controller);
       case AdminSection.coaches:
         page = AdminCoachesScreen(service: _service);
       case AdminSection.plans:

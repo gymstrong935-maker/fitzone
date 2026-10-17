@@ -8,7 +8,7 @@ const limite = (produccion, desarrollo) => (esProduccion ? produccion : desarrol
 export const limitarLogin = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: limite(5, 100),
-  message: { mensaje: 'Demasiados intentos de inicio de sesión. Intenta de nuevo en 15 minutos.' },
+  message: { mensaje: 'Demasiados intentos. Intenta de nuevo en 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -21,18 +21,24 @@ export const limitarRegistro = rateLimit({
   legacyHeaders: false
 });
 
+// El chat nunca responde con un error: avisa con un mensaje normal.
 export const limitarChat = rateLimit({
-  windowMs: 60 * 1000, // 1 minuto
-  max: limite(10, 100), // máximo 10 mensajes por minuto en producción
-  message: { mensaje: 'Estás enviando mensajes muy rápido. Espera un momento.' },
+  windowMs: 60 * 1000,
+  max: limite(10, 100),
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  handler: (req, res) =>
+    res.status(200).json({
+      respuesta:
+        'Estás escribiendo muy rápido. Dame unos segundos y vuelve a preguntarme, por favor.',
+      origen: 'limite'
+    })
 });
 
 export const limitarRecuperacion = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: limite(3, 100),
-  message: { mensaje: 'Demasiadas solicitudes de recuperación. Intenta más tarde.' },
+  message: { mensaje: 'Demasiadas solicitudes. Intenta más tarde.' },
   standardHeaders: true,
   legacyHeaders: false
 });

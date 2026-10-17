@@ -27,11 +27,16 @@ class AdminService {
   }
 
   // Usuarios
-  Future<Map<String, dynamic>> users({String q = '', String rol = ''}) async {
+  Future<Map<String, dynamic>> users({
+    String q = '',
+    String rol = '',
+    String estado = '',
+  }) async {
     final String qs = _query(<String, String>{
       'limit': '100',
       if (q.trim().isNotEmpty) 'q': q.trim(),
       if (rol.isNotEmpty) 'rol': rol,
+      if (estado.isNotEmpty) 'estado': estado,
     });
     return _map(await _api.get('/api/admin/users?$qs'));
   }
@@ -41,6 +46,17 @@ class AdminService {
 
   Future<void> updateUser(String id, Map<String, dynamic> body) async {
     await _api.put('/api/admin/users/$id', body: body);
+  }
+
+    Future<void> approveUser(String id) async {
+    await _api.put('/api/admin/users/$id/aprobar');
+  }
+
+  Future<void> rejectUser(String id, {String reason = ''}) async {
+    await _api.put(
+      '/api/admin/users/$id/rechazar',
+      body: <String, dynamic>{if (reason.trim().isNotEmpty) 'motivo': reason.trim()},
+    );
   }
 
   // Suscripciones y pagos

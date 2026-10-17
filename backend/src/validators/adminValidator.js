@@ -39,3 +39,7 @@ export const respuestaTicketSchema = z.object({
 });
 
 export const estadoTicketSchema = z.object({ estado: estadoTicket });
+
+export const rechazoSchema = z.object({
+  motivo: z.string().trim().max(200, 'El motivo no puede superar 200 caracteres').optional()
+});

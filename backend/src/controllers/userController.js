@@ -9,8 +9,14 @@ import transporter from '../utils/mailer.js';
 import { crearSuscripcionParaPlan } from '../helpers/suscripciones.js';
 import { borrarImagenCloudinary } from '../utils/cloudinary.js';
 import { enviarCorreoSeguro } from '../utils/enviarCorreoSeguro.js';
+import notificarAdmin from '../helpers/notificarAdmin.js';
+import {MINUTOS_CODIGO, correoVerificacion, correoRecuperacion, escapeHtml} from '../utils/emailTemplates.js';
 
 const googleClient = new OAuth2Client();
+
+// Códigos de 6 dígitos (criptográficamente aleatorios) que vencen en 15 minutos
+const crearCodigo = () => crypto.randomInt(100000, 1000000).toString();
+const vencimientoCodigo = () => Date.now() + MINUTOS_CODIGO * 60 * 1000;
 
 
 // ======================================================
@@ -48,9 +54,7 @@ export const registrarUsuario = async (req, res) => {
       });
     }
 
-    const codigoVerificacion = Math.floor(
-      100000 + Math.random() * 900000
-    ).toString();
+    const codigoVerificacion = crearCodigo();
 
     const nuevoUsuario = await User.create({
       nombre,
@@ -59,8 +63,9 @@ export const registrarUsuario = async (req, res) => {
       telefono,
       planActual: plan._id,
       cuentaVerificada: false,
-      codigoVerificacion,
-      codigoVerificacionExpira: Date.now() + 15 * 60 * 1000
+      estadoCuenta: 'pendiente', // el equipo debe aprobar la cuenta
+      codigoVerificacion: hashCodigo(codigoVerificacion),
+      codigoVerificacionExpira: vencimientoCodigo()
     });
 
     await crearSuscripcionParaPlan(
@@ -70,31 +75,23 @@ export const registrarUsuario = async (req, res) => {
     );
 
     if (process.env.NODE_ENV !== 'production') {
-    console.log(`🔐 [DEV] Código de verificación de ${nuevoUsuario.email}: ${codigoVerificacion}`);
+      console.log(`🔐 [DEV] Código de verificación de ${nuevoUsuario.email}: ${codigoVerificacion}`);
     }
 
+    const correo = correoVerificacion({
+      nombre: nuevoUsuario.nombre,
+      codigo: codigoVerificacion
+    });
+
     await enviarCorreoSeguro({
-    from: process.env.EMAIL_USER,
-    to: nuevoUsuario.email,
-    subject: 'Verifica tu cuenta - FitZone',
-      html: `
-        <p>Hola ${nuevoUsuario.nombre},</p>
-
-        <p>
-          Tu código de verificación es:
-          <strong>${codigoVerificacion}</strong>
-        </p>
-
-        <p>Este código vence en 15 minutos.</p>
-
-        <p>Gracias por registrarte en FitZone.</p>
-      `
+      from: process.env.EMAIL_USER,
+      to: nuevoUsuario.email,
+      subject: correo.asunto,
+      html: correo.html
     });
 
     return res.status(201).json({
-      mensaje: plan.esGratuito
-        ? 'Usuario registrado con plan gratuito. Revisa tu correo para verificar tu cuenta.'
-        : 'Usuario registrado. Tu plan está pendiente de aprobación. Revisa tu correo para verificar tu cuenta.',
+      mensaje: 'Cuenta creada. Revisa tu correo para verificarla; después el equipo de FitZone aprobará tu cuenta.',
       usuario: nuevoUsuario
     });
 
@@ -130,8 +127,14 @@ export const verificarCuenta = async (req, res) => {
       });
     }
 
+    // Se acepta el código cifrado (nuevo) o en texto (cuentas creadas antes)
+    const coincide =
+      !!usuario.codigoVerificacion &&
+      [hashCodigo(codigo), codigo].includes(usuario.codigoVerificacion);
+
     if (
-      usuario.codigoVerificacion !== codigo ||
+      !coincide ||
+      !usuario.codigoVerificacionExpira ||
       usuario.codigoVerificacionExpira < Date.now()
     ) {
       return res.status(400).json({
@@ -144,6 +147,18 @@ export const verificarCuenta = async (req, res) => {
     usuario.codigoVerificacionExpira = undefined;
 
     await usuario.save();
+
+    // Ahora sí: hay una cuenta verificada esperando aprobación
+    if (usuario.estadoCuenta === 'pendiente') {
+      await notificarAdmin({
+        mensaje: `Nueva cuenta por aprobar: ${usuario.nombre} (${usuario.email}).`,
+        asuntoCorreo: 'Nueva cuenta por aprobar',
+        htmlCorreo: `
+          <p>Se registró y verificó su correo <strong>${escapeHtml(usuario.nombre)}</strong> (${escapeHtml(usuario.email)}).</p>
+          <p>Entra al panel administrativo, sección <strong>Usuarios</strong>, para aprobar o rechazar la cuenta.</p>
+        `
+      });
+    }
 
     return res.json({
       mensaje: 'Cuenta verificada correctamente'
@@ -181,37 +196,28 @@ export const reenviarCodigo = async (req, res) => {
       });
     }
 
-    const codigoVerificacion = Math.floor(
-      100000 + Math.random() * 900000
-    ).toString();
+    const codigoVerificacion = crearCodigo();
 
-    usuario.codigoVerificacion = codigoVerificacion;
-
-    usuario.codigoVerificacionExpira =
-      Date.now() + 15 * 60 * 1000;
+    usuario.codigoVerificacion = hashCodigo(codigoVerificacion);
+    usuario.codigoVerificacionExpira = vencimientoCodigo();
 
     await usuario.save();
 
     if (process.env.NODE_ENV !== 'production') {
-    console.log(`🔐 [DEV] Nuevo código de ${usuario.email}: ${codigoVerificacion}`);
+      console.log(`🔐 [DEV] Nuevo código de ${usuario.email}: ${codigoVerificacion}`);
     }
+
+    const correo = correoVerificacion({
+      nombre: usuario.nombre,
+      codigo: codigoVerificacion,
+      reenvio: true
+    });
 
     await enviarCorreoSeguro({
       from: process.env.EMAIL_USER,
       to: usuario.email,
-      subject: 'Nuevo código de verificación - FitZone',
-      html: `
-        <p>Hola ${usuario.nombre},</p>
-
-        <p>
-          Tu nuevo código de verificación es:
-          <strong>${codigoVerificacion}</strong>
-        </p>
-
-        <p>Este código vence en 15 minutos.</p>
-
-        <p>Gracias por usar FitZone.</p>
-      `
+      subject: correo.asunto,
+      html: correo.html
     });
 
     return res.json({
@@ -262,15 +268,18 @@ export const iniciarSesion = async (req, res) => {
     }
 
     if (usuario.cuentaVerificada === false) {
-    return res.status(403).json({
-    mensaje: 'Debes verificar tu cuenta antes de iniciar sesión',
-    codigo: 'CUENTA_NO_VERIFICADA'
-    });
+      return res.status(403).json({
+        mensaje: 'Debes verificar tu cuenta antes de iniciar sesión',
+        codigo: 'CUENTA_NO_VERIFICADA'
+      });
     }
 
-    if (usuario.estadoCuenta !== 'activo') {
+    // Suspendidas o inactivas no entran. Las pendientes o rechazadas sí reciben
+    // sesión para ver su estado, pero el servidor les bloquea el resto (authMiddleware).
+    if (['inactivo', 'suspendido'].includes(usuario.estadoCuenta)) {
       return res.status(403).json({
-        mensaje: 'La cuenta no está activa'
+        mensaje: 'Tu cuenta está suspendida. Contacta al equipo de FitZone.',
+        codigo: 'CUENTA_SUSPENDIDA'
       });
     }
 
@@ -683,12 +692,10 @@ export const solicitarRecuperacion = async (req, res) => {
       return res.json(respuesta);
     }
 
-    const codigo = Math.floor(
-      100000 + Math.random() * 900000
-    ).toString();
+    const codigo = crearCodigo();
 
     usuario.resetPasswordToken = hashCodigo(codigo);
-    usuario.resetPasswordExpira = Date.now() + 15 * 60 * 1000;
+    usuario.resetPasswordExpira = vencimientoCodigo();
 
     await usuario.save();
 
@@ -696,22 +703,13 @@ export const solicitarRecuperacion = async (req, res) => {
       console.log(`🔐 [DEV] Código para restablecer la contraseña de ${usuario.email}: ${codigo}`);
     }
 
+    const correo = correoRecuperacion({ nombre: usuario.nombre, codigo });
+
     await enviarCorreoSeguro({
       from: process.env.EMAIL_USER,
       to: usuario.email,
-      subject: 'Recuperación de contraseña - FitZone',
-      html: `
-        <p>Hola ${usuario.nombre || ''},</p>
-
-        <p>
-          Tu código para restablecer la contraseña es:
-          <strong style="font-size:20px">${codigo}</strong>
-        </p>
-
-        <p>Este código vence en 15 minutos.</p>
-
-        <p>Si no solicitaste este cambio, puedes ignorar este correo.</p>
-      `
+      subject: correo.asunto,
+      html: correo.html
     });
 
     return res.json(respuesta);

@@ -94,6 +94,15 @@ class AdminDashboardScreen extends StatelessWidget {
         sub: '+${asNum(users['nuevosSemana']).toInt()} esta semana',
         onTap: () => onNavigate(AdminSection.users),
       ),
+        _Tile(
+        icon: Icons.how_to_reg_outlined,
+        color: const Color(0xFFFBBF24),
+        label: 'Cuentas por aprobar',
+        value: '${asNum(users['pendientes']).toInt()}',
+        sub: asNum(users['pendientes']) == 0 ? 'todo al día' : 'esperan tu aprobación',
+        alert: asNum(users['pendientes']) > 0,
+        onTap: () => onNavigate(AdminSection.users),
+      ),
       _Tile(
         icon: Icons.verified_outlined,
         color: const Color(0xFF34D399),

@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
-import transporter from '../utils/mailer.js';
+import { enviarCorreoSeguro } from '../utils/enviarCorreoSeguro.js';
+import { correoAviso, escapeHtml } from '../utils/emailTemplates.js';
 
 const notificarAdmin = async ({ mensaje, asuntoCorreo, htmlCorreo }) => {
   try {
@@ -17,17 +18,20 @@ const notificarAdmin = async ({ mensaje, asuntoCorreo, htmlCorreo }) => {
 
       // Correo al admin
       if (admin.email) {
-        await transporter.sendMail({
+        await enviarCorreoSeguro({
           from: process.env.EMAIL_USER,
           to: admin.email,
-          subject: asuntoCorreo,
-          html: htmlCorreo
+          subject: asuntoCorreo || 'FitZone',
+          html: correoAviso({
+            titulo: asuntoCorreo,
+            contenidoHtml: htmlCorreo || `<p>${escapeHtml(mensaje)}</p>`
+          })
         });
       }
     }
   } catch (error) {
+    // Si falla el aviso, no debe tumbar el registro del usuario
     console.error('❌ Error al notificar al admin:', error.message);
-    // No relanzamos el error: si falla la notificación, no debe tumbar el registro del usuario
   }
 };
 
