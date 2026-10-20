@@ -112,6 +112,7 @@ class _AdminShellState extends State<AdminShell> {
         page = AdminAppointmentsScreen(service: _service);
       case AdminSection.announcements:
         page = AdminAnnouncementsScreen(service: _service);
+    }
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 180),

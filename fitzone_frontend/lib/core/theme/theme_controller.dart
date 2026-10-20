@@ -68,7 +68,7 @@ class ThemeController extends ChangeNotifier {
   /// El blanco resultante es #F1F5F9 (no blanco puro).
   static const List<double> _scale = <double>[241 / 255, 245 / 255, 249 / 255];
 
-  static final List<double> _light = <double>[
+  static final List<double> _lightMatrix = <double>[
     for (int row = 0; row < 3; row++)
       for (int col = 0; col < 5; col++) _flip[row * 5 + col] * _scale[row],
     0, 0, 0, 1, 0,
@@ -79,7 +79,7 @@ class ThemeController extends ChangeNotifier {
 
   /// Filtro de toda la app (`t` = 0 oscuro … 1 claro).
   static ColorFilter filterFor(double t) =>
-      ColorFilter.matrix(_lerp(_identity, _light, t));
+      ColorFilter.matrix(_lerp(_identity, _lightMatrix, t));
 
   /// Deshace el filtro en las fotos para que conserven sus colores.
   static ColorFilter counterFor(double t) =>

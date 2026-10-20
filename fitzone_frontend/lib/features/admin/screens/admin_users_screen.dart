@@ -8,7 +8,6 @@ import '../../../core/utils/format.dart';
 import '../widgets/admin_widgets.dart';
 import '../admin_controller.dart';
 
-/// Usuarios: búsqueda, rol, estado, historial y avisos.
 /// Usuarios: búsqueda, aprobación de cuentas nuevas, rol, estado y avisos.
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key, required this.service, required this.controller});
@@ -385,25 +384,6 @@ class _UserEditor extends StatefulWidget {
 
   @override
   State<_UserEditor> createState() => _UserEditorState();
-    Future<void> _revoke() async {
-    final String? reason = await showAdminSheet<String>(
-      context,
-      (BuildContext ctx) => _RevokeSheet(
-        name: str(_user['nombre']),
-        email: str(_user['email']),
-      ),
-    );
-    if (reason == null || !mounted) return;
-
-    try {
-      await widget.service.revokeUser(str(_user['_id']), reason: reason);
-      if (!mounted) return;
-      adminToast(context, 'Cuenta eliminada. Si intenta entrar verá que fue revocada.');
-      Navigator.of(context).pop(true);
-    } on ApiException catch (e) {
-      if (mounted) adminToast(context, e.message, error: true);
-    }
-  }
 }
 
 class _UserEditorState extends State<_UserEditor> {
@@ -474,6 +454,26 @@ class _UserEditorState extends State<_UserEditor> {
       if (!mounted) return;
       _notice.clear();
       adminToast(context, 'Notificación enviada');
+    } on ApiException catch (e) {
+      if (mounted) adminToast(context, e.message, error: true);
+    }
+  }
+
+  Future<void> _revoke() async {
+    final String? reason = await showAdminSheet<String>(
+      context,
+      (BuildContext ctx) => _RevokeSheet(
+        name: str(_user['nombre']),
+        email: str(_user['email']),
+      ),
+    );
+    if (reason == null || !mounted) return;
+
+    try {
+      await widget.service.revokeUser(str(_user['_id']), reason: reason);
+      if (!mounted) return;
+      adminToast(context, 'Cuenta eliminada. Si intenta entrar verá que fue revocada.');
+      Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (mounted) adminToast(context, e.message, error: true);
     }
@@ -592,11 +592,6 @@ class _UserEditorState extends State<_UserEditor> {
                 ],
               ),
             ),
-      ],
-    );
-  }
-}
-
         if (str(_user['rol']) != 'admin') ...<Widget>[
           const SizedBox(height: 32),
           Container(
@@ -630,6 +625,10 @@ class _UserEditorState extends State<_UserEditor> {
             ),
           ),
         ],
+      ],
+    );
+  }
+}
 
 /// Confirmación para eliminar una cuenta: hay que escribir el correo.
 class _RevokeSheet extends StatefulWidget {

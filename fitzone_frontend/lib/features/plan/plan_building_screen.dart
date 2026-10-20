@@ -55,7 +55,7 @@ class _PlanBuildingScreenState extends State<PlanBuildingScreen>
       if (!_finished && s >= _doneAt) {
         _finished = true;
         _ticker.stop();
-        widget.onDone();
+        if (mounted) widget.onDone();
       }
     })..start();
   }
