@@ -9,6 +9,8 @@ import '../../core/widgets/ellipse_glow.dart';
 import '../../core/widgets/shimmer_top_bar.dart';
 import '../onboarding/data/experience_levels_data.dart';
 import '../onboarding/data/goals_data.dart';
+import '../onboarding/models/experience_level.dart';
+import '../onboarding/models/goal.dart';
 import '../onboarding/models/onboarding_data.dart';
 import 'data/plan_generator.dart';
 
