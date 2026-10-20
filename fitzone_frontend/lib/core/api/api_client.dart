@@ -15,6 +15,7 @@ class ApiClient {
     'CUENTA_PENDIENTE',
     'CUENTA_RECHAZADA',
     'CUENTA_SUSPENDIDA',
+    'CUENTA_REVOCADA',
   };
 
   final http.Client _client;

@@ -28,6 +28,7 @@ router.get('/users/:id', detalleUsuario);
 router.put('/users/:id', validar(usuarioAdminSchema), actualizarUsuarioAdmin);
 router.put('/users/:id/aprobar', aprobarCuenta);
 router.put('/users/:id/rechazar', validar(rechazoSchema), rechazarCuenta);
+router.post('/users/:id/revocar', validar(rechazoSchema), revocarCuenta);
 
 router.get('/subscriptions', listarSuscripciones);
 router.put('/subscriptions/:id/aprobar', aprobarConPago);

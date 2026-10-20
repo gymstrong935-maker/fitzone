@@ -1,0 +1,24 @@
+{
+  "name": "fitzone",
+  "version": "1.0.0",
+  "description": "app gimnsaio",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gymstrong935-maker/fitzone.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/gymstrong935-maker/fitzone/issues"
+  },
+  "homepage": "https://github.com/gymstrong935-maker/fitzone#readme",
+  "dependencies": {
+    "sharp": "^0.35.5"
+  }
+}

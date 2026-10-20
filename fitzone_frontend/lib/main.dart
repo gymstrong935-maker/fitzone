@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'core/api/api_exception.dart';
 import 'core/models/user_profile.dart';
@@ -11,7 +10,12 @@ import 'core/services/backend_models.dart';
 import 'core/services/onboarding_sync_service.dart';
 import 'core/services/subscription_service.dart';
 import 'core/session/session_storage.dart';
+import 'core/theme/app_colors.dart';
+import 'core/theme/app_text.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_controller.dart';
+import 'features/admin/admin_shell.dart';
+import 'features/auth/account_pending_screen.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/auth/email_verification_screen.dart';
 import 'features/auth/reset_password_screen.dart';
@@ -22,28 +26,25 @@ import 'features/onboarding/onboarding_flow.dart';
 import 'features/payment_method/models/payment_models.dart';
 import 'features/payment_method/payment_method_screen.dart';
 import 'features/payment_validation/payment_validation_screen.dart';
+import 'features/plan/data/plan_generator.dart';
+import 'features/plan/plan_building_screen.dart';
 import 'features/plan_selection/data/plans_data.dart';
 import 'features/plan_selection/data/plans_mapper.dart';
 import 'features/plan_selection/models/plan.dart';
 import 'features/plan_selection/plan_selection_screen.dart';
 import 'features/shell/main_shell.dart';
-import 'features/admin/admin_shell.dart';
-import 'features/auth/account_pending_screen.dart';
+import 'features/splash/splash_screen.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light, // Android
-      statusBarBrightness: Brightness.dark, // iOS
-    ),
-  );
+  await ThemeController.instance.load();
   runApp(const FitZoneApp());
 }
 
 class FitZoneApp extends StatelessWidget {
   const FitZoneApp({super.key});
+
+  static final GlobalKey _appKey = GlobalKey(debugLabel: 'fz_app');
 
   @override
   Widget build(BuildContext context) {
@@ -52,11 +53,34 @@ class FitZoneApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       home: const AppFlow(),
+      // El modo claro se aplica sobre TODA la app (incluye hojas y diálogos).
+      builder: (BuildContext context, Widget? child) {
+        final Widget app = KeyedSubtree(key: _appKey, child: child ?? const SizedBox());
+
+        return ListenableBuilder(
+          listenable: ThemeController.instance,
+          builder: (BuildContext context, Widget? _) {
+            return TweenAnimationBuilder<double>(
+              tween: Tween<double>(end: ThemeController.instance.isLight ? 1.0 : 0.0),
+              duration: const Duration(milliseconds: 450),
+              curve: Curves.easeInOut,
+              child: app,
+              builder: (BuildContext context, double t, Widget? c) {
+                if (t <= 0.001) return c!;
+                return ColorFiltered(
+                  colorFilter: ThemeController.filterFor(t),
+                  child: c,
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 }
 
-/// Etapas de la app.
+/// Etapas de la app (el orden define la dirección de las transiciones).
 enum AppStage {
   boot,
   planSelection,
@@ -67,6 +91,7 @@ enum AppStage {
   paymentMethod,
   paymentValidation,
   onboarding,
+  building,
   main,
   admin,
 }
@@ -82,6 +107,14 @@ class _RegistrationDraft {
   final String name;
   final String email;
   final String password;
+}
+
+class _Notice {
+  const _Notice(this.title, this.message, this.icon);
+
+  final String title;
+  final String message;
+  final IconData icon;
 }
 
 class AppFlow extends StatefulWidget {
@@ -106,15 +139,19 @@ class _AppFlowState extends State<AppFlow> {
   BackendUser? _user;
   SubscriptionStatus? _subscriptionStatus;
   UserProfile? _profile;
+  OnboardingData? _pendingData;
 
-  /// Recuperar contraseña: correo al que se envió el código y aviso para
-  /// mostrar al volver al inicio de sesión.
   String? _resetEmail;
   String? _authNotice;
 
-  /// Reintenta enviar el onboarding al servidor mientras falte algo
-  /// (por ejemplo, hasta que aprueben el pago).
   Timer? _syncTimer;
+
+  // Splash y transiciones
+  bool _splashReleased = false;
+  bool _splashDone = false;
+  AppStage _lastShown = AppStage.boot;
+  bool _forward = true;
+  _Notice? _pendingNotice;
 
   @override
   void initState() {
@@ -138,6 +175,41 @@ class _AppFlowState extends State<AppFlow> {
       _stage = stage;
       if (stage != AppStage.auth) _authNotice = null;
     });
+  }
+
+  // ── Splash ────────────────────────────────────────────────────────────────
+
+  void _onSplashExit() {
+    if (!mounted) return;
+    setState(() => _splashReleased = true);
+
+    final _Notice? notice = _pendingNotice;
+    if (notice != null) {
+      _pendingNotice = null;
+      Future<void>.delayed(const Duration(milliseconds: 700), () => _presentNotice(notice));
+    }
+  }
+
+  void _onSplashComplete() {
+    if (mounted) setState(() => _splashDone = true);
+  }
+
+  void _showNotice(String title, String message, IconData icon) {
+    final _Notice notice = _Notice(title, message, icon);
+    if (!_splashReleased) {
+      _pendingNotice = notice;
+      return;
+    }
+    _presentNotice(notice);
+  }
+
+  Future<void> _presentNotice(_Notice notice) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierColor: const Color(0xB3000000),
+      builder: (BuildContext ctx) => _NoticeDialog(notice: notice),
+    );
   }
 
   // ── Arranque y sesión guardada ────────────────────────────────────────────
@@ -172,6 +244,11 @@ class _AppFlowState extends State<AppFlow> {
     await _enterApp(user);
   }
 
+  Future<void> _clearSession() async {
+    _services.api.setToken(null);
+    await _services.session.clearSession();
+  }
+
   /// Vuelve a pedir el usuario al servidor (para ver si ya aprobaron la cuenta).
   Future<BackendUser> _refreshUser() async {
     final BackendUser? current = _user;
@@ -192,20 +269,20 @@ class _AppFlowState extends State<AppFlow> {
     _enterApp(user);
   }
 
-  /// El servidor avisó que la cuenta quedó pendiente, rechazada o suspendida.
+  /// El servidor avisó que la cuenta quedó pendiente, rechazada, suspendida o revocada.
   void _handleAccountBlocked(String code) {
     if (!mounted) return;
 
-    if (code == 'CUENTA_SUSPENDIDA') {
+    if (code == 'CUENTA_REVOCADA' || code == 'CUENTA_SUSPENDIDA') {
+      final bool revoked = code == 'CUENTA_REVOCADA';
       _handleLogout();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tu cuenta fue suspendida. Contacta al equipo de FitZone.'),
-          ),
-        );
-      });
+      _showNotice(
+        revoked ? 'Cuenta revocada' : 'Cuenta suspendida',
+        revoked
+            ? 'El equipo de FitZone revocó esta cuenta, por eso ya no puedes usarla. Si crees que es un error, contáctanos por los canales oficiales.'
+            : 'Tu cuenta fue suspendida. Contacta al equipo de FitZone para más información.',
+        revoked ? Icons.gpp_bad_outlined : Icons.pause_circle_outline_rounded,
+      );
       return;
     }
 
@@ -215,14 +292,9 @@ class _AppFlowState extends State<AppFlow> {
     setState(() => _stage = AppStage.accountPending);
   }
 
-  Future<void> _clearSession() async {
-    _services.api.setToken(null);
-    await _services.session.clearSession();
-  }
-
   /// Decide a dónde va un usuario que ya tiene sesión.
   Future<void> _enterApp(BackendUser user) async {
-      // Cuenta de administrador: va directo al panel (sin plan ni onboarding).
+    // Cuenta de administrador: va directo al panel (sin plan ni onboarding).
     if (user.rol == 'admin') {
       if (!mounted) return;
       setState(() {
@@ -401,6 +473,11 @@ class _AppFlowState extends State<AppFlow> {
         _enterApp(user);
       };
     } on ApiException catch (e) {
+      if (e.code == 'CUENTA_REVOCADA') {
+        _showNotice('Cuenta revocada', e.message, Icons.gpp_bad_outlined);
+        rethrow;
+      }
+
       final bool unverified = e.code == 'CUENTA_NO_VERIFICADA' ||
           e.message.contains('verificar tu cuenta');
       if (!unverified) rethrow;
@@ -594,6 +671,17 @@ class _AppFlowState extends State<AppFlow> {
     if (user == null) return;
     await _services.session.saveOnboarding(user.id, data);
     if (!mounted) return;
+    setState(() {
+      _pendingData = data;
+      _stage = AppStage.building; // animación "Creando tu plan"
+    });
+  }
+
+  void _finishBuilding() {
+    final BackendUser? user = _user;
+    final OnboardingData? data = _pendingData;
+    if (user == null || data == null || _stage != AppStage.building) return;
+    _pendingData = null;
     _openMain(user, data); // también empieza a enviarlo al servidor
   }
 
@@ -652,6 +740,7 @@ class _AppFlowState extends State<AppFlow> {
       _user = null;
       _profile = null;
       _draft = null;
+      _pendingData = null;
       _selectedPlan = null;
       _subscriptionStatus = null;
       _authNotice = null;
@@ -666,10 +755,10 @@ class _AppFlowState extends State<AppFlow> {
 
   // ── Pantallas ─────────────────────────────────────────────────────────────
 
-  Widget _buildStage() {
-    final ValueKey<AppStage> key = ValueKey<AppStage>(_stage);
+  Widget _buildStage(AppStage stage) {
+    final ValueKey<AppStage> key = ValueKey<AppStage>(stage);
 
-    switch (_stage) {
+    switch (stage) {
       case AppStage.boot:
         return BootScreen(key: key);
 
@@ -713,6 +802,23 @@ class _AppFlowState extends State<AppFlow> {
           onBack: () => _goTo(AppStage.auth),
         );
 
+      case AppStage.accountPending:
+        final BackendUser? waiting = _user;
+        if (waiting == null) {
+          return PlanSelectionScreen(
+            key: key,
+            plans: _plans,
+            onSelectPlan: _handleSelectPlan,
+          );
+        }
+        return AccountPendingScreen(
+          key: key,
+          user: waiting,
+          refresh: _refreshUser,
+          onApproved: _handleAccountApproved,
+          onLogout: _handleLogout,
+        );
+
       case AppStage.paymentMethod:
         return PaymentMethodScreen(
           key: key,
@@ -737,9 +843,28 @@ class _AppFlowState extends State<AppFlow> {
         return OnboardingFlow(
           key: key,
           planType: _selectedPlan ?? PlanId.free,
+          // "Atrás" en el primer paso: volver a elegir plan.
+          onExit: () => _goTo(AppStage.planSelection),
           onComplete: (OnboardingData data) {
             _handleOnboardingComplete(data);
           },
+        );
+
+      case AppStage.building:
+        final BackendUser? builder = _user;
+        final OnboardingData? data = _pendingData;
+        if (builder == null || data == null) {
+          return PlanSelectionScreen(
+            key: key,
+            plans: _plans,
+            onSelectPlan: _handleSelectPlan,
+          );
+        }
+        return PlanBuildingScreen(
+          key: key,
+          data: data,
+          plan: generatePlan(data, since: builder.fechaRegistro),
+          onDone: _finishBuilding,
         );
 
       case AppStage.main:
@@ -759,7 +884,7 @@ class _AppFlowState extends State<AppFlow> {
           onProfileChanged: _handleProfileChanged,
         );
 
-            case AppStage.admin:
+      case AppStage.admin:
         final BackendUser? admin = _user;
         if (admin == null) {
           return PlanSelectionScreen(
@@ -769,49 +894,148 @@ class _AppFlowState extends State<AppFlow> {
           );
         }
         return AdminShell(key: key, user: admin, onLogout: _handleLogout);
-
-            case AppStage.accountPending:
-        final BackendUser? waiting = _user;
-        if (waiting == null) {
-          return PlanSelectionScreen(
-            key: key,
-            plans: _plans,
-            onSelectPlan: _handleSelectPlan,
-          );
-        }
-        return AccountPendingScreen(
-          key: key,
-          user: waiting,
-          refresh: _refreshUser,
-          onApproved: _handleAccountApproved,
-          onLogout: _handleLogout,
-        );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      switchInCurve: const Cubic(0.22, 1, 0.36, 1),
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        final bool incoming = child.key == ValueKey<AppStage>(_stage);
-        final double dy = incoming ? 18.0 : -18.0;
-        return FadeTransition(
-          opacity: animation,
-          child: AnimatedBuilder(
-            animation: animation,
-            child: child,
-            builder: (BuildContext context, Widget? c) {
-              return Transform.translate(
-                offset: Offset(0, (1 - animation.value) * dy),
-                child: c,
-              );
-            },
+    // Hasta que la animación inicial empieza a desvanecerse se muestra el fondo
+    // de arranque; así la primera pantalla entra con su propia animación.
+    final AppStage shown = _splashReleased ? _stage : AppStage.boot;
+    if (shown != _lastShown) {
+      _forward = shown.index >= _lastShown.index;
+      _lastShown = shown;
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 420),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          layoutBuilder: (Widget? current, List<Widget> previous) {
+            return Stack(
+              fit: StackFit.expand,
+              children: <Widget>[...previous, if (current != null) current],
+            );
+          },
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            final bool incoming = child.key == ValueKey<AppStage>(shown);
+            final double dx = (incoming ? 1 : -1) * (_forward ? 1 : -1) * 28.0;
+
+            return FadeTransition(
+              opacity: animation,
+              child: AnimatedBuilder(
+                animation: animation,
+                child: child,
+                builder: (BuildContext context, Widget? c) {
+                  final double v = animation.value;
+                  return Transform.translate(
+                    offset: Offset((1 - v) * dx, 0),
+                    child: Transform.scale(scale: 0.985 + 0.015 * v, child: c),
+                  );
+                },
+              ),
+            );
+          },
+          child: _buildStage(shown),
+        ),
+        if (!_splashDone)
+          SplashScreen(
+            key: const ValueKey<String>('splash'),
+            onExit: _onSplashExit,
+            onComplete: _onSplashComplete,
           ),
-        );
-      },
-      child: _buildStage(),
+      ],
+    );
+  }
+}
+
+/// Aviso de cuenta revocada / suspendida.
+class _NoticeDialog extends StatelessWidget {
+  const _NoticeDialog({required this.notice});
+
+  final _Notice notice;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 380),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.92, end: 1),
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutBack,
+          builder: (BuildContext context, double v, Widget? child) =>
+              Transform.scale(scale: v, child: child),
+          child: Container(
+            padding: const EdgeInsets.all(26),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F0F0F),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.whiteA(0.10)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Center(
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color.fromRGBO(239, 68, 68, 0.12),
+                      border: Border.all(color: const Color.fromRGBO(239, 68, 68, 0.30)),
+                    ),
+                    child: Icon(notice.icon, size: 30, color: const Color(0xFFF87171)),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  notice.title,
+                  textAlign: TextAlign.center,
+                  style: AppText.display(size: 21, weight: FontWeight.w700, height: 1.3),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  notice.message,
+                  textAlign: TextAlign.center,
+                  style: AppText.body(size: 14, color: AppColors.whiteA(0.60), height: 1.55),
+                ),
+                const SizedBox(height: 22),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    height: 48,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: const LinearGradient(
+                        colors: <Color>[AppColors.cyan, AppColors.teal],
+                      ),
+                    ),
+                    child: Text(
+                      'Entendido',
+                      style: AppText.body(
+                        size: 15,
+                        weight: FontWeight.w600,
+                        color: const Color(0xFF0A0A0A),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

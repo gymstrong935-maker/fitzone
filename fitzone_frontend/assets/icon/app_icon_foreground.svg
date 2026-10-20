@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+ <radialGradient id="bg" cx="40%" cy="36%" r="65%"><stop offset="0%" stop-color="#06B6D4" stop-opacity="0.22"/><stop offset="100%" stop-color="#0a0a0a" stop-opacity="0.9"/></radialGradient>
+ <linearGradient id="ring" x1="0" y1="0" x2="96" y2="96" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#06B6D4"/><stop offset=".5" stop-color="#22D3EE"/><stop offset="1" stop-color="#14B8A6"/></linearGradient>
+ <linearGradient id="pl" x1="3" y1="48" x2="12" y2="48" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#06B6D4"/><stop offset="1" stop-color="#22D3EE"/></linearGradient>
+ <linearGradient id="cl" x1="12" y1="48" x2="18" y2="48" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#22D3EE"/><stop offset="1" stop-color="#06B6D4"/></linearGradient>
+ <linearGradient id="bar" x1="18" y1="48" x2="78" y2="48" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#06B6D4"/><stop offset=".5" stop-color="#22D3EE"/><stop offset="1" stop-color="#14B8A6"/></linearGradient>
+ <linearGradient id="cr" x1="78" y1="48" x2="84" y2="48" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#14B8A6"/><stop offset="1" stop-color="#2DD4BF"/></linearGradient>
+ <linearGradient id="pr" x1="84" y1="48" x2="96" y2="48" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#14B8A6"/><stop offset="1" stop-color="#2DD4BF"/></linearGradient>
+ <linearGradient id="bolt" x1="48" y1="18" x2="48" y2="76" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff" stop-opacity=".97"/><stop offset=".45" stop-color="#22D3EE" stop-opacity=".9"/><stop offset="1" stop-color="#06B6D4" stop-opacity=".55"/></linearGradient>
+</defs>
+<g transform="translate(243.2 243.2) scale(5.6)">
+<circle cx="48" cy="48" r="46" fill="url(#bg)"/>
+<circle cx="48" cy="48" r="46" stroke="url(#ring)" stroke-width="1.8" fill="none"/>
+<rect x="3"  y="28" width="9" height="40" rx="4" fill="url(#pl)"/>
+<rect x="12" y="34" width="6" height="28" rx="2" fill="url(#cl)"/>
+<rect x="18" y="41" width="60" height="14" rx="5" fill="url(#bar)"/>
+<rect x="78" y="34" width="6" height="28" rx="2" fill="url(#cr)"/>
+<rect x="84" y="28" width="9" height="40" rx="4" fill="url(#pr)"/>
+<path d="M49 18 L44 44 H52 L47 76" stroke="url(#bolt)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</g>
+</svg>

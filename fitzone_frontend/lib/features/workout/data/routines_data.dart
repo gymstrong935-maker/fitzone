@@ -2,24 +2,26 @@ import '../../onboarding/models/experience_level.dart';
 import '../models/exercise.dart';
 import 'exercises_data.dart';
 
-/// Rutina del día: un grupo de ejercicios de la biblioteca.
+/// Un grupo de ejercicios de la biblioteca.
 class WorkoutRoutine {
   const WorkoutRoutine({required this.name, required this.exerciseIds});
 
   final String name;
   final List<String> exerciseIds;
 
-  /// Ejercicios de la rutina según el nivel (principiante 5, intermedio 6,
-  /// avanzado todos).
-  List<Exercise> exercisesFor(ExperienceLevel? level) {
+  /// Todos los ejercicios de la rutina, tal como están en la biblioteca.
+  List<Exercise> get exercises {
     final Map<String, Exercise> byId = <String, Exercise>{
       for (final Exercise e in kExercises) e.id: e,
     };
-    final List<Exercise> all = <Exercise>[
+    return <Exercise>[
       for (final String id in exerciseIds)
         if (byId[id] != null) byId[id]!,
     ];
+  }
 
+  List<Exercise> exercisesFor(ExperienceLevel? level) {
+    final List<Exercise> all = exercises;
     final int max = switch (level) {
       ExperienceLevel.beginner => 5,
       ExperienceLevel.intermediate => 6,
@@ -29,43 +31,46 @@ class WorkoutRoutine {
   }
 }
 
-const WorkoutRoutine _chestTriceps = WorkoutRoutine(
+const WorkoutRoutine kRoutineChestTriceps = WorkoutRoutine(
   name: 'Pecho y Tríceps',
   exerciseIds: <String>['ex-1', 'ex-8', 'ex-7', 'ex-12', 'ex-14'],
 );
-const WorkoutRoutine _backBiceps = WorkoutRoutine(
+const WorkoutRoutine kRoutineBackBiceps = WorkoutRoutine(
   name: 'Espalda y Bíceps',
   exerciseIds: <String>['ex-5', 'ex-10', 'ex-4', 'ex-6', 'ex-13'],
 );
-const WorkoutRoutine _legsGlutes = WorkoutRoutine(
+const WorkoutRoutine kRoutineLegsGlutes = WorkoutRoutine(
   name: 'Piernas y Glúteos',
   exerciseIds: <String>['ex-2', 'ex-9', 'ex-4', 'ex-15', 'ex-16'],
 );
-const WorkoutRoutine _shouldersCore = WorkoutRoutine(
+const WorkoutRoutine kRoutineShouldersCore = WorkoutRoutine(
   name: 'Hombros y Core',
   exerciseIds: <String>['ex-3', 'ex-11', 'ex-14', 'ex-13', 'ex-17'],
 );
-const WorkoutRoutine _fullBody = WorkoutRoutine(
+const WorkoutRoutine kRoutineFullBody = WorkoutRoutine(
   name: 'Cuerpo Completo',
   exerciseIds: <String>['ex-2', 'ex-1', 'ex-5', 'ex-3', 'ex-9', 'ex-14'],
 );
-const WorkoutRoutine _cardioCore = WorkoutRoutine(
+const WorkoutRoutine kRoutineCardioCore = WorkoutRoutine(
   name: 'Cardio y Core',
   exerciseIds: <String>['ex-18', 'ex-17', 'ex-8', 'ex-9', 'ex-13', 'ex-14'],
 );
+const WorkoutRoutine kRoutineUpperBody = WorkoutRoutine(
+  name: 'Tren Superior',
+  exerciseIds: <String>['ex-1', 'ex-10', 'ex-3', 'ex-6', 'ex-12', 'ex-8'],
+);
 
-/// Lunes a domingo.
+/// Lunes a domingo (respaldo; el plan real lo genera plan_generator.dart).
 const List<WorkoutRoutine> kWeekRoutines = <WorkoutRoutine>[
-  _chestTriceps,
-  _backBiceps,
-  _legsGlutes,
-  _shouldersCore,
-  _fullBody,
-  _cardioCore,
-  _cardioCore,
+  kRoutineChestTriceps,
+  kRoutineBackBiceps,
+  kRoutineLegsGlutes,
+  kRoutineShouldersCore,
+  kRoutineFullBody,
+  kRoutineCardioCore,
+  kRoutineCardioCore,
 ];
 
-/// La rutina que toca en una fecha.
 WorkoutRoutine routineForDate(DateTime date) => kWeekRoutines[date.weekday - 1];
 
 /// Duración aproximada (minutos, redondeada de 5 en 5).

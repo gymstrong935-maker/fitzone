@@ -49,7 +49,10 @@ export const verificarToken = async (req, res, next) => {
     const cuenta = await User.findById(decoded.id).select('estadoCuenta rol');
 
     if (!cuenta) {
-      return res.status(401).json({ mensaje: 'La cuenta ya no existe', codigo: 'CUENTA_INEXISTENTE' });
+      return res.status(403).json({
+        mensaje: 'Tu cuenta fue revocada por el equipo de FitZone.',
+        codigo: 'CUENTA_REVOCADA'
+      });
     }
 
     decoded.rol = cuenta.rol; // el rol vigente (por si lo cambiaron)

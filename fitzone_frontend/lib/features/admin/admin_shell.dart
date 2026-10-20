@@ -15,6 +15,9 @@ import 'screens/admin_plans_screen.dart';
 import 'screens/admin_support_screen.dart';
 import 'screens/admin_users_screen.dart';
 import 'widgets/admin_widgets.dart';
+import 'screens/admin_announcements_screen.dart';
+import 'screens/admin_appointments_screen.dart';
+import 'screens/admin_groups_screen.dart';
 
 enum AdminSection {
   dashboard('Panel', Icons.space_dashboard_outlined),
@@ -104,10 +107,11 @@ class _AdminShellState extends State<AdminShell> {
       case AdminSection.support:
         page = AdminSupportScreen(service: _service, controller: _controller);
       case AdminSection.groups:
+        page = AdminGroupsScreen(service: _service);
       case AdminSection.appointments:
+        page = AdminAppointmentsScreen(service: _service);
       case AdminSection.announcements:
-        page = _ComingSoon(section: _section);
-    }
+        page = AdminAnnouncementsScreen(service: _service);
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 180),
@@ -516,25 +520,6 @@ class _MoreItem extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({required this.section});
-
-  final AdminSection section;
-
-  @override
-  Widget build(BuildContext context) {
-    return AdminPage(
-      title: section.label,
-      subtitle: 'Próximamente',
-      child: const AdminEmpty(
-        icon: Icons.construction_rounded,
-        title: 'Esta sección llega en la siguiente entrega',
-        message: 'El backend ya está listo; falta su pantalla.',
       ),
     );
   }
