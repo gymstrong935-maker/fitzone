@@ -78,8 +78,8 @@ class _PlanScreenState extends State<PlanScreen> {
               children: <Widget>[
                 _buildHeader(),
                 const SizedBox(height: 20),
-                const FadeSlideIn(
-                  duration: Duration(milliseconds: 400),
+                FadeSlideIn(
+                  duration: const Duration(milliseconds: 400),
                   offsetY: 12,
                   child: MesocycleCard(mesocycle: widget.mesocycle),
                 ),

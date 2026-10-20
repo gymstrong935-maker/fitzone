@@ -48,7 +48,7 @@ class AdminService {
     await _api.put('/api/admin/users/$id', body: body);
   }
 
-    Future<void> approveUser(String id) async {
+  Future<void> approveUser(String id) async {
     await _api.put('/api/admin/users/$id/aprobar');
   }
 
@@ -155,7 +155,6 @@ class AdminService {
   Future<void> setTicketState(String id, String estado) async {
     await _api.put('/api/admin/support/$id/estado', body: <String, dynamic>{'estado': estado});
   }
-}
 
   /// Elimina la cuenta y deja constancia de que fue revocada.
   Future<void> revokeUser(String id, {String reason = ''}) async {
@@ -164,3 +163,4 @@ class AdminService {
       body: <String, dynamic>{if (reason.trim().isNotEmpty) 'motivo': reason.trim()},
     );
   }
+}
