@@ -7,7 +7,7 @@ import {
 } from '../validators/adminValidator.js';
 import {
   obtenerEstadisticas, listarUsuarios, detalleUsuario, actualizarUsuarioAdmin,
-  aprobarCuenta, rechazarCuenta,
+  aprobarCuenta, rechazarCuenta, revocarCuenta,
   listarSuscripciones, aprobarConPago, rechazarConPago, listarPagos,
   listarPlanes, actualizarPlan,
   listarGrupos, crearGrupo, actualizarGrupo, eliminarGrupo,
