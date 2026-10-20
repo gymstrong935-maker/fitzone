@@ -20,11 +20,16 @@ class PlanScreen extends StatefulWidget {
     super.key,
     required this.weekProgress,
     required this.onStartWorkout,
+    required this.week,
+    required this.mesocycle,
   });
 
   /// 7 valores (lunes a domingo): `true` = día con entrenamiento completado.
   final List<bool> weekProgress;
   final VoidCallback onStartWorkout;
+  /// Los 7 días del plan generado.
+  final List<WeekWorkout> week;
+  final Mesocycle mesocycle;
 
   @override
   State<PlanScreen> createState() => _PlanScreenState();
@@ -41,12 +46,12 @@ class _PlanScreenState extends State<PlanScreen> {
   /// semana (los días de descanso nunca se marcan).
   List<WeekWorkout> get _workouts {
     return <WeekWorkout>[
-      for (int i = 0; i < kWeekWorkouts.length; i++)
-        if (kWeekWorkouts[i].rest)
-          kWeekWorkouts[i]
+      for (int i = 0; i < widget.week.length; i++)
+        if (widget.week[i].rest)
+          widget.week[i]
         else
-          kWeekWorkouts[i].copyWith(
-            completed: kWeekWorkouts[i].completed ||
+          widget.week[i].copyWith(
+            completed: widget.week[i].completed ||
                 (i < widget.weekProgress.length && widget.weekProgress[i]),
           ),
     ];
@@ -76,7 +81,7 @@ class _PlanScreenState extends State<PlanScreen> {
                 const FadeSlideIn(
                   duration: Duration(milliseconds: 400),
                   offsetY: 12,
-                  child: MesocycleCard(mesocycle: kMesocycle),
+                  child: MesocycleCard(mesocycle: widget.mesocycle),
                 ),
                 const SizedBox(height: 16),
                 _buildViewToggle(),

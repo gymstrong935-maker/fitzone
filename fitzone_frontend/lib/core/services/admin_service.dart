@@ -156,3 +156,11 @@ class AdminService {
     await _api.put('/api/admin/support/$id/estado', body: <String, dynamic>{'estado': estado});
   }
 }
+
+  /// Elimina la cuenta y deja constancia de que fue revocada.
+  Future<void> revokeUser(String id, {String reason = ''}) async {
+    await _api.post(
+      '/api/admin/users/$id/revocar',
+      body: <String, dynamic>{if (reason.trim().isNotEmpty) 'motivo': reason.trim()},
+    );
+  }

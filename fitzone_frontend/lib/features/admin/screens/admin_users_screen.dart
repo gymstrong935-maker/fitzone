@@ -385,6 +385,25 @@ class _UserEditor extends StatefulWidget {
 
   @override
   State<_UserEditor> createState() => _UserEditorState();
+    Future<void> _revoke() async {
+    final String? reason = await showAdminSheet<String>(
+      context,
+      (BuildContext ctx) => _RevokeSheet(
+        name: str(_user['nombre']),
+        email: str(_user['email']),
+      ),
+    );
+    if (reason == null || !mounted) return;
+
+    try {
+      await widget.service.revokeUser(str(_user['_id']), reason: reason);
+      if (!mounted) return;
+      adminToast(context, 'Cuenta eliminada. Si intenta entrar verá que fue revocada.');
+      Navigator.of(context).pop(true);
+    } on ApiException catch (e) {
+      if (mounted) adminToast(context, e.message, error: true);
+    }
+  }
 }
 
 class _UserEditorState extends State<_UserEditor> {
@@ -574,6 +593,118 @@ class _UserEditorState extends State<_UserEditor> {
               ),
             ),
       ],
+    );
+  }
+}
+
+        if (str(_user['rol']) != 'admin') ...<Widget>[
+          const SizedBox(height: 32),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color.fromRGBO(239, 68, 68, 0.06),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color.fromRGBO(239, 68, 68, 0.22)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Zona de peligro',
+                  style: AppText.display(size: 15, weight: FontWeight.w700, color: const Color(0xFFF87171)),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Eliminar la cuenta revoca el acceso de este usuario.',
+                  style: AppText.body(size: 13, color: AppColors.whiteA(0.55), height: 1.5),
+                ),
+                const SizedBox(height: 12),
+                AdminButton(
+                  label: 'Eliminar cuenta',
+                  icon: Icons.delete_forever_outlined,
+                  kind: AdminButtonKind.danger,
+                  compact: true,
+                  onTap: _revoke,
+                ),
+              ],
+            ),
+          ),
+        ],
+
+/// Confirmación para eliminar una cuenta: hay que escribir el correo.
+class _RevokeSheet extends StatefulWidget {
+  const _RevokeSheet({required this.name, required this.email});
+
+  final String name;
+  final String email;
+
+  @override
+  State<_RevokeSheet> createState() => _RevokeSheetState();
+}
+
+class _RevokeSheetState extends State<_RevokeSheet> {
+  final TextEditingController _confirm = TextEditingController();
+  final TextEditingController _reason = TextEditingController();
+
+  bool get _matches =>
+      _confirm.text.trim().toLowerCase() == widget.email.trim().toLowerCase();
+
+  @override
+  void dispose() {
+    _confirm.dispose();
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AdminSheet(
+      title: 'Eliminar cuenta',
+      subtitle: widget.name,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            'Se borrarán sus datos (entrenamientos, comidas, medidas, notificaciones y solicitudes), '
+            'se cancelarán sus citas y suscripciones, y la cuenta quedará revocada: '
+            'si intenta entrar verá un aviso. Los pagos se conservan. Esta acción no se puede deshacer.',
+            style: AppText.body(size: 13.5, color: AppColors.whiteA(0.60), height: 1.55),
+          ),
+          const SizedBox(height: 16),
+          AdminTextField(
+            controller: _reason,
+            label: 'Motivo (opcional, lo verá el usuario)',
+            maxLength: 200,
+          ),
+          const SizedBox(height: 12),
+          AdminTextField(
+            controller: _confirm,
+            label: 'Escribe ${widget.email} para confirmar',
+            keyboardType: TextInputType.emailAddress,
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Center(
+                  child: AdminButton(label: 'Cancelar', onTap: () => Navigator.of(context).pop()),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Center(
+                  child: AdminButton(
+                    label: 'Eliminar cuenta',
+                    kind: AdminButtonKind.danger,
+                    onTap: _matches ? () => Navigator.of(context).pop(_reason.text.trim()) : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

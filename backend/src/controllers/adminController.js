@@ -12,6 +12,15 @@ import SupportTicket from '../models/SupportTicket.js';
 import { aprobarSuscripcion, rechazarSuscripcion } from './subscriptionController.js';
 import { enviarCorreoSeguro } from '../utils/enviarCorreoSeguro.js';
 import { correoCuentaAprobada, correoCuentaRechazada } from '../utils/emailTemplates.js';
+import PhysicalCondition from '../models/PhysicalCondition.js';
+import PhysicalMeasurement from '../models/PhysicalMeasurement.js';
+import SleepQuality from '../models/SleepQuality.js';
+import Motivation from '../models/Motivation.js';
+import TrainingFrequency from '../models/TrainingFrequency.js';
+import TrainingParameter from '../models/TrainingParameter.js';
+import TrainingPeriod from '../models/TrainingPeriod.js';
+import DietaryControl from '../models/DietaryControl.js';
+import RevokedAccount from '../models/RevokedAccount.js';
 
 const OCULTOS = '-passwordHash -resetPasswordToken -resetPasswordExpira -codigoVerificacion -codigoVerificacionExpira';
 const escapeRegex = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -572,6 +581,59 @@ export const rechazarCuenta = async (req, res) => {
     });
 
     res.json({ mensaje: 'Cuenta rechazada', usuario });
+  } catch (e) {
+    errorServidor(res, e);
+  }
+};
+
+// ======================================================
+// ELIMINAR (REVOCAR) UNA CUENTA
+// ======================================================
+
+export const revocarCuenta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!idValido(id)) return res.status(400).json({ mensaje: 'Usuario no válido' });
+    if (id === req.usuario.id) return res.status(400).json({ mensaje: 'No puedes eliminar tu propia cuenta' });
+
+    const usuario = await User.findById(id);
+    if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    if (usuario.rol === 'admin') {
+      return res.status(400).json({ mensaje: 'Primero quítale el rol de administrador a esta cuenta' });
+    }
+
+    const motivo = (req.body?.motivo || '').trim();
+    const email = String(usuario.email).toLowerCase().trim();
+
+    // Queda constancia de la revocación (para avisarle si intenta entrar)
+    await RevokedAccount.findOneAndUpdate(
+      { email },
+      { $set: { email, nombre: usuario.nombre, motivo: motivo || undefined, revocadaPor: req.usuario.id, fecha: new Date() } },
+      { upsert: true }
+    );
+
+    // Se borran sus datos personales (los pagos se conservan por contabilidad)
+    await Promise.all([
+      PhysicalCondition.deleteMany({ usuarioId: id }),
+      PhysicalMeasurement.deleteMany({ usuarioId: id }),
+      SleepQuality.deleteMany({ usuarioId: id }),
+      Motivation.deleteMany({ usuarioId: id }),
+      TrainingFrequency.deleteMany({ usuarioId: id }),
+      TrainingParameter.deleteMany({ usuarioId: id }),
+      TrainingPeriod.deleteMany({ usuarioId: id }),
+      DietaryControl.deleteMany({ usuarioId: id }),
+      WorkoutSession.deleteMany({ usuarioId: id }),
+      Notification.deleteMany({ usuarioId: id }),
+      SupportTicket.deleteMany({ usuarioId: id }),
+      Appointment.updateMany({ usuarioId: id, estado: 'confirmada' }, { $set: { estado: 'cancelada' } }),
+      Subscription.updateMany({ usuarioId: id, estado: { $in: ['activa', 'pendiente'] } }, { $set: { estado: 'cancelada' } }),
+      Group.updateMany({ miembros: id }, { $pull: { miembros: id } }),
+      Coach.updateMany({ clientesAsignados: id }, { $pull: { clientesAsignados: id } })
+    ]);
+
+    await User.findByIdAndDelete(id);
+
+    res.json({ mensaje: 'Cuenta eliminada y revocada' });
   } catch (e) {
     errorServidor(res, e);
   }

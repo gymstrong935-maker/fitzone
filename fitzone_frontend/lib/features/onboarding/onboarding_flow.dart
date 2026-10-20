@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text.dart';
 import '../../core/widgets/ellipse_glow.dart';
+import '../../core/widgets/pressable_scale.dart';
 import '../plan_selection/models/plan.dart';
 import 'models/body_measurements.dart';
 import 'models/experience_level.dart';
@@ -26,10 +28,15 @@ class OnboardingFlow extends StatefulWidget {
     super.key,
     required this.planType,
     required this.onComplete,
+    this.onExit,
   });
 
   final PlanId planType;
   final ValueChanged<OnboardingData> onComplete;
+
+  /// Qué hacer al pulsar "atrás" en el primer paso (p. ej. volver a elegir plan).
+  /// Si es `null`, el botón no aparece en el primer paso.
+  final VoidCallback? onExit;
 
   @override
   State<OnboardingFlow> createState() => _OnboardingFlowState();
@@ -45,6 +52,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   OnboardingStep get _current => _steps[_step];
   bool get _isLast => _step == _steps.length - 1;
+  bool get _canGoBack => _step > 0 || widget.onExit != null;
 
   bool get _nextEnabled {
     switch (_current) {
@@ -93,8 +101,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _goBack() {
-    if (_step == 0) return;
     FocusManager.instance.primaryFocus?.unfocus();
+    if (_step == 0) {
+      widget.onExit?.call();
+      return;
+    }
     setState(() {
       _direction = -1;
       _step--;
@@ -164,7 +175,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             child: SingleChildScrollView(
               controller: _scroll,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(24, 32, 24, 112 + bottomInset),
+              padding: EdgeInsets.fromLTRB(24, 70, 24, 112 + bottomInset),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 512),
@@ -191,13 +202,64 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             ),
           ),
 
+          // ── Botón atrás (arriba a la izquierda) y contador de pasos ──
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 20, 0),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 512 + 24),
+                    child: Row(
+                      children: <Widget>[
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          transitionBuilder: (Widget child, Animation<double> a) =>
+                              ScaleTransition(scale: a, child: FadeTransition(opacity: a, child: child)),
+                          child: _canGoBack
+                              ? _BackButton(key: const ValueKey<String>('back'), onTap: _goBack)
+                              : const SizedBox(key: ValueKey<String>('none'), width: 42, height: 42),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.whiteA(0.06),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: AppColors.whiteA(0.10)),
+                          ),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: Text(
+                              'Paso ${_step + 1} de ${_steps.length}',
+                              key: ValueKey<int>(_step),
+                              style: AppText.body(
+                                size: 12,
+                                weight: FontWeight.w600,
+                                color: AppColors.whiteA(0.60),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           // ── Navegación (abajo) ──
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: OnboardingFooter(
-              showBack: _step > 0,
+              showBack: false,
               isLast: _isLast,
               nextEnabled: _nextEnabled,
               onBack: _goBack,
@@ -211,7 +273,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Widget _buildAnimatedStep() {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 260),
+      duration: const Duration(milliseconds: 300),
+      switchInCurve: Curves.easeOutCubic,
       layoutBuilder: (Widget? current, List<Widget> previous) {
         return Stack(
           alignment: Alignment.topCenter,
@@ -220,7 +283,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       },
       transitionBuilder: (Widget child, Animation<double> animation) {
         final bool incoming = child.key == ValueKey<OnboardingStep>(_current);
-        final double dx = (incoming ? _direction : -_direction) * 28.0;
+        final double dx = (incoming ? _direction : -_direction) * 32.0;
         return FadeTransition(
           opacity: animation,
           child: AnimatedBuilder(
@@ -280,5 +343,34 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           onChanged: _updateHabits,
         );
     }
+  }
+}
+
+/// Botón circular de retroceso (arriba a la izquierda).
+class _BackButton extends StatelessWidget {
+  const _BackButton({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Volver al paso anterior',
+      child: PressableScale(
+        onTap: onTap,
+        child: Container(
+          width: 42,
+          height: 42,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.whiteA(0.08),
+            border: Border.all(color: AppColors.whiteA(0.14)),
+          ),
+          child: const Icon(Icons.arrow_back_rounded, size: 20, color: Colors.white),
+        ),
+      ),
+    );
   }
 }

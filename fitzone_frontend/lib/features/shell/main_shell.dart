@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/user_profile.dart';
 import '../../core/services/app_services.dart';
 import '../../core/services/workouts_service.dart';
+import '../../core/theme/theme_controller.dart';
 import '../../core/widgets/ambient_background.dart';
 import '../../core/widgets/shimmer_top_bar.dart';
 import '../achievements/achievements_screen.dart';
@@ -21,15 +22,15 @@ import '../notifications/notifications_screen.dart';
 import '../nutrition/data/nutrition_goals.dart';
 import '../nutrition/nutrition_controller.dart';
 import '../nutrition/nutrition_screen.dart';
+import '../plan/data/plan_generator.dart';
 import '../plan/plan_screen.dart';
 import '../settings/settings_screen.dart';
 import '../stats/stats_screen.dart';
-import '../workout/data/routines_data.dart';
+import '../support/widgets/support_fab.dart';
 import '../workout/models/exercise.dart';
 import '../workout/models/workout_log.dart';
 import '../workout/workout_screen.dart';
 import 'widgets/fz_bottom_nav.dart';
-import '../support/widgets/support_fab.dart';
 
 /// Pestañas con barra de navegación inferior.
 const List<String> kMainTabs = <String>['home', 'stats', 'plan', 'settings'];
@@ -73,42 +74,45 @@ class _MainShellState extends State<MainShell> {
   String _active = 'home';
   String _prev = 'home';
   bool _workoutActive = false;
-  /// Ejercicios de la rutina que se está haciendo.
-  List<Exercise> _workoutExercises = const <Exercise>[];
-  bool _isLight = false;
 
   /// Perfil editable (nombre, objetivo y entrenador se pueden cambiar en
   /// Ajustes).
   late UserProfile _profile = widget.userProfile;
 
-  /// Notificaciones reales del servidor (se actualizan cada minuto).
+  /// Plan semanal generado con los datos del onboarding.
+  late TrainingPlan _plan = _buildPlan(widget.userProfile);
+
+  /// Ejercicios de la rutina que se está haciendo.
+  List<Exercise> _workoutExercises = const <Exercise>[];
+
   late final NotificationsController _notifications = NotificationsController(
     service: AppServices.instance.notifications,
     userId: widget.userProfile.id,
   );
 
-  /// Entrenamientos guardados (Historial y progreso semanal).
   late final WorkoutsController _workouts = WorkoutsController(
     service: AppServices.instance.workouts,
     storage: AppServices.instance.session,
     userId: widget.userProfile.id,
   );
 
-  /// Comidas del día.
   late final NutritionController _nutrition = NutritionController(
     service: AppServices.instance.nutrition,
     userId: widget.userProfile.id,
   );
 
-  /// Conversación con el asistente (se conserva mientras la app está abierta).
   late final AssistantController _assistant = AssistantController(
     service: AppServices.instance.chat,
     userName: widget.userProfile.name,
   );
 
+  TrainingPlan _buildPlan(UserProfile p) =>
+      generatePlan(p.onboardingData, since: p.createdAt);
+
   @override
   void initState() {
     super.initState();
+    ThemeController.instance.addListener(_onThemeChanged);
     _notifications.start();
     unawaited(_workouts.start());
     unawaited(_nutrition.load(silent: true));
@@ -116,11 +120,16 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    ThemeController.instance.removeListener(_onThemeChanged);
     _notifications.dispose();
     _workouts.dispose();
     _nutrition.dispose();
     _assistant.dispose();
     super.dispose();
+  }
+
+  void _onThemeChanged() {
+    if (mounted) setState(() {});
   }
 
   // ── Acciones ──────────────────────────────────────────────────────────────
@@ -134,8 +143,8 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _startWorkout() {
-    final List<Exercise> exercises = routineForDate(DateTime.now())
-        .exercisesFor(_profile.onboardingData.experienceLevel);
+    final List<Exercise> exercises = _plan.workoutFor(DateTime.now());
+    if (exercises.isEmpty) return;
     setState(() {
       _workoutExercises = exercises;
       _workoutActive = true;
@@ -177,12 +186,13 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
-  void _toggleTheme() => setState(() => _isLight = !_isLight);
-
-  /// Objetivo o entrenador cambiados desde Ajustes.
+  /// Objetivo o entrenador cambiados desde Ajustes (el plan se regenera).
   void _updateProfile(UserProfile profile) {
     final UserProfile previous = _profile;
-    setState(() => _profile = profile);
+    setState(() {
+      _profile = profile;
+      _plan = _buildPlan(profile);
+    });
     widget.onProfileChanged(previous, profile);
   }
 
@@ -207,57 +217,44 @@ class _MainShellState extends State<MainShell> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: AnimatedContainer(
-        duration: const Duration(milliseconds: 350),
-        color: _isLight ? const Color(0xFFF0F4F8) : Colors.black,
-        child: Stack(
-          children: <Widget>[
-            Positioned.fill(child: AmbientBackground(isLight: _isLight)),
+      body: Stack(
+        children: <Widget>[
+          const Positioned.fill(child: AmbientBackground()),
 
-            // ── Contenido (se redibuja cuando cambian los entrenamientos) ──
-            Positioned.fill(
-              child: ListenableBuilder(
-                listenable: _workouts,
-                builder: (BuildContext context, Widget? _) {
-                  return AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 280),
-                    transitionBuilder: _buildTransition,
-                    child: _buildScreen(),
-                  );
-                },
-              ),
+          // ── Contenido (se redibuja cuando cambian los entrenamientos) ──
+          Positioned.fill(
+            child: ListenableBuilder(
+              listenable: _workouts,
+              builder: (BuildContext context, Widget? _) {
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  transitionBuilder: _buildTransition,
+                  child: _buildScreen(),
+                );
+              },
             ),
+          ),
 
-            // ── Barra inferior (solo en las 4 pestañas) ──
-            if (kMainTabs.contains(_active))
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: FzBottomNav(activeTab: _active, onTabChange: _navigate),
-              ),
-
-            // ── Botón flotante de soporte ──
-            if (_active != 'assistant') _buildSupportFab(context),
-
-            // ── Línea brillante superior ──
+          // ── Barra inferior (solo en las 4 pestañas) ──
+          if (kMainTabs.contains(_active))
             Positioned(
-              top: 0,
               left: 0,
               right: 0,
-              child: ShimmerTopBar(
-                colors: _isLight
-                    ? ShimmerTopBar.lightColors
-                    : ShimmerTopBar.defaultColors,
-              ),
+              bottom: 0,
+              child: FzBottomNav(activeTab: _active, onTabChange: _navigate),
             ),
-          ],
-        ),
+
+          // ── Botón flotante de soporte ──
+          if (_active != 'assistant') _buildSupportFab(context),
+
+          // ── Línea brillante superior ──
+          const Positioned(top: 0, left: 0, right: 0, child: ShimmerTopBar()),
+        ],
       ),
     );
   }
 
-    /// Botón flotante de soporte: va encima de la barra inferior en las
+  /// Botón flotante de soporte: va encima de la barra inferior en las
   /// pestañas y más abajo en las demás pantallas.
   Widget _buildSupportFab(BuildContext context) {
     final MediaQueryData mq = MediaQuery.of(context);
@@ -282,14 +279,16 @@ class _MainShellState extends State<MainShell> {
         return PlanScreen(
           key: key,
           weekProgress: weekProgress,
+          week: _plan.week,
+          mesocycle: _plan.mesocycle,
           onStartWorkout: _startWorkout,
         );
       case 'settings':
         return SettingsScreen(
           key: key,
           userProfile: _profile,
-          isLight: _isLight,
-          onThemeToggle: _toggleTheme,
+          isLight: ThemeController.instance.isLight,
+          onThemeToggle: ThemeController.instance.toggle,
           onBack: backHome,
           onProfileChanged: _updateProfile,
           onRename: _rename,
@@ -334,6 +333,7 @@ class _MainShellState extends State<MainShell> {
         return HomeScreen(
           key: key,
           userProfile: _profile,
+          plan: _plan,
           weekProgress: weekProgress,
           notifications: _notifications,
           onNavigate: _navigate,
@@ -345,7 +345,7 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  /// Transiciones del diseño:
+  /// Transiciones:
   /// - sub-pantallas: suben desde abajo con fade y un poco de escala;
   /// - entre pestañas: deslizamiento lateral según el orden de las pestañas;
   /// - pestaña <-> sub-pantalla: desplazamiento vertical corto.
@@ -355,18 +355,18 @@ class _MainShellState extends State<MainShell> {
     final bool incoming = id == _active;
 
     return FadeTransition(
-      opacity: animation,
+      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
       child: AnimatedBuilder(
         animation: animation,
         child: child,
         builder: (BuildContext context, Widget? c) {
-          final double inv = 1 - animation.value;
+          final double inv = 1 - Curves.easeOutCubic.transform(animation.value);
           Offset offset;
           double scale = 1;
 
           if (kSubScreens.contains(id)) {
             offset = Offset(0, inv * 40);
-            scale = 0.98 + 0.02 * animation.value;
+            scale = 0.98 + 0.02 * (1 - inv);
           } else {
             final String other = incoming ? _prev : _active;
             if (kSubScreens.contains(other) || other == id) {

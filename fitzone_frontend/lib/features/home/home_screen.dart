@@ -18,6 +18,7 @@ import 'widgets/today_workout_card.dart';
 import 'widgets/trainer_card.dart';
 import 'widgets/weekly_progress_card.dart';
 import '../workout/data/routines_data.dart';
+import '../plan/data/plan_generator.dart';
 
 /// Pantalla "Inicio".
 class HomeScreen extends StatefulWidget {
@@ -31,6 +32,7 @@ class HomeScreen extends StatefulWidget {
     required this.onOpenNotifications,
     required this.onOpenAssistant,
     required this.onOpenAppointments,
+    required this.plan,
   });
 
   final UserProfile userProfile;
@@ -47,6 +49,8 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onOpenNotifications;
   final VoidCallback onOpenAssistant;
   final VoidCallback onOpenAppointments;
+  /// Plan semanal generado con los datos del usuario.
+  final TrainingPlan plan;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -77,13 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final int workoutsThisWeek = widget.weekProgress.where((bool d) => d).length;
     final int weeklyGoal = habits.frequency;
-    final routine = routineForDate(DateTime.now());
-    final routineExercises = routine.exercisesFor(data.experienceLevel);
-    final TodayWorkout workout = TodayWorkout(
-      name: routine.name,
-      exercises: routineExercises.length,
-      duration: estimateMinutes(routineExercises),
-    );
+    final TodayWorkout workout = widget.plan.todayWorkout(DateTime.now());
     final double bottomPadding = 96 + MediaQuery.paddingOf(context).bottom;
 
     return SingleChildScrollView(

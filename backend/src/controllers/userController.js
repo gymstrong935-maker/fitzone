@@ -11,11 +11,14 @@ import { borrarImagenCloudinary } from '../utils/cloudinary.js';
 import { enviarCorreoSeguro } from '../utils/enviarCorreoSeguro.js';
 import notificarAdmin from '../helpers/notificarAdmin.js';
 import {MINUTOS_CODIGO, correoVerificacion, correoRecuperacion, escapeHtml} from '../utils/emailTemplates.js';
+import RevokedAccount from '../models/RevokedAccount.js';
 
 const googleClient = new OAuth2Client();
 
 // Códigos de 6 dígitos (criptográficamente aleatorios) que vencen en 15 minutos
 const crearCodigo = () => crypto.randomInt(100000, 1000000).toString();
+const MSG_REVOCADA =
+  'Tu cuenta fue revocada por el equipo de FitZone. Si crees que es un error, escríbenos por los canales oficiales.';
 const vencimientoCodigo = () => Date.now() + MINUTOS_CODIGO * 60 * 1000;
 
 
@@ -34,8 +37,12 @@ export const registrarUsuario = async (req, res) => {
       metodoPago
     } = req.body;
 
-    const existe = await User.findOne({ email });
+    const revocada = await RevokedAccount.findOne({ email: String(email).toLowerCase().trim() });
+    if (revocada) {
+      return res.status(403).json({ mensaje: MSG_REVOCADA, codigo: 'CUENTA_REVOCADA' });
+    }
 
+    const existe = await User.findOne({ email });
     if (existe) {
       return res.status(400).json({
         mensaje: 'El correo ya está registrado'
@@ -245,6 +252,16 @@ export const iniciarSesion = async (req, res) => {
     const usuario = await User.findOne({ email });
 
     if (!usuario) {
+      const revocada = await RevokedAccount.findOne({ email: String(email).toLowerCase().trim() });
+
+      if (revocada) {
+        return res.status(403).json({
+          mensaje: MSG_REVOCADA,
+          codigo: 'CUENTA_REVOCADA',
+          motivo: revocada.motivo || undefined
+        });
+      }
+
       return res.status(404).json({
         mensaje: 'Usuario no encontrado'
       });
