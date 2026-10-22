@@ -5,6 +5,7 @@ import 'appointments_service.dart';
 import 'auth_service.dart';
 import 'chat_service.dart';
 import 'coaches_service.dart';
+import 'google_auth_service.dart';
 import 'notifications_service.dart';
 import 'nutrition_service.dart';
 import 'onboarding_sync_service.dart';
@@ -36,6 +37,7 @@ class AppServices {
 
   final ApiClient api = ApiClient();
   final SessionStorage session = SessionStorage();
+  final GoogleAuthService google = GoogleAuthService();
 
   late final AuthService auth;
   late final PlansService plans;

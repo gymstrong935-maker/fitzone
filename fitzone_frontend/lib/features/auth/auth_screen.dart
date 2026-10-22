@@ -23,6 +23,7 @@ class AuthScreen extends StatefulWidget {
     required this.onLogin,
     required this.onRegister,
     required this.onForgotPassword,
+    this.onGoogleLogin,
     this.onBack,
     this.initialEmail,
     this.notice,
@@ -42,6 +43,9 @@ class AuthScreen extends StatefulWidget {
   /// Envía el código de recuperación. Devuelve la acción a ejecutar al
   /// terminar la animación (ir a la pantalla de restablecer).
   final Future<VoidCallback> Function(String email) onForgotPassword;
+
+  /// Inicia sesión con Google. Devuelve `null` si la persona cancela.
+  final Future<VoidCallback?> Function()? onGoogleLogin;
   final VoidCallback? onBack;
 
   /// Correo que aparece ya escrito (p. ej. tras cambiar la contraseña).
@@ -194,10 +198,50 @@ class _AuthScreenState extends State<AuthScreen>
     });
   }
 
-  void _handleSocial(String provider) {
+  Future<void> _handleSocial(String provider) async {
     if (_busy) return;
     FocusManager.instance.primaryFocus?.unfocus();
-    _showError('El inicio de sesión con $provider estará disponible pronto');
+
+    final Future<VoidCallback?> Function()? google = widget.onGoogleLogin;
+    if (provider != 'Google' || google == null) {
+      _showError('El inicio de sesión con $provider estará disponible pronto');
+      return;
+    }
+
+    setState(() {
+      _error = '';
+      _loading = true;
+    });
+
+    VoidCallback? proceed;
+    try {
+      proceed = await google();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _showError(e.message);
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _showError('No se pudo iniciar sesión con Google. Inténtalo de nuevo.');
+      return;
+    }
+
+    if (!mounted) return;
+    if (proceed == null) {
+      setState(() => _loading = false); // canceló el selector de cuentas
+      return;
+    }
+
+    setState(() {
+      _loading = false;
+      _success = true;
+    });
+    final VoidCallback go = proceed;
+    _pending = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) go();
+    });
   }
 
   String get _submitLabel {

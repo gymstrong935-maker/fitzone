@@ -493,6 +493,30 @@ class _AppFlowState extends State<AppFlow> {
     }
   }
 
+  /// Inicio de sesión con Google. Devuelve `null` si la persona canceló.
+  /// Si la cuenta es nueva queda pendiente de aprobación y [_enterApp] la
+  /// lleva a la pantalla de revisión (igual que el registro normal).
+  Future<VoidCallback?> _handleGoogleLogin() async {
+    final String? idToken = await _services.google.pickIdToken();
+    if (idToken == null) return null;
+
+    try {
+      final AuthResult result = await _services.auth.loginWithGoogle(idToken);
+      await _services.session.saveSession(
+        token: result.token,
+        userJson: result.user.raw,
+      );
+      final BackendUser user = result.user;
+      return () {
+        _enterApp(user);
+      };
+    } on ApiException {
+      // Libera la cuenta elegida para poder probar con otra la próxima vez.
+      unawaited(_services.google.signOut());
+      rethrow;
+    }
+  }
+
   Future<VoidCallback> _handleRegister(
     String name,
     String email,
@@ -735,6 +759,7 @@ class _AppFlowState extends State<AppFlow> {
   void _handleLogout() {
     _syncTimer?.cancel();
     _clearSession();
+    unawaited(_services.google.signOut());
     if (!mounted) return;
     setState(() {
       _user = null;
@@ -780,6 +805,7 @@ class _AppFlowState extends State<AppFlow> {
           notice: _authNotice,
           onBack: () => _goTo(AppStage.planSelection),
           onLogin: _handleLogin,
+          onGoogleLogin: _handleGoogleLogin,
           onRegister: _handleRegister,
           onForgotPassword: _handleForgotPassword,
         );

@@ -53,6 +53,21 @@ class AuthService {
     );
   }
 
+  /// Inicia sesión (o crea la cuenta) con el ID token que entrega Google.
+  Future<AuthResult> loginWithGoogle(String idToken) async {
+    final dynamic data = await _api.post(
+      '/api/users/google',
+      body: <String, dynamic>{'idToken': idToken},
+    );
+    final Map<String, dynamic> map = data as Map<String, dynamic>;
+    final String token = map['token'] as String;
+    _api.setToken(token);
+    return AuthResult(
+      token: token,
+      user: BackendUser.fromJson(map['usuario'] as Map<String, dynamic>),
+    );
+  }
+
   Future<void> verifyAccount({
     required String email,
     required String code,
