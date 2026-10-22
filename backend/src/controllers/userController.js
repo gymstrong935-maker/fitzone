@@ -330,36 +330,60 @@ export const iniciarSesion = async (req, res) => {
 // ======================================================
 // LOGIN CON GOOGLE
 // ======================================================
+//
+// La app obtiene un ID token de Google (google_sign_in) y lo envía aquí.
+// Se valida contra GOOGLE_SERVER_CLIENT_ID (ID de cliente "Web" de Google
+// Cloud). Se pueden indicar varios separados por coma (p. ej. Web + otro).
+//
+// Reglas de la cuenta (las mismas que el login normal):
+//  - revocada / suspendida / inactiva → no entra
+//  - nueva → queda "pendiente" y el equipo debe aprobarla; recibe sesión
+//    para ver la pantalla de revisión (authMiddleware bloquea el resto)
+
+const clientIdsGoogle = () =>
+  String(process.env.GOOGLE_SERVER_CLIENT_ID || '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
 
 export const iniciarSesionGoogle = async (req, res) => {
   try {
-    const { idToken } = req.body;
+    const { idToken } = req.body || {};
 
-    if (!idToken) {
+    if (!idToken || typeof idToken !== 'string') {
       return res.status(400).json({
         mensaje: 'El ID token de Google es obligatorio'
       });
     }
 
-    const webClientId =
-      process.env.GOOGLE_SERVER_CLIENT_ID;
+    const audiencias = clientIdsGoogle();
 
-    if (!webClientId) {
-      console.error(
-        '❌ GOOGLE_SERVER_CLIENT_ID no está configurado'
-      );
+    if (audiencias.length === 0) {
+      console.error('❌ GOOGLE_SERVER_CLIENT_ID no está configurado en .env');
 
       return res.status(500).json({
-        mensaje: 'La configuración de Google no está disponible'
+        mensaje: 'El inicio de sesión con Google no está configurado en el servidor'
       });
     }
 
-    const ticket = await googleClient.verifyIdToken({
-      idToken,
-      audience: webClientId
-    });
+    // 1) Validar el token con Google (firma, vigencia y audiencia).
+    //    Solo aquí un fallo significa "token inválido" (401).
+    let payload;
 
-    const payload = ticket.getPayload();
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: audiencias
+      });
+
+      payload = ticket.getPayload();
+    } catch (error) {
+      console.error('❌ Token de Google rechazado:', error.message);
+
+      return res.status(401).json({
+        mensaje: 'No se pudo validar la cuenta de Google. Inténtalo de nuevo.'
+      });
+    }
 
     if (!payload) {
       return res.status(401).json({
@@ -369,11 +393,12 @@ export const iniciarSesionGoogle = async (req, res) => {
 
     const {
       sub: googleId,
-      email,
       name,
       picture,
       email_verified: emailVerificado
     } = payload;
+
+    const email = String(payload.email || '').toLowerCase().trim();
 
     if (!email || !googleId) {
       return res.status(401).json({
@@ -383,53 +408,77 @@ export const iniciarSesionGoogle = async (req, res) => {
 
     if (!emailVerificado) {
       return res.status(403).json({
-        mensaje: 'El correo de Google no está verificado'
+        mensaje: 'El correo de tu cuenta de Google no está verificado'
       });
     }
 
+    // 2) Cuentas revocadas por el equipo no pueden volver a entrar
+    const revocada = await RevokedAccount.findOne({ email });
+
+    if (revocada) {
+      return res.status(403).json({
+        mensaje: MSG_REVOCADA,
+        codigo: 'CUENTA_REVOCADA',
+        motivo: revocada.motivo || undefined
+      });
+    }
+
+    // 3) Buscar la cuenta (por Google o por correo) o crearla
     let usuario = await User.findOne({
-      $or: [
-        { googleId },
-        { email }
-      ]
+      $or: [{ googleId }, { email }]
     });
 
-    if (usuario) {
+    let esNueva = false;
 
-      if (
-        usuario.googleId &&
-        usuario.googleId !== googleId
-      ) {
+    if (usuario) {
+      if (usuario.googleId && usuario.googleId !== googleId) {
         return res.status(409).json({
-          mensaje:
-            'El correo está asociado a otra cuenta de Google'
+          mensaje: 'El correo está asociado a otra cuenta de Google'
         });
       }
 
+      // Cuenta existente (registro normal): se vincula con Google.
+      // Google ya confirmó que el correo es del usuario, así que también
+      // queda verificada.
       if (!usuario.googleId) {
         usuario.googleId = googleId;
-        usuario.proveedorAuth = 'google';
+
+        if (!usuario.passwordHash) {
+          usuario.proveedorAuth = 'google';
+        }
 
         if (!usuario.fotoPerfil && picture) {
           usuario.fotoPerfil = picture;
         }
+      }
 
-        await usuario.save();
+      const eraNoVerificada = usuario.cuentaVerificada === false;
+
+      if (eraNoVerificada) {
+        usuario.cuentaVerificada = true;
+        usuario.codigoVerificacion = undefined;
+        usuario.codigoVerificacionExpira = undefined;
+      }
+
+      await usuario.save();
+
+      // Era una cuenta que esperaba el código del correo: ahora el equipo
+      // puede revisarla (igual que al verificar por código).
+      if (eraNoVerificada && usuario.estadoCuenta === 'pendiente') {
+        await notificarNuevaCuentaGoogle(usuario);
       }
 
     } else {
-
-      const plan = await Plan.findOne({
-        esGratuito: true
-      });
+      const plan = await Plan.findOne({ esGratuito: true });
 
       if (!plan) {
         return res.status(404).json({
-          mensaje:
-            'No existe un plan gratuito disponible para registrar la cuenta'
+          mensaje: 'No existe un plan gratuito disponible para registrar la cuenta'
         });
       }
 
+      // estadoCuenta queda "pendiente" (valor por defecto del modelo):
+      // el equipo debe aprobar toda cuenta nueva, como en el registro normal.
       usuario = await User.create({
         nombre: name || 'Usuario Google',
         email,
@@ -440,16 +489,18 @@ export const iniciarSesionGoogle = async (req, res) => {
         fotoPerfil: picture || undefined
       });
 
-      await crearSuscripcionParaPlan(
-        usuario,
-        plan,
-        undefined
-      );
+      esNueva = true;
+
+      await crearSuscripcionParaPlan(usuario, plan, undefined);
+      await notificarNuevaCuentaGoogle(usuario);
     }
 
-    if (usuario.estadoCuenta !== 'activo') {
+    // 4) Suspendidas o inactivas no entran. Las pendientes o rechazadas sí
+    //    reciben sesión para ver su estado (authMiddleware bloquea el resto).
+    if (['inactivo', 'suspendido'].includes(usuario.estadoCuenta)) {
       return res.status(403).json({
-        mensaje: 'La cuenta no está activa'
+        mensaje: 'Tu cuenta está suspendida. Contacta al equipo de FitZone.',
+        codigo: 'CUENTA_SUSPENDIDA'
       });
     }
 
@@ -464,21 +515,35 @@ export const iniciarSesionGoogle = async (req, res) => {
       }
     );
 
-    return res.json({
+    return res.status(esNueva ? 201 : 200).json({
       mensaje: 'Sesión iniciada con Google',
       token,
       usuario
     });
 
   } catch (error) {
-    console.error(
-      '❌ Error en inicio de sesión con Google:',
-      error
-    );
+    console.error('❌ Error en inicio de sesión con Google:', error);
 
-    return res.status(401).json({
-      mensaje: 'No se pudo validar la cuenta de Google'
+    return res.status(500).json({
+      mensaje: 'Error al iniciar sesión con Google. Inténtalo de nuevo.'
     });
+  }
+};
+
+// Avisa al equipo que hay una cuenta (verificada por Google) por aprobar
+const notificarNuevaCuentaGoogle = async (usuario) => {
+  try {
+    await notificarAdmin({
+      mensaje: `Nueva cuenta por aprobar: ${usuario.nombre} (${usuario.email}).`,
+      asuntoCorreo: 'Nueva cuenta por aprobar',
+      htmlCorreo: `
+        <p>Se registró con Google <strong>${escapeHtml(usuario.nombre)}</strong> (${escapeHtml(usuario.email)}).</p>
+        <p>Entra al panel administrativo, sección <strong>Usuarios</strong>, para aprobar o rechazar la cuenta.</p>
+      `
+    });
+  } catch (error) {
+    // Que falle el aviso no debe impedir el inicio de sesión
+    console.error('⚠️ No se pudo notificar al admin:', error.message);
   }
 };
 
