@@ -66,9 +66,9 @@ class _FzOptionalNumberFieldState extends State<FzOptionalNumberField> {
         inputFormatters: <TextInputFormatter>[
           FilteringTextInputFormatter.allow(RegExp(r'^\d{0,3}([.,]\d{0,2})?')),
         ],
-        cursorColor: Colors.white,
+        cursorColor: AppColors.ink,
         onChanged: _handleChanged,
-        style: AppText.body(size: 14, color: Colors.white),
+        style: AppText.body(size: 14, color: AppColors.ink),
         decoration: InputDecoration(
           isCollapsed: true,
           border: InputBorder.none,

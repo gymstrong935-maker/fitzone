@@ -100,9 +100,11 @@ export const cancelarCita = async (req, res) => {
 
     if (!cita) return res.status(404).json({ mensaje: 'Cita no encontrada' });
 
+    const quien = req.usuario?.rol === 'admin' ? 'El equipo de FitZone canceló' : 'Cancelaste';
+
     await avisar(
       cita.usuarioId,
-      `Cancelaste tu cita con ${cita.entrenadorId?.nombre || 'tu entrenador'} del ${cita.fecha} a las ${cita.hora}.`
+      `${quien} tu cita con ${cita.entrenadorId?.nombre || 'tu entrenador'} del ${cita.fecha} a las ${cita.hora}.`
     );
 
     res.json(cita);

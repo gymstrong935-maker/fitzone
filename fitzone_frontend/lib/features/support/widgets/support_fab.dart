@@ -80,7 +80,7 @@ class _SupportFabState extends State<SupportFab> with SingleTickerProviderStateM
                     margin: const EdgeInsets.only(right: 10),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF111111),
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: AppColors.cyanA(0.35)),
                       boxShadow: <BoxShadow>[
@@ -89,7 +89,7 @@ class _SupportFabState extends State<SupportFab> with SingleTickerProviderStateM
                     ),
                     child: Text(
                       '¿Necesitas ayuda?',
-                      style: AppText.body(size: 13, weight: FontWeight.w600, color: Colors.white),
+                      style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.ink),
                     ),
                   ),
                 )

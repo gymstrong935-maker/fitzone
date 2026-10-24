@@ -100,7 +100,7 @@ class _AccountPendingScreenState extends State<AccountPendingScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.bg,
       body: Stack(
         children: <Widget>[
           Positioned.fill(
@@ -180,7 +180,7 @@ class _AccountPendingScreenState extends State<AccountPendingScreen>
               'Motivo: ${_user.motivoRechazo}',
               style: AppText.body(
                 size: 13.5,
-                color: const Color(0xFFF87171),
+                color: AppColors.red,
                 height: 1.5,
               ),
             ),
@@ -230,7 +230,7 @@ class _AccountPendingScreenState extends State<AccountPendingScreen>
                 style: AppText.body(
                   size: 13.5,
                   weight: active ? FontWeight.w600 : FontWeight.w400,
-                  color: active ? Colors.white : AppColors.whiteA(0.60),
+                  color: active ? AppColors.ink : AppColors.whiteA(0.60),
                 ),
               ),
             ),
@@ -248,8 +248,8 @@ class _AccountPendingScreenState extends State<AccountPendingScreen>
       ),
       child: Column(
         children: <Widget>[
-          step(Icons.check_circle_rounded, const Color(0xFF34D399), 'Registro y correo verificados'),
-          step(Icons.hourglass_top_rounded, const Color(0xFFFBBF24), 'Aprobación del equipo de FitZone', active: true),
+          step(Icons.check_circle_rounded, AppColors.green, 'Registro y correo verificados'),
+          step(Icons.hourglass_top_rounded, AppColors.amber, 'Aprobación del equipo de FitZone', active: true),
           step(Icons.radio_button_unchecked_rounded, AppColors.whiteA(0.30), 'Elige tu plan y configura tu perfil'),
         ],
       ),
@@ -258,8 +258,8 @@ class _AccountPendingScreenState extends State<AccountPendingScreen>
 
   Widget _buildHalo() {
     final Color color = _approved
-        ? const Color(0xFF34D399)
-        : (_rejected ? const Color(0xFFF87171) : AppColors.cyan);
+        ? AppColors.green
+        : (_rejected ? AppColors.red : AppColors.cyan);
     final IconData icon = _approved
         ? Icons.check_rounded
         : (_rejected ? Icons.block_rounded : Icons.hourglass_top_rounded);
@@ -340,7 +340,7 @@ class _Button extends StatelessWidget {
             weight: FontWeight.w600,
             color: primary
                 ? const Color(0xFF0A0A0A)
-                : (onTap == null ? AppColors.whiteA(0.4) : Colors.white),
+                : (onTap == null ? AppColors.whiteA(0.4) : AppColors.ink),
           ),
         ),
       ),

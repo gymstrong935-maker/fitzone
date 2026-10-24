@@ -44,7 +44,7 @@ class QuickStatsRow extends StatelessWidget {
         Expanded(
           child: _StatCard(
             icon: Icons.local_fire_department_outlined,
-            color: const Color(0xFFF97316),
+            color: AppColors.orangeStrong,
             value: '$energy/10',
             label: 'Energía',
             sub: 'hoy',

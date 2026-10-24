@@ -139,7 +139,7 @@ class _AppointmentCard extends StatelessWidget {
               children: <Widget>[
                 Text(
                   str(item['hora']),
-                  style: AppText.display(size: 17, weight: FontWeight.w700, color: AppColors.cyan, height: 1.2),
+                  style: AppText.display(size: 17, weight: FontWeight.w700, color: AppColors.cyanText, height: 1.2),
                 ),
                 Text(
                   start == null ? '' : shortDate(start).split(' ').take(2).join(' '),
@@ -155,7 +155,7 @@ class _AppointmentCard extends StatelessWidget {
               children: <Widget>[
                 Text(
                   str(user['nombre']).isEmpty ? 'Usuario eliminado' : str(user['nombre']),
-                  style: AppText.body(size: 14.5, weight: FontWeight.w700, color: Colors.white),
+                  style: AppText.body(size: 14.5, weight: FontWeight.w700, color: AppColors.ink),
                 ),
                 Text(
                   'con ${str(coach['nombre']).isEmpty ? 'un entrenador' : str(coach['nombre'])}',

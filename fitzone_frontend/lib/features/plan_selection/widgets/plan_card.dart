@@ -209,7 +209,7 @@ class _PlanCardState extends State<PlanCard> {
       child: Icon(
         _plan.icon,
         size: 19,
-        color: accent ? AppColors.cyan : AppColors.whiteA(0.65),
+        color: accent ? AppColors.cyanText : AppColors.whiteA(0.65),
       ),
     );
   }
@@ -220,7 +220,7 @@ class _PlanCardState extends State<PlanCard> {
         ? AppColors.cyan
         : _selected
             ? AppColors.cyanLight
-            : Colors.white;
+            : AppColors.ink;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -273,7 +273,7 @@ class _PlanCardState extends State<PlanCard> {
                     Icons.check_rounded,
                     size: 9,
                     color: _plan.highlighted
-                        ? AppColors.cyan
+                        ? AppColors.cyanText
                         : AppColors.whiteA(0.45),
                   ),
                 ),
@@ -317,7 +317,7 @@ class _PlanCardState extends State<PlanCard> {
         ],
       );
     } else if (isFree) {
-      foreground = _selected ? AppColors.cyanLight : Colors.white;
+      foreground = _selected ? AppColors.cyanLight : AppColors.ink;
       decoration = BoxDecoration(
         borderRadius: BorderRadius.circular(13),
         color: _selected ? AppColors.cyanA(0.14) : AppColors.whiteA(0.07),
@@ -438,14 +438,14 @@ class _PremiumBadgeState extends State<_PremiumBadge>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const Icon(Icons.star_rounded, size: 9, color: AppColors.cyan),
+          Icon(Icons.star_rounded, size: 9, color: AppColors.cyanText),
           const SizedBox(width: 3),
           Text(
             widget.label.toUpperCase(),
             style: AppText.body(
               size: 9.92,
               weight: FontWeight.w700,
-              color: AppColors.cyan,
+              color: AppColors.cyanText,
               letterSpacing: 0.6,
             ),
           ),

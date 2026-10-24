@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_text.dart';
+import '../theme/app_colors.dart';
 
 /// Recuadro rojo con un mensaje de error.
 class ErrorBox extends StatelessWidget {
@@ -20,7 +21,7 @@ class ErrorBox extends StatelessWidget {
       ),
       child: Text(
         message,
-        style: AppText.body(size: 12, color: const Color(0xFFF87171)),
+        style: AppText.body(size: 12, color: AppColors.red),
       ),
     );
   }

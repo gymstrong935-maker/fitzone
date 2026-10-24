@@ -21,6 +21,8 @@ import TrainingParameter from '../models/TrainingParameter.js';
 import TrainingPeriod from '../models/TrainingPeriod.js';
 import DietaryControl from '../models/DietaryControl.js';
 import RevokedAccount from '../models/RevokedAccount.js';
+import CoachChangeRequest from '../models/CoachChangeRequest.js';
+import { listarVencimientos, notificarVencimiento } from '../helpers/vencimientos.js';
 
 const OCULTOS = '-passwordHash -resetPasswordToken -resetPasswordExpira -codigoVerificacion -codigoVerificacionExpira';
 const escapeRegex = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -75,10 +77,15 @@ export const obtenerEstadisticas = async (req, res) => {
 
     const facet = ingresos[0] || { total: [], mensual: [] };
 
-    const cuentasPendientes = await User.countDocuments({
-      estadoCuenta: 'pendiente',
-      rol: { $ne: 'admin' }
-    });
+    const [cuentasPendientes, cambiosEntrenadorPendientes, pagosPorValidar, porVencer7] = await Promise.all([
+      User.countDocuments({ estadoCuenta: 'pendiente', rol: { $ne: 'admin' } }),
+      CoachChangeRequest.countDocuments({ estado: 'pendiente' }),
+      Payment.countDocuments({ estado: 'pendiente', metodoPago: { $ne: 'Sin definir' } }),
+      Subscription.countDocuments({
+        estado: 'activa',
+        fechaFin: { $gte: ahora, $lte: new Date(ahora.getTime() + 7 * 24 * 60 * 60 * 1000) }
+      })
+    ]);
 
     const mensuales = [];
     for (let i = 5; i >= 0; i--) {
@@ -89,7 +96,9 @@ export const obtenerEstadisticas = async (req, res) => {
 
     res.json({
       usuarios: { total: totalUsuarios, nuevosSemana, pendientes: cuentasPendientes },
-      suscripciones: { activas, pendientes },
+      suscripciones: { activas, pendientes, porVencer: porVencer7 },
+      cambiosEntrenadorPendientes,
+      pagosPorValidar,
       entrenadores,
       citasProximas,
       ticketsAbiertos,
@@ -226,6 +235,28 @@ export const listarSuscripciones = async (req, res) => {
 
 // Aprobar / rechazar: se reutiliza la lógica existente y además se actualiza el pago
 export const aprobarConPago = async (req, res) => {
+  // El pago debe estar completo (método elegido y factura si es digital).
+  // El admin puede saltarse la revisión con { forzar: true } (p. ej. cobró en caja).
+  try {
+    const pago = await Payment.findOne({ suscripcionId: req.params.id, estado: 'pendiente' });
+
+    if (pago && req.body?.forzar !== true) {
+      let falta = null;
+
+      if (pago.metodoPago === 'Sin definir') {
+        falta = 'El usuario aún no eligió cómo pagar.';
+      } else if (pago.metodoPago === 'Pago digital' && !pago.comprobanteUrl) {
+        falta = 'El usuario eligió pago digital pero no subió la factura.';
+      }
+
+      if (falta) {
+        return res.status(409).json({ mensaje: falta, codigo: 'PAGO_INCOMPLETO' });
+      }
+    }
+  } catch (e) {
+    return errorServidor(res, e);
+  }
+
   await aprobarSuscripcion(req, res);
   if (res.statusCode < 400) {
     try {
@@ -261,6 +292,13 @@ export const listarPagos = async (req, res) => {
     const pagos = await Payment.find(filtro)
       .populate('usuarioId', 'nombre email')
       .populate({ path: 'suscripcionId', populate: { path: 'planId', select: 'nombre' } })
+      .populate({
+        path: 'solicitudCambioId',
+        populate: [
+          { path: 'entrenadorActualId', select: 'nombre' },
+          { path: 'entrenadorNuevoId', select: 'nombre' }
+        ]
+      })
       .sort({ fechaPago: -1 })
       .limit(200);
 
@@ -634,6 +672,32 @@ export const revocarCuenta = async (req, res) => {
     await User.findByIdAndDelete(id);
 
     res.json({ mensaje: 'Cuenta eliminada y revocada' });
+  } catch (e) {
+    errorServidor(res, e);
+  }
+};
+
+// ======================================================
+// VENCIMIENTOS
+// ======================================================
+
+export const obtenerVencimientos = async (req, res) => {
+  try {
+    const ventana = Math.min(Math.max(parseInt(req.query.dias, 10) || 7, 1), 60);
+    res.json(await listarVencimientos({ ventanaDias: ventana }));
+  } catch (e) {
+    errorServidor(res, e);
+  }
+};
+
+export const avisarVencimiento = async (req, res) => {
+  try {
+    if (!idValido(req.params.id)) return res.status(400).json({ mensaje: 'Id no válido' });
+
+    const r = await notificarVencimiento(req.params.id);
+    if (!r.ok) return res.status(404).json({ mensaje: r.mensaje });
+
+    res.json({ mensaje: r.mensaje });
   } catch (e) {
     errorServidor(res, e);
   }

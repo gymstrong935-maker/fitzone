@@ -41,7 +41,7 @@ class _AdminPlansScreenState extends State<AdminPlansScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFFFBBF24)),
+                Icon(Icons.info_outline_rounded, size: 18, color: AppColors.amber),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -107,13 +107,13 @@ class _PlanCard extends StatelessWidget {
                   style: AppText.display(size: 18, weight: FontWeight.w700, height: 1.4),
                 ),
               ),
-              if (free) const StatusBadge(label: 'Gratuito', color: Color(0xFF34D399)),
+              if (free) StatusBadge(label: 'Gratuito', color: AppColors.green),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             '${free ? 'Gratis' : formatCop(asNum(plan['precio']))} · ${asNum(plan['duracionDias']).toInt()} días',
-            style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.cyanLight),
+            style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.cyanLightText),
           ),
           const SizedBox(height: 10),
           for (final String b in benefits)
@@ -245,7 +245,7 @@ class _PlanFormState extends State<_PlanForm> {
           ),
           if (_error.isNotEmpty) ...<Widget>[
             const SizedBox(height: 14),
-            Text(_error, style: AppText.body(size: 13, color: const Color(0xFFF87171))),
+            Text(_error, style: AppText.body(size: 13, color: AppColors.red)),
           ],
           const SizedBox(height: 20),
           AdminButton(

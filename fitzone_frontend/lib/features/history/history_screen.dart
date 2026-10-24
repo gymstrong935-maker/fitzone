@@ -60,7 +60,7 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  static const Color _orange500 = Color(0xFFF97316);
+  static Color get _orange500 => AppColors.orangeStrong;
 
   @override
   void initState() {
@@ -236,7 +236,7 @@ class _PendingNotice extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.cloud_off_rounded, size: 16, color: Color(0xFFFBBF24)),
+          Icon(Icons.cloud_off_rounded, size: 16, color: AppColors.amber),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -245,7 +245,7 @@ class _PendingNotice extends StatelessWidget {
                   : '$count entrenamientos están esperando para guardarse en el servidor. Se enviarán solos.',
               style: AppText.body(
                 size: 12,
-                color: const Color(0xFFFBBF24),
+                color: AppColors.amber,
                 height: 1.4,
               ),
             ),
@@ -308,9 +308,9 @@ class _WorkoutCard extends StatefulWidget {
 }
 
 class _WorkoutCardState extends State<_WorkoutCard> {
-  static const Color _green400 = Color(0xFF4ADE80);
-  static const Color _orange400 = Color(0xFFFB923C);
-  static const Color _amber400 = Color(0xFFFBBF24);
+  static Color get _green400 => AppColors.green400;
+  static Color get _orange400 => AppColors.orange;
+  static Color get _amber400 => AppColors.amber;
 
   bool _expanded = false;
 

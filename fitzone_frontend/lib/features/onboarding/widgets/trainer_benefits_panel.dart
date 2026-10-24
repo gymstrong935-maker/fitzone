@@ -27,7 +27,7 @@ class TrainerBenefitsPanel extends StatelessWidget {
             style: AppText.display(
               size: 14,
               weight: FontWeight.w600,
-              color: AppColors.cyanLight,
+              color: AppColors.cyanLightText,
             ),
           ),
           const SizedBox(height: 12),

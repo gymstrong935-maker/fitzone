@@ -1,16 +1,10 @@
 import express from 'express';
 
 import {
-  registrarUsuario,
-  iniciarSesion,
   iniciarSesionGoogle,
   obtenerUsuario,
-  solicitarRecuperacion,
-  restablecerPassword,
-  restablecerConCodigo,
   actualizarUsuario,
-  verificarCuenta,
-  reenviarCodigo,
+  cambiarPassword,
   cambiarRolUsuario
 } from '../controllers/userController.js';
 
@@ -19,154 +13,57 @@ import verificarToken, {
   verificarAdmin
 } from '../middleware/authMiddleware.js';
 
-import {
-  limitarLogin,
-  limitarRegistro,
-  limitarRecuperacion
-} from '../middleware/rateLimiter.js';
-
-import validar from '../middleware/validar.js';
-
-import {
-  registroSchema,
-  loginSchema,
-  forgotPasswordSchema,
-  resetPasswordSchema,
-  resetConCodigoSchema,
-  verificarCuentaSchema,
-  reenviarCodigoSchema
-} from '../validators/userValidator.js';
+import { limitarLogin } from '../middleware/rateLimiter.js';
 
 import crearUploadMiddleware from '../middleware/uploadMiddleware.js';
 
 const router = express.Router();
 
-const uploadUserImage =
-  crearUploadMiddleware('users');
+const uploadUserImage = crearUploadMiddleware('users');
 
 
 // ======================================================
-// REGISTRO
+// ÚNICO MÉTODO DE ACCESO: GOOGLE
+// (registro e inicio de sesión son el mismo endpoint)
 // ======================================================
 
-router.post(
+router.post('/google', limitarLogin, iniciarSesionGoogle);
+
+
+// ======================================================
+// MÉTODOS ANTIGUOS (correo + contraseña): DESHABILITADOS
+// Responden 410 para que cualquier cliente viejo sepa qué pasó.
+// ======================================================
+
+const soloGoogle = (req, res) =>
+  res.status(410).json({
+    mensaje: 'FitZone ahora solo permite ingresar con Google.',
+    codigo: 'SOLO_GOOGLE'
+  });
+
+[
   '/register',
-  limitarRegistro,
-  validar(registroSchema),
-  registrarUsuario
-);
-
-
-// ======================================================
-// LOGIN
-// ======================================================
-
-router.post(
   '/login',
-  limitarLogin,
-  validar(loginSchema),
-  iniciarSesion
-);
-
-
-// ======================================================
-// LOGIN CON GOOGLE
-// ======================================================
-
-router.post(
-  '/google',
-  limitarLogin,
-  iniciarSesionGoogle
-);
-
-
-// ======================================================
-// VERIFICAR CUENTA
-// ======================================================
-
-router.post(
   '/verificar-cuenta',
-  limitarLogin,
-  validar(verificarCuentaSchema),
-  verificarCuenta
-);
-
-
-// ======================================================
-// REENVIAR CÓDIGO
-// ======================================================
-
-router.post(
   '/reenviar-codigo',
-  limitarRecuperacion,
-  validar(reenviarCodigoSchema),
-  reenviarCodigo
-);
-
-
-// ======================================================
-// RECUPERAR CONTRASEÑA (envía un código de 6 dígitos)
-// ======================================================
-
-router.post(
   '/forgot-password',
-  limitarRecuperacion,
-  validar(forgotPasswordSchema),
-  solicitarRecuperacion
-);
-
-
-// ======================================================
-// RESTABLECER CONTRASEÑA CON CÓDIGO
-// ======================================================
-
-router.post(
   '/reset-password',
-  limitarLogin,
-  validar(resetConCodigoSchema),
-  restablecerConCodigo
-);
+  '/reset-password/:token'
+].forEach((ruta) => router.post(ruta, soloGoogle));
 
 
 // ======================================================
-// RESTABLECER CONTRASEÑA (enlace antiguo, se conserva)
+// CAMBIAR ROL DE USUARIO (SOLO ADMIN)
 // ======================================================
 
-router.post(
-  '/reset-password/:token',
-  validar(resetPasswordSchema),
-  restablecerPassword
-);
+router.put('/admin/rol', verificarToken, verificarAdmin, cambiarRolUsuario);
 
 
 // ======================================================
-// CAMBIAR ROL DE USUARIO
-// SOLO ADMIN
+// PERFIL
 // ======================================================
 
-router.put(
-  '/admin/rol',
-  verificarToken,
-  verificarAdmin,
-  cambiarRolUsuario
-);
-
-
-// ======================================================
-// OBTENER USUARIO
-// ======================================================
-
-router.get(
-  '/:id',
-  verificarToken,
-  verificarDueño,
-  obtenerUsuario
-);
-
-
-// ======================================================
-// ACTUALIZAR USUARIO
-// ======================================================
+router.get('/:id', verificarToken, verificarDueño, obtenerUsuario);
 
 router.put(
   '/:id',
@@ -175,6 +72,8 @@ router.put(
   uploadUserImage.single('imagen'),
   actualizarUsuario
 );
+
+router.put('/:id/password', verificarToken, verificarDueño, cambiarPassword);
 
 
 export default router;

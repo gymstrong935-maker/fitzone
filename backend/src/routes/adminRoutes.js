@@ -12,8 +12,12 @@ import {
   listarPlanes, actualizarPlan,
   listarGrupos, crearGrupo, actualizarGrupo, eliminarGrupo,
   listarCitas, enviarAnuncio,
-  listarTickets, detalleTicket, responderTicket, cambiarEstadoTicket
+  listarTickets, detalleTicket, responderTicket, cambiarEstadoTicket,
+  obtenerVencimientos, avisarVencimiento
 } from '../controllers/adminController.js';
+import {
+  listarCambiosEntrenador, aprobarCambioEntrenador, rechazarCambioEntrenador
+} from '../controllers/coachChangeController.js';
 import { verificarVencimientos } from '../controllers/subscriptionController.js';
 
 const router = express.Router();
@@ -53,5 +57,11 @@ router.post('/support/:id/responder', validar(respuestaTicketSchema), responderT
 router.put('/support/:id/estado', validar(estadoTicketSchema), cambiarEstadoTicket);
 
 router.post('/maintenance/vencimientos', verificarVencimientos);
+router.get('/expirations', obtenerVencimientos);
+router.post('/expirations/:id/avisar', avisarVencimiento);
+
+router.get('/coach-changes', listarCambiosEntrenador);
+router.put('/coach-changes/:id/aprobar', aprobarCambioEntrenador);
+router.put('/coach-changes/:id/rechazar', validar(rechazoSchema), rechazarCambioEntrenador);
 
 export default router;

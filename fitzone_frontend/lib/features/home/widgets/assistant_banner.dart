@@ -47,7 +47,7 @@ class AssistantBanner extends StatelessWidget {
                     colors: <Color>[Color(0xFF7C3AED), AppColors.cyan],
                   ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.auto_awesome_rounded,
                   size: 22,
                   color: Colors.white,

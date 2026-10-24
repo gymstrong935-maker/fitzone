@@ -1,7 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/models/user_profile.dart';
+import '../../core/services/app_services.dart';
+import '../../core/services/backend_models.dart';
+import '../../core/services/subscription_service.dart' show payMethodToBackend;
+import '../../core/utils/format.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import '../../core/widgets/fade_slide_in.dart';
@@ -12,7 +18,11 @@ import '../onboarding/data/goals_data.dart';
 import '../onboarding/models/experience_level.dart';
 import '../onboarding/models/goal.dart';
 import '../onboarding/models/onboarding_data.dart';
+import '../onboarding/data/trainers_repository.dart';
 import '../onboarding/models/trainer.dart';
+import '../payment_method/models/payment_models.dart';
+import '../payment_method/payment_method_screen.dart';
+import 'edit_profile_screen.dart';
 import 'widgets/fz_switch.dart';
 import 'widgets/settings_sheets.dart';
 
@@ -54,7 +64,7 @@ String _formatMemberSince(DateTime d) {
 
 /// Pantalla "Ajustes" (pestaña de la barra inferior; en el diseño se titula
 /// "Configuración").
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
     required this.userProfile,
@@ -65,6 +75,9 @@ class SettingsScreen extends StatelessWidget {
     required this.onRename,
     required this.onOpenNotifications,
     required this.onLogout,
+    required this.onSaveAccount,
+    required this.onChangePassword,
+    required this.onSaveData,
   });
 
   final UserProfile userProfile;
@@ -82,10 +95,61 @@ class SettingsScreen extends StatelessWidget {
   final VoidCallback onOpenNotifications;
   final VoidCallback onLogout;
 
-  static const Color _cyan400 = Color(0xFF22D3EE);
-  static const Color _yellow400 = Color(0xFFFACC15);
+  /// Guarda nombre y correo en el servidor.
+  final Future<void> Function(String name, String email) onSaveAccount;
 
-  OnboardingData get _data => userProfile.onboardingData;
+  /// Cambia la contraseña (con confirmación). Lanza [ApiException] si falla.
+  final Future<void> Function(String? current, String next, String confirmation)
+      onChangePassword;
+
+  /// Guarda los datos personales editados (también en el servidor).
+  final Future<void> Function(OnboardingData data) onSaveData;
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  CoachChange? _change;
+  bool _changeLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChange();
+  }
+
+  /// Última solicitud de cambio de entrenador (y, si ya la aprobaron, se
+  /// refleja el nuevo entrenador en el perfil local).
+  Future<void> _loadChange() async {
+    try {
+      final CoachChange? change = await AppServices.instance.coaches.myChange();
+      if (!mounted) return;
+      setState(() {
+        _change = change;
+        _changeLoaded = true;
+      });
+
+      if (change != null &&
+          change.estado == 'aprobada' &&
+          change.newId.isNotEmpty &&
+          change.newId != _data.trainer?.id) {
+        final Trainer? approved = TrainersRepository.byId(change.newId);
+        if (approved != null) {
+          widget.onProfileChanged(
+            widget.userProfile.copyWith(onboardingData: _data.copyWith(trainer: approved)),
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _changeLoaded = true);
+    }
+  }
+
+  static Color get _cyan400 => AppColors.cyanLightText;
+  static Color get _yellow400 => AppColors.yellow;
+
+  OnboardingData get _data => widget.userProfile.onboardingData;
 
   // ── Acciones ──────────────────────────────────────────────────────────────
 
@@ -96,11 +160,11 @@ class SettingsScreen extends StatelessWidget {
         SnackBar(
           content: Text(
             message,
-            style: AppText.body(size: 14, color: Colors.white),
+            style: AppText.body(size: 14, color: AppColors.ink),
           ),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-          backgroundColor: const Color(0xFF111111),
+          backgroundColor: AppColors.surface,
           duration: const Duration(seconds: 2),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -110,49 +174,278 @@ class SettingsScreen extends StatelessWidget {
       );
   }
 
+  /// Editar perfil: cuenta, contraseña y datos personales en una pantalla completa.
   Future<void> _editProfile(BuildContext context) async {
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-    final String? name = await showEditProfileSheet(
-      context,
-      name: userProfile.name,
-      email: userProfile.email,
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext ctx) => EditProfileScreen(
+          name: widget.userProfile.name,
+          email: widget.userProfile.email,
+          data: _data,
+          onSaveAccount: widget.onSaveAccount,
+          onChangePassword: widget.onChangePassword,
+          onSaveData: widget.onSaveData,
+          onBack: () => Navigator.of(ctx).pop(),
+        ),
+      ),
     );
-    if (name == null || name == userProfile.name) return;
-
-    try {
-      await onRename(name);
-      _toast(messenger, 'Perfil actualizado');
-    } on ApiException catch (e) {
-      _toast(messenger, e.message);
-    } catch (_) {
-      _toast(messenger, 'No se pudo actualizar el perfil');
-    }
+    if (mounted) setState(() {});
   }
 
   Future<void> _changeGoal(BuildContext context) async {
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     final Goal? goal = await showGoalSheet(context, current: _data.goal);
     if (goal == null || goal == _data.goal) return;
-    onProfileChanged(
-      userProfile.copyWith(onboardingData: _data.copyWith(goal: goal)),
+    widget.onProfileChanged(
+      widget.userProfile.copyWith(onboardingData: _data.copyWith(goal: goal)),
     );
     _toast(messenger, 'Objetivo actualizado');
   }
 
+  // ── Cambio de entrenador (lo valida el equipo) ────────────────────────────
+
   Future<void> _changeTrainer(BuildContext context) async {
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+    if (_change?.isOpen ?? false) {
+      _toast(messenger, 'Ya tienes una solicitud de cambio en curso.');
+      return;
+    }
+
     final Trainer? trainer =
         await showTrainerSheet(context, current: _data.trainer);
     if (trainer == null || trainer.id == _data.trainer?.id) return;
-    onProfileChanged(
-      userProfile.copyWith(onboardingData: _data.copyWith(trainer: trainer)),
+    if (!context.mounted) return;
+
+    final int currentPrice = _data.trainer?.price ?? 0;
+    final int diff = trainer.price > currentPrice ? trainer.price - currentPrice : 0;
+
+    final bool? ok = await _confirmChange(context, trainer, diff);
+    if (ok != true) return;
+
+    try {
+      final CoachChange change =
+          await AppServices.instance.coaches.requestChange(trainer.id);
+      if (!mounted) return;
+      setState(() => _change = change);
+
+      if (change.needsPayment && change.payment != null && context.mounted) {
+        await _payDifference(context, change);
+      } else {
+        _toast(messenger, 'Solicitud enviada. El equipo confirmará tu cambio.');
+      }
+    } on ApiException catch (e) {
+      _toast(messenger, e.message);
+    } catch (_) {
+      _toast(messenger, 'No se pudo enviar la solicitud');
+    }
+  }
+
+  Future<bool?> _confirmChange(BuildContext context, Trainer trainer, int diff) {
+    return showDialog<bool>(
+      context: context,
+      barrierColor: const Color(0xB3000000),
+      builder: (BuildContext ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.whiteA(0.10)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Text(
+                    '¿Cambiar a ${trainer.name}?',
+                    textAlign: TextAlign.center,
+                    style: AppText.display(size: 19, height: 1.35),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    diff > 0
+                        ? '${trainer.name} cuesta ${formatCop(trainer.price)} al mes y tu '
+                            'entrenador actual ${formatCop(_data.trainer?.price ?? 0)}. '
+                            'Deberás pagar la diferencia: ${formatCop(diff)}.\n\n'
+                            'El equipo validará el pago y confirmará el cambio.'
+                        : 'No tiene costo adicional. El cambio no es inmediato: '
+                            'el equipo debe confirmarlo y te avisaremos.',
+                    textAlign: TextAlign.center,
+                    style: AppText.body(size: 14, color: AppColors.whiteA(0.62), height: 1.5),
+                  ),
+                  const SizedBox(height: 22),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: _ChangeButton(
+                          label: 'Cancelar',
+                          onTap: () => Navigator.of(ctx).pop(false),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _ChangeButton(
+                          label: diff > 0 ? 'Continuar' : 'Solicitar',
+                          primary: true,
+                          onTap: () => Navigator.of(ctx).pop(true),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
-    _toast(messenger, 'Entrenador actualizado');
+  }
+
+  /// Abre la pantalla de pago para la diferencia del cambio de entrenador.
+  Future<void> _payDifference(BuildContext context, CoachChange change) async {
+    final BackendPayment? payment = change.payment;
+    if (payment == null) return;
+
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    bool paid = false;
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext ctx) => PaymentMethodScreen(
+          label: 'Cambio de entrenador',
+          heading: 'Pagar la diferencia',
+          subtitle: 'Cambio a ${change.newName}',
+          amount: payment.monto,
+          note: 'El equipo validará tu pago y confirmará el cambio de entrenador. '
+              'Recibirás una notificación.',
+          onBack: () => Navigator.of(ctx).pop(),
+          onSubmit: (PayMethod method, Uint8List? receipt, String? name) async {
+            await AppServices.instance.payments.submit(
+              paymentId: payment.id,
+              method: payMethodToBackend(method),
+              receiptBytes: receipt,
+              receiptName: name,
+            );
+            paid = true;
+            if (ctx.mounted) Navigator.of(ctx).pop();
+          },
+        ),
+      ),
+    );
+
+    if (paid) {
+      _toast(messenger, 'Pago enviado. El equipo confirmará tu cambio.');
+    } else if (change.isOpen) {
+      _toast(messenger, 'Tu solicitud sigue pendiente de pago.');
+    }
+    await _loadChange();
+  }
+
+  Future<void> _cancelChange() async {
+    final CoachChange? change = _change;
+    if (change == null) return;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    try {
+      await AppServices.instance.coaches.cancelChange(change.id);
+      _toast(messenger, 'Solicitud cancelada');
+    } on ApiException catch (e) {
+      _toast(messenger, e.message);
+    }
+    await _loadChange();
+  }
+
+  Widget _buildChangeCard(BuildContext context) {
+    final CoachChange? change = _change;
+    if (!_changeLoaded || change == null) return const SizedBox.shrink();
+    if (change.estado == 'aprobada' || change.estado == 'cancelada') {
+      return const SizedBox.shrink();
+    }
+
+    final bool rejected = change.estado == 'rechazada';
+    final Color accent = rejected ? AppColors.red : AppColors.amber;
+
+    final String title = rejected
+        ? 'Cambio de entrenador rechazado'
+        : change.needsPayment
+            ? 'Falta pagar la diferencia'
+            : 'Cambio de entrenador en revisión';
+    final String detail = rejected
+        ? 'Tu solicitud para pasar a ${change.newName} no fue aprobada.'
+            '${(change.rejectionReason ?? '').isEmpty ? '' : ' Motivo: ${change.rejectionReason}.'}'
+        : change.needsPayment
+            ? 'Para pasar a ${change.newName} debes pagar ${formatCop(change.difference)}.'
+            : 'Pediste pasar a ${change.newName}. Estamos validando'
+                '${change.difference > 0 ? ' tu pago y' : ''} el cambio; te avisaremos.';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: accent.withValues(alpha: 0.30)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(
+                  rejected ? Icons.cancel_outlined : Icons.hourglass_top_rounded,
+                  size: 18,
+                  color: accent,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: AppText.body(size: 14, weight: FontWeight.w700, color: accent),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              detail,
+              style: AppText.body(size: 13, color: AppColors.whiteA(0.65), height: 1.45),
+            ),
+            if (!rejected) ...<Widget>[
+              const SizedBox(height: 12),
+              Row(
+                children: <Widget>[
+                  if (change.needsPayment && change.payment != null) ...<Widget>[
+                    Expanded(
+                      child: _ChangeButton(
+                        label: 'Pagar ahora',
+                        primary: true,
+                        onTap: () => _payDifference(context, change),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    child: _ChangeButton(label: 'Cancelar solicitud', onTap: _cancelChange),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _logout(BuildContext context) async {
     final bool? confirmed = await showLogoutDialog(context);
-    if (confirmed == true) onLogout();
+    if (confirmed == true) widget.onLogout();
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -163,12 +456,13 @@ class SettingsScreen extends StatelessWidget {
 
     return SubScreenFrame(
       title: 'Configuración',
-      onBack: onBack,
+      onBack: widget.onBack,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _animated(0, _buildProfileCard(context)),
           const SizedBox(height: 16),
+          _buildChangeCard(context),
           _animated(50, _buildPreferencesCard(context, trainer)),
           const SizedBox(height: 16),
           _animated(100, _buildInfoCard(trainer)),
@@ -190,7 +484,7 @@ class SettingsScreen extends StatelessWidget {
 
   // ── Perfil ────────────────────────────────────────────────────────────────
   Widget _buildProfileCard(BuildContext context) {
-    final String trimmed = userProfile.name.trim();
+    final String trimmed = widget.userProfile.name.trim();
     final String initial = trimmed.isEmpty
         ? '?'
         : String.fromCharCode(trimmed.runes.first).toUpperCase();
@@ -230,7 +524,7 @@ class SettingsScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     Text(
-                      userProfile.name,
+                      widget.userProfile.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppText.display(
@@ -241,7 +535,7 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      userProfile.email,
+                      widget.userProfile.email,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppText.body(
@@ -272,10 +566,10 @@ class SettingsScreen extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    const Icon(
+                    Icon(
                       Icons.person_outline_rounded,
                       size: 16,
-                      color: Colors.white,
+                      color: AppColors.ink,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -283,7 +577,7 @@ class SettingsScreen extends StatelessWidget {
                       style: AppText.body(
                         size: 14,
                         weight: FontWeight.w600,
-                        color: Colors.white,
+                        color: AppColors.ink,
                         height: 1.43,
                       ),
                     ),
@@ -306,12 +600,12 @@ class SettingsScreen extends StatelessWidget {
           _sectionTitle('Preferencias'),
           const SizedBox(height: 16),
           _SettingRow(
-            icon: isLight ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-            iconColor: isLight ? _yellow400 : _cyan400,
-            label: 'Modo ${isLight ? 'Claro' : 'Oscuro'}',
+            icon: widget.isLight ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+            iconColor: widget.isLight ? _yellow400 : _cyan400,
+            label: 'Modo ${widget.isLight ? 'Claro' : 'Oscuro'}',
             trailing: FzSwitch(
-              value: !isLight,
-              onChanged: (_) => onThemeToggle(),
+              value: !widget.isLight,
+              onChanged: (_) => widget.onThemeToggle(),
             ),
           ),
           _SettingRow(
@@ -331,7 +625,7 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.notifications_none_rounded,
             iconColor: _cyan400,
             label: 'Notificaciones',
-            onTap: onOpenNotifications,
+            onTap: widget.onOpenNotifications,
           ),
         ],
       ),
@@ -344,7 +638,7 @@ class SettingsScreen extends StatelessWidget {
       ('Objetivo', _goalLabel(_data.goal)),
       ('Nivel', _levelLabel(_data.experienceLevel)),
       if (trainer != null) ('Entrenador', trainer.name),
-      ('Miembro desde', _formatMemberSince(userProfile.createdAt)),
+      ('Miembro desde', _formatMemberSince(widget.userProfile.createdAt)),
     ];
 
     return HomeCard(
@@ -407,7 +701,7 @@ class SettingsScreen extends StatelessWidget {
             style: AppText.body(
               size: 14,
               weight: FontWeight.w600,
-              color: const Color(0xFFF87171),
+              color: AppColors.red,
               height: 1.43,
             ),
           ),
@@ -466,7 +760,7 @@ class _SettingRow extends StatelessWidget {
               style: AppText.body(
                 size: 14,
                 weight: FontWeight.w500,
-                color: Colors.white,
+                color: AppColors.ink,
                 height: 1.43,
               ),
             ),
@@ -492,6 +786,43 @@ class _SettingRow extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
           child: row,
+        ),
+      ),
+    );
+  }
+}
+
+class _ChangeButton extends StatelessWidget {
+  const _ChangeButton({required this.label, required this.onTap, this.primary = false});
+
+  final String label;
+  final VoidCallback onTap;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 42,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: primary
+              ? const LinearGradient(colors: <Color>[AppColors.cyan, AppColors.teal])
+              : null,
+          color: primary ? null : AppColors.whiteA(0.07),
+          border: primary ? null : Border.all(color: AppColors.whiteA(0.12)),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: AppText.body(
+            size: 13.5,
+            weight: FontWeight.w600,
+            color: primary ? AppColors.onAccent : AppColors.ink,
+          ),
         ),
       ),
     );

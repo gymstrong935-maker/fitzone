@@ -2,8 +2,10 @@ import dns from 'node:dns';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+
 import connectDB from './src/config/db.js';
 
+// Rutas
 import chatRoutes from './src/routes/chatRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
 import planRoutes from './src/routes/planRoutes.js';
@@ -24,27 +26,58 @@ import appointmentRoutes from './src/routes/appointmentRoutes.js';
 import workoutRoutes from './src/routes/workoutRoutes.js';
 import adminRoutes from './src/routes/adminRoutes.js';
 import supportRoutes from './src/routes/supportRoutes.js';
+
 import { iniciarJobVencimientos } from './src/jobs/verificarVencimientosJob.js';
 
 // =====================================================
-// DNS
+// VALIDACIÓN DEL ENTORNO
 // =====================================================
-// Forzamos DNS públicos porque la red local estaba
-// rechazando las consultas SRV utilizadas por MongoDB.
+
+const faltantes = ['MONGO_URI', 'JWT_SECRET', 'GOOGLE_SERVER_CLIENT_ID'].filter(
+  (k) => !String(process.env[k] || '').trim()
+);
+
+if (faltantes.length) {
+  console.error(`❌ Faltan variables en .env: ${faltantes.join(', ')}`);
+  process.exit(1);
+}
+
+if (process.env.JWT_SECRET.trim().startsWith('GOCSPX') || process.env.JWT_SECRET.trim().length < 32) {
+  console.warn(
+    '⚠️  JWT_SECRET es débil o parece el client secret de Google. ' +
+    'Genera una cadena aleatoria de 64+ caracteres (ver .env.example).'
+  );
+}
+
+// =====================================================
+// CONFIGURACIÓN
+// =====================================================
+
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const app = express();
 app.disable('x-powered-by');
 
-// =====================================================
-// MIDDLEWARES
-// =====================================================
-
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
 // =====================================================
-// RUTAS
+// RUTAS PÚBLICAS
+// =====================================================
+
+app.get('/', (req, res) => {
+  res.status(200).send('Bienvenido a nuestro servidor FitZone');
+});
+
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'Servidor FitZone funcionando correctamente',
+  });
+});
+
+// =====================================================
+// RUTAS DE LA API
 // =====================================================
 
 app.use('/api/users', userRoutes);
@@ -70,55 +103,56 @@ app.use('/api/chat', chatRoutes);
 
 // =====================================================
 // RUTA 404
+// Debe estar después de todas las rutas.
 // =====================================================
 
 app.use((req, res) => {
-res.status(404).json({
-mensaje: 'Ruta no encontrada'
-});
+  res.status(404).json({
+    mensaje: 'Ruta no encontrada',
+    ruta: req.originalUrl,
+  });
 });
 
 // =====================================================
 // MANEJADOR GLOBAL DE ERRORES
+// Debe ser el último middleware.
 // =====================================================
 
 app.use((err, req, res, next) => {
-console.error('❌ Error no controlado:', err.stack);
+  console.error('Error no controlado:', err.stack || err.message);
 
-res.status(500).json({
-mensaje: 'Error interno del servidor'
-});
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  res.status(500).json({
+    mensaje: 'Error interno del servidor',
+  });
 });
 
 // =====================================================
-// SERVIDOR
+// INICIO DEL SERVIDOR
 // =====================================================
 
 const PORT = process.env.PORT || 4000;
 
-// =====================================================
-// INICIO DE LA APLICACIÓN
-// =====================================================
-
 const iniciarServidor = async () => {
-try {
-console.log('🔄 Conectando a MongoDB...');
+  try {
+    console.log('Conectando a MongoDB...');
 
-await connectDB();
+    await connectDB();
 
-console.log('✅ MongoDB conectado correctamente');
+    console.log('MongoDB conectado correctamente');
 
-// Iniciar el job solamente después de conectar MongoDB.
-iniciarJobVencimientos();
+    iniciarJobVencimientos();
 
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-});
-
-} catch (error) {
-console.error('❌ No se pudo iniciar el servidor:', error.message);
-process.exit(1);
-}
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Servidor FitZone corriendo en puerto ${PORT}`);
+    });
+  } catch (error) {
+    console.error('No se pudo iniciar el servidor:', error);
+    process.exit(1);
+  }
 };
 
 iniciarServidor();

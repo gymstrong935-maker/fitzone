@@ -2,23 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../models/payment_models.dart';
 
+/// Solo se aceptan dos formas de pago.
 const List<PaymentMethodOption> kPaymentMethods = <PaymentMethodOption>[
   PaymentMethodOption(
     id: PayMethod.cash,
     icon: Icons.payments_outlined,
     label: 'Efectivo',
-    detail: 'Pago presencial en puntos autorizados',
-  ),
-  PaymentMethodOption(
-    id: PayMethod.card,
-    icon: Icons.credit_card_outlined,
-    label: 'Tarjeta débito / crédito',
-    detail: 'Visa, Mastercard y tarjetas locales',
+    detail: 'Pago presencial en el gimnasio',
   ),
   PaymentMethodOption(
     id: PayMethod.digital,
-    icon: Icons.smartphone_outlined,
-    label: 'Digital',
-    detail: 'Nequi y otros medios digitales',
+    icon: Icons.qr_code_2_rounded,
+    label: 'Pago digital',
+    detail: 'Escanea el QR Bre-B y sube tu factura',
   ),
 ];

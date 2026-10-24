@@ -32,10 +32,10 @@ class WorkoutSummaryView extends StatefulWidget {
 }
 
 class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
-  static const Color _cyan400 = Color(0xFF22D3EE);
-  static const Color _teal400 = Color(0xFF2DD4BF);
-  static const Color _orange400 = Color(0xFFFB923C);
-  static const Color _pink400 = Color(0xFFF472B6);
+  static Color get _cyan400 => AppColors.cyanLightText;
+  static Color get _teal400 => AppColors.teal400;
+  static Color get _orange400 => AppColors.orange;
+  static Color get _pink400 => AppColors.pink;
 
   int? _heartRate;
   FatigueLevel _fatigue = FatigueLevel.moderate;
@@ -106,7 +106,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
             style: AppText.display(
               size: 24,
               weight: FontWeight.w700,
-              color: Colors.white,
+              color: AppColors.ink,
               height: 1.333,
             ),
           ),
@@ -384,8 +384,8 @@ class _HeartRateFieldState extends State<_HeartRateField> {
           LengthLimitingTextInputFormatter(3),
         ],
         onChanged: (String text) => widget.onChanged(int.tryParse(text)),
-        cursorColor: Colors.white,
-        style: AppText.body(size: 15, color: Colors.white),
+        cursorColor: AppColors.ink,
+        style: AppText.body(size: 15, color: AppColors.ink),
         decoration: InputDecoration(
           isCollapsed: true,
           border: InputBorder.none,

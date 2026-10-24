@@ -28,7 +28,7 @@ class ShimmerTopBar extends StatefulWidget {
   static const List<Color> lightColors = <Color>[
     Color(0xFF0891B2),
     Color(0xFF0D9488),
-    Color(0xFF06B6D4),
+    AppColors.cyanText,
     Color(0xFF0D9488),
     Color(0xFF0891B2),
   ];

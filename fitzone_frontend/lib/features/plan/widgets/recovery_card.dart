@@ -9,7 +9,7 @@ import '../data/plan_data.dart';
 class RecoveryCard extends StatelessWidget {
   const RecoveryCard({super.key});
 
-  static const Color _cyan400 = Color(0xFF22D3EE);
+  static Color get _cyan400 => AppColors.cyanLightText;
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +101,7 @@ class _RecoveryButton extends StatelessWidget {
               style: AppText.body(
                 size: 12,
                 weight: FontWeight.w600,
-                color: Colors.white,
+                color: AppColors.ink,
                 height: 1.333,
               ),
             ),

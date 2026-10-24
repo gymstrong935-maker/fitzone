@@ -42,7 +42,7 @@ class MacroCircle extends StatelessWidget {
                 style: AppText.body(
                   size: 14,
                   weight: FontWeight.w700,
-                  color: Colors.white,
+                  color: AppColors.ink,
                   height: 1.43,
                 ),
               ),

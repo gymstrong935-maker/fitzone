@@ -25,7 +25,7 @@ class StepHeader extends StatelessWidget {
         teal ? AppColors.tealA(0.15) : AppColors.cyanA(0.15);
     final Color border = teal ? AppColors.tealA(0.25) : AppColors.cyanA(0.25);
     final Color iconColor =
-        teal ? const Color(0xFF2DD4BF) : AppColors.cyanLight;
+        teal ? AppColors.teal400 : AppColors.cyanLight;
 
     return Column(
       mainAxisSize: MainAxisSize.min,

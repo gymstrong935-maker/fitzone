@@ -12,6 +12,7 @@ class OnboardingFooter extends StatelessWidget {
     required this.nextEnabled,
     required this.onBack,
     required this.onNext,
+    this.hint,
   });
 
   final bool showBack;
@@ -20,17 +21,20 @@ class OnboardingFooter extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onNext;
 
+  /// Lo que falta por llenar (se muestra encima del botón mientras esté deshabilitado).
+  final String? hint;
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
           colors: <Color>[
-            Color(0xFF000000),
-            Color(0xF2000000), // negro al 95 %
-            Color(0x00000000),
+            AppColors.bg,
+            AppColors.bg.withValues(alpha: 0.95),
+            AppColors.bg.withValues(alpha: 0),
           ],
           stops: <double>[0.0, 0.5, 1.0],
         ),
@@ -43,7 +47,25 @@ class OnboardingFooter extends StatelessWidget {
             heightFactor: 1,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 512),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  if (hint != null && !nextEnabled) ...<Widget>[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        hint!,
+                        textAlign: TextAlign.center,
+                        style: AppText.body(
+                          size: 12.5,
+                          weight: FontWeight.w500,
+                          color: AppColors.amber,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                  Row(
                 children: <Widget>[
                   if (showBack) ...<Widget>[
                     _Pressable(
@@ -57,10 +79,10 @@ class OnboardingFooter extends StatelessWidget {
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(color: AppColors.whiteA(0.15)),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.chevron_left_rounded,
                           size: 22,
-                          color: Colors.white,
+                          color: AppColors.ink,
                         ),
                       ),
                     ),
@@ -106,6 +128,8 @@ class OnboardingFooter extends StatelessWidget {
                       ),
                     ),
                   ),
+                ],
+              ),
                 ],
               ),
             ),

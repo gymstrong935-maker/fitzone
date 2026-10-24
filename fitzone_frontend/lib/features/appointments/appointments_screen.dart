@@ -41,7 +41,7 @@ class AppointmentsScreen extends StatefulWidget {
 }
 
 class _AppointmentsScreenState extends State<AppointmentsScreen> {
-  static const Color _cyan400 = Color(0xFF22D3EE);
+  static Color get _cyan400 => AppColors.cyanLightText;
 
   final AppointmentsService _service = AppServices.instance.appointments;
 
@@ -149,10 +149,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message, style: AppText.body(size: 14, color: Colors.white)),
+          content: Text(message, style: AppText.body(size: 14, color: AppColors.ink)),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-          backgroundColor: const Color(0xFF111111),
+          backgroundColor: AppColors.surface,
           duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -518,7 +518,7 @@ class _DayChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color textColor = selected
         ? const Color(0xFF0A0A0A)
-        : (enabled ? Colors.white : AppColors.whiteA(0.25));
+        : (enabled ? AppColors.ink : AppColors.whiteA(0.25));
 
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
@@ -604,7 +604,7 @@ class _TimeChip extends StatelessWidget {
             style: AppText.body(
               size: 14,
               weight: FontWeight.w600,
-              color: selected ? AppColors.cyan : Colors.white,
+              color: selected ? AppColors.cyanText : AppColors.ink,
             ),
           ),
         ),
@@ -652,7 +652,7 @@ class _AppointmentCard extends StatelessWidget {
                   style: AppText.body(
                     size: 14,
                     weight: FontWeight.w700,
-                    color: Colors.white,
+                    color: AppColors.ink,
                     height: 1.43,
                   ),
                 ),
@@ -684,7 +684,7 @@ class _AppointmentCard extends StatelessWidget {
                 style: AppText.body(
                   size: 12,
                   weight: FontWeight.w600,
-                  color: const Color(0xFFF87171),
+                  color: AppColors.red,
                 ),
               ),
             ),
@@ -760,7 +760,7 @@ class _ConfirmDialog extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: const Color(0xFF0F0F0F),
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: AppColors.whiteA(0.10)),
           ),
@@ -787,7 +787,7 @@ class _ConfirmDialog extends StatelessWidget {
                       label: cancelLabel,
                       background: AppColors.whiteA(0.08),
                       border: AppColors.whiteA(0.12),
-                      textColor: Colors.white,
+                      textColor: AppColors.ink,
                       onTap: () => Navigator.of(context).pop(false),
                     ),
                   ),
@@ -797,7 +797,7 @@ class _ConfirmDialog extends StatelessWidget {
                       label: confirmLabel,
                       background: const Color.fromRGBO(239, 68, 68, 0.12),
                       border: const Color.fromRGBO(239, 68, 68, 0.30),
-                      textColor: const Color(0xFFF87171),
+                      textColor: AppColors.red,
                       onTap: () => Navigator.of(context).pop(true),
                     ),
                   ),

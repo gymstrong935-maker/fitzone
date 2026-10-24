@@ -6,14 +6,14 @@ import '../theme/app_colors.dart';
 
 /// Barra de progreso redondeada que se llena con animación.
 class AnimatedProgressBar extends StatefulWidget {
-  const AnimatedProgressBar({
+  AnimatedProgressBar({
     super.key,
     required this.value,
     this.height = 6,
     this.delay = Duration.zero,
     this.duration = const Duration(milliseconds: 600),
     this.animateOnMount = true,
-    this.trackColor = const Color.fromRGBO(255, 255, 255, 0.08),
+    this.trackColor,
     this.color,
     this.gradient,
   });
@@ -28,7 +28,7 @@ class AnimatedProgressBar extends StatefulWidget {
 
   /// `true`: parte de vacío y se llena al aparecer; `false`: aparece ya llena.
   final bool animateOnMount;
-  final Color trackColor;
+  final Color? trackColor;
 
   /// Color sólido del relleno. Si no se da color ni degradado, usa el degradado
   /// cian-turquesa.
@@ -79,7 +79,7 @@ class _AnimatedProgressBarState extends State<AnimatedProgressBar> {
         height: widget.height,
         child: Stack(
           children: <Widget>[
-            Positioned.fill(child: ColoredBox(color: widget.trackColor)),
+            Positioned.fill(child: ColoredBox(color: widget.trackColor ?? AppColors.whiteA(0.08))),
             Positioned.fill(
               child: AnimatedFractionallySizedBox(
                 duration: widget.duration,

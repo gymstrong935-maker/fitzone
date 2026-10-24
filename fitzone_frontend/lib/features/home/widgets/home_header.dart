@@ -48,17 +48,13 @@ class HomeHeader extends StatelessWidget {
       child: Stack(
         children: <Widget>[
           // ── Fondo ──
-          const Positioned.fill(
+          Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: <Color>[
-                    Color(0xFF0A1628),
-                    Color(0xFF071E20),
-                    Color(0xFF0A0F1E),
-                  ],
+                  colors: AppColors.headerGradient,
                   stops: <double>[0.0, 0.5, 1.0],
                 ),
               ),
@@ -116,7 +112,7 @@ class HomeHeader extends StatelessWidget {
           ),
 
           // ── Desvanecido hacia negro (abajo) ──
-          const Positioned(
+          Positioned(
             left: 0,
             right: 0,
             bottom: 0,
@@ -127,7 +123,7 @@ class HomeHeader extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: <Color>[Color(0x00000000), Color(0xFF000000)],
+                    colors: <Color>[AppColors.bg.withValues(alpha: 0), AppColors.bg],
                   ),
                 ),
               ),

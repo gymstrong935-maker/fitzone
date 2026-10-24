@@ -4,6 +4,7 @@ import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 import { crearSuscripcionParaPlan } from '../helpers/suscripciones.js';
 import notificarUsuario from '../helpers/notificarUsuario.js';
+import { ejecutarRevisionVencimientos } from '../helpers/vencimientos.js';
 
 export const obtenerSuscripcionPorUsuario = async (req, res) => {
   try { res.json(await Subscription.find({ usuarioId: req.params.usuarioId })); }
@@ -12,45 +13,7 @@ export const obtenerSuscripcionPorUsuario = async (req, res) => {
 
 export const verificarVencimientos = async (req, res) => {
   try {
-    const ahora = new Date();
-    const enUnDia = new Date();
-    enUnDia.setDate(enUnDia.getDate() + 1);
-
-    const porVencer = await Subscription.find({
-      estado: 'activa',
-      fechaFin: { $gte: ahora, $lte: enUnDia }
-    });
-
-    let notificacionesCreadas = 0;
-
-    for (const sub of porVencer) {
-      const yaNotificado = await Notification.findOne({
-        usuarioId: sub.usuarioId,
-        tipo: 'recordatorio',
-        leida: false
-      });
-
-      if (!yaNotificado) {
-        await Notification.create({
-          usuarioId: sub.usuarioId,
-          tipo: 'recordatorio',
-          mensaje: 'Tu plan vence en menos de 24 horas. Renueva para no perder acceso.',
-          leida: false
-        });
-        notificacionesCreadas++;
-      }
-    }
-
-    const vencidas = await Subscription.updateMany(
-      { estado: 'activa', fechaFin: { $lt: ahora } },
-      { $set: { estado: 'vencida' } }
-    );
-
-    res.json({
-      mensaje: 'Verificación completada',
-      notificacionesEnviadas: notificacionesCreadas,
-      suscripcionesVencidas: vencidas.modifiedCount
-    });
+    res.json(await ejecutarRevisionVencimientos());
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -72,14 +35,14 @@ export const cambiarPlan = async (req, res) => {
       return res.status(400).json({ mensaje: 'No puedes seleccionar el plan gratuito nuevamente.' });
     }
 
-    if (planActual && !planActual.esGratuito) {
-      const suscripcionActual = await Subscription.findOne({ usuarioId, estado: 'activa' });
+    // Quien tiene un plan vigente (gratuito o de pago) solo puede cambiarlo cuando termine.
+    const suscripcionActual = await Subscription.findOne({ usuarioId, estado: 'activa' });
 
-      if (suscripcionActual && suscripcionActual.fechaFin && suscripcionActual.fechaFin > new Date()) {
-        return res.status(400).json({
-          mensaje: `Tu plan actual (${planActual.nombre}) sigue vigente hasta ${suscripcionActual.fechaFin.toLocaleDateString()}. Podrás cambiar de plan cuando finalice.`
-        });
-      }
+    if (suscripcionActual && suscripcionActual.fechaFin && suscripcionActual.fechaFin > new Date()) {
+      return res.status(400).json({
+        mensaje: `Tu plan actual (${planActual?.nombre || 'vigente'}) sigue vigente hasta ${suscripcionActual.fechaFin.toLocaleDateString('es-CO')}. Podrás cambiar de plan cuando finalice.`,
+        codigo: 'PLAN_VIGENTE'
+      });
     }
 
     await Subscription.updateMany(

@@ -178,7 +178,7 @@ class _AdminAnnouncementsScreenState extends State<AdminAnnouncementsScreen> {
                   height: 40,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.cyanA(0.14)),
-                  child: Icon(_typeIcon, size: 20, color: AppColors.cyan),
+                  child: Icon(_typeIcon, size: 20, color: AppColors.cyanText),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -187,7 +187,7 @@ class _AdminAnnouncementsScreenState extends State<AdminAnnouncementsScreen> {
                     style: AppText.body(
                       size: 14,
                       weight: FontWeight.w600,
-                      color: _message.text.trim().isEmpty ? AppColors.whiteA(0.40) : Colors.white,
+                      color: _message.text.trim().isEmpty ? AppColors.whiteA(0.40) : AppColors.ink,
                       height: 1.45,
                     ),
                   ),

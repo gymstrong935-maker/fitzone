@@ -126,7 +126,7 @@ class _GroupCard extends StatelessWidget {
                 ),
               ),
               if (level.isNotEmpty)
-                StatusBadge(label: statusLabel(level), color: const Color(0xFFA78BFA)),
+                StatusBadge(label: statusLabel(level), color: AppColors.violet),
             ],
           ),
           const SizedBox(height: 10),
@@ -294,7 +294,7 @@ class _GroupFormState extends State<_GroupForm> {
           ),
           if (_error.isNotEmpty) ...<Widget>[
             const SizedBox(height: 14),
-            Text(_error, style: AppText.body(size: 13, color: const Color(0xFFF87171))),
+            Text(_error, style: AppText.body(size: 13, color: AppColors.red)),
           ],
           const SizedBox(height: 20),
           AdminButton(

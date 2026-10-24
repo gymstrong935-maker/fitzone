@@ -8,6 +8,13 @@ import '../../core/widgets/sub_screen_frame.dart';
 import '../support/widgets/support_sheets.dart';
 import 'assistant_controller.dart';
 
+const List<String> _staffSuggestions = <String>[
+  '¿Cómo va el negocio hoy?',
+  '¿Qué pagos faltan por validar?',
+  '¿Quién vence esta semana?',
+  '¿Hay tickets de soporte abiertos?',
+];
+
 const List<String> _suggestions = <String>[
   '¿Qué planes tienen?',
   '¿Cómo agendo una cita?',
@@ -21,10 +28,15 @@ class AssistantScreen extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onBack,
+    this.staff = false,
   });
 
   final AssistantController controller;
   final VoidCallback onBack;
+
+  /// `true` para el equipo del panel admin: ve datos del negocio y no se le
+  /// ofrece "Hablar con una persona".
+  final bool staff;
 
   @override
   State<AssistantScreen> createState() => _AssistantScreenState();
@@ -94,8 +106,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             SubScreenHeader(
-              title: 'Soporte FitZone',
-              subtitle: 'Asistente con IA · respuestas al instante',
+              title: widget.staff ? 'Asistente del equipo' : 'Soporte FitZone',
+              subtitle: widget.staff
+                  ? 'Consulta usuarios, pagos, vencimientos y más'
+                  : 'Asistente con IA · respuestas al instante',
               onBack: widget.onBack,
             ),
             _buildToolbar(c),
@@ -113,7 +127,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                           child: _Bubble(
                             message: m,
                             onRetry: m.isError && !c.sending ? c.retry : null,
-                            onContact: m.isError ? _contactSupport : null,
+                            onContact: m.isError && !widget.staff ? _contactSupport : null,
                           ),
                         ),
                       if (c.sending)
@@ -147,17 +161,19 @@ class _AssistantScreenState extends State<AssistantScreen> {
             spacing: 8,
             runSpacing: 8,
             children: <Widget>[
-              _ToolChip(
-                icon: Icons.headset_mic_outlined,
-                label: 'Hablar con una persona',
-                highlighted: true,
-                onTap: _contactSupport,
-              ),
-              _ToolChip(
-                icon: Icons.forum_outlined,
-                label: 'Mis solicitudes',
-                onTap: () => showMyTicketsSheet(context),
-              ),
+              if (!widget.staff) ...<Widget>[
+                _ToolChip(
+                  icon: Icons.headset_mic_outlined,
+                  label: 'Hablar con una persona',
+                  highlighted: true,
+                  onTap: _contactSupport,
+                ),
+                _ToolChip(
+                  icon: Icons.forum_outlined,
+                  label: 'Mis solicitudes',
+                  onTap: () => showMyTicketsSheet(context),
+                ),
+              ],
               if (!c.isFresh && !c.sending)
                 _ToolChip(
                   icon: Icons.restart_alt_rounded,
@@ -178,7 +194,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
         spacing: 8,
         runSpacing: 8,
         children: <Widget>[
-          for (final String s in _suggestions)
+          for (final String s in (widget.staff ? _staffSuggestions : _suggestions))
             MouseRegion(
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
@@ -196,7 +212,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                     style: AppText.body(
                       size: 12.5,
                       weight: FontWeight.w500,
-                      color: const Color(0xFF22D3EE),
+                      color: AppColors.cyanLightText,
                     ),
                   ),
                 ),
@@ -214,7 +230,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, 12 + bottom),
       decoration: BoxDecoration(
-        color: const Color(0xE6000000),
+        color: AppColors.bg.withValues(alpha: 0.90),
         border: Border(top: BorderSide(color: AppColors.whiteA(0.08))),
       ),
       child: Center(
@@ -243,8 +259,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
                       LengthLimitingTextInputFormatter(500),
                     ],
                     onSubmitted: (_) => _send(),
-                    cursorColor: Colors.white,
-                    style: AppText.body(size: 15, color: Colors.white),
+                    cursorColor: AppColors.ink,
+                    style: AppText.body(size: 15, color: AppColors.ink),
                     decoration: InputDecoration(
                       isCollapsed: true,
                       border: InputBorder.none,
@@ -439,7 +455,7 @@ class _Bubble extends StatelessWidget {
                     message.text,
                     style: AppText.body(
                       size: 14,
-                      color: Colors.white,
+                      color: AppColors.ink,
                       height: 1.5,
                     ),
                   ),
@@ -458,7 +474,7 @@ class _Bubble extends StatelessWidget {
                               style: AppText.body(
                                 size: 12.5,
                                 weight: FontWeight.w600,
-                                color: Colors.white,
+                                color: AppColors.ink,
                               ),
                             ),
                           ),
@@ -471,7 +487,7 @@ class _Bubble extends StatelessWidget {
                               style: AppText.body(
                                 size: 12.5,
                                 weight: FontWeight.w600,
-                                color: AppColors.cyan,
+                                color: AppColors.cyanText,
                               ),
                             ),
                           ),

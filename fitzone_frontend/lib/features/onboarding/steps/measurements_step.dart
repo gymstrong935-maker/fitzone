@@ -6,7 +6,7 @@ import '../models/body_measurements.dart';
 import '../widgets/fz_optional_number_field.dart';
 import '../widgets/step_header.dart';
 
-/// Paso "Mediciones Corporales" (opcional, para todos los planes).
+/// Paso "Mediciones Corporales" (circunferencias obligatorias, plicometría opcional).
 class MeasurementsStep extends StatelessWidget {
   const MeasurementsStep({
     super.key,
@@ -17,7 +17,7 @@ class MeasurementsStep extends StatelessWidget {
   final BodyMeasurements measurements;
   final ValueChanged<BodyMeasurements> onChanged;
 
-  static const Color _teal400 = Color(0xFF2DD4BF);
+  static Color get _teal400 => AppColors.teal400;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +27,7 @@ class MeasurementsStep extends StatelessWidget {
         const StepHeader(
           icon: Icons.straighten_rounded,
           title: 'Mediciones Corporales',
-          subtitle: 'Opcionales — te ayudan a ver tu progreso real',
+          subtitle: 'Las circunferencias son obligatorias; la plicometría es opcional. Podrás modificarlas luego en Ajustes.',
         ),
         const SizedBox(height: 24),
         _buildInfoBox(),

@@ -13,7 +13,7 @@ class MesocycleCard extends StatelessWidget {
   final Mesocycle mesocycle;
 
   static const Color _violet = Color.fromRGBO(124, 58, 237, 1);
-  static const Color _purple300 = Color(0xFFD8B4FE);
+  static Color get _purple300 => AppColors.purpleSoft;
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +70,7 @@ class MesocycleCard extends StatelessWidget {
                           style: AppText.display(
                             size: 18,
                             weight: FontWeight.w700,
-                            color: Colors.white,
+                            color: AppColors.ink,
                             height: 1.556,
                           ),
                         ),
@@ -119,8 +119,8 @@ class MesocycleCard extends StatelessWidget {
                   height: 6,
                   duration: const Duration(milliseconds: 800),
                   trackColor: AppColors.whiteA(0.12),
-                  gradient: const LinearGradient(
-                    colors: <Color>[Color(0xFFA78BFA), Color(0xFFEC4899)],
+                  gradient: LinearGradient(
+                    colors: <Color>[AppColors.violet, AppColors.pinkStrong],
                   ),
                 ),
                 const SizedBox(height: 8),

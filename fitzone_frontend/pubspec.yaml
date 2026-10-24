@@ -39,6 +39,8 @@ dependencies:
   http: ^1.6.0
   shared_preferences: ^2.5.6
   google_sign_in: ^7.2.0
+  image_picker: ^1.1.2
+  http_parser: ^4.1.2
 
 dev_dependencies:
   flutter_test:
@@ -62,6 +64,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/images/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -100,6 +105,11 @@ flutter_launcher_icons:
   adaptive_icon_background: "#0A0A0A"
   adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
   remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    background_color: "#0A0A0A"
+    theme_color: "#06B6D4"
   windows:
     generate: true
     image_path: "assets/icon/app_icon.png"

@@ -9,10 +9,8 @@ String payMethodToBackend(PayMethod method) {
   switch (method) {
     case PayMethod.cash:
       return 'Efectivo';
-    case PayMethod.card:
-      return 'Tarjeta';
     case PayMethod.digital:
-      return 'Nequi';
+      return 'Pago digital';
   }
 }
 
@@ -61,18 +59,17 @@ class SubscriptionService {
     return resolveStatus(await listForUser(userId));
   }
 
-  /// Un usuario ya registrado pide otro plan (queda pendiente de aprobación).
+  /// Un usuario ya registrado pide otro plan (queda pendiente: luego elige
+  /// cómo pagar y el equipo valida el pago).
   Future<void> changePlan({
     required String userId,
     required String planId,
-    required String metodoPago,
   }) async {
     await _api.post(
       '/api/subscriptions/cambiar-plan',
       body: <String, dynamic>{
         'usuarioId': userId,
         'nuevoPlanId': planId,
-        'metodoPago': metodoPago,
       },
     );
   }

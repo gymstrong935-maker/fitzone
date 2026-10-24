@@ -106,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
               StatPill(
                 icon: Icons.local_fire_department_outlined,
                 value: '$workoutsThisWeek/$weeklyGoal esta semana',
-                color: const Color(0xFFFB923C),
+                color: AppColors.orange,
               ),
               StatPill(
                 icon: Icons.monitor_heart_outlined,
@@ -116,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
               StatPill(
                 icon: Icons.favorite_border_rounded,
                 value: 'Energía $energy/10',
-                color: const Color(0xFFF472B6),
+                color: AppColors.pink,
               ),
             ],
           ),

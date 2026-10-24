@@ -69,7 +69,7 @@ class _DayButton extends StatelessWidget {
     final Color textColor = selected
         ? AppColors.cyan
         : isToday
-            ? Colors.white
+            ? AppColors.ink
             : AppColors.whiteA(0.40);
 
     return Semantics(

@@ -8,7 +8,11 @@ import '../../core/theme/app_text.dart';
 import '../../core/widgets/ambient_background.dart';
 import '../../core/widgets/shimmer_top_bar.dart';
 import 'admin_controller.dart';
+import '../assistant/assistant_controller.dart';
+import '../assistant/assistant_screen.dart';
+import 'screens/admin_coach_changes_screen.dart';
 import 'screens/admin_coaches_screen.dart';
+import 'screens/admin_expirations_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'screens/admin_payments_screen.dart';
 import 'screens/admin_plans_screen.dart';
@@ -22,13 +26,16 @@ import 'screens/admin_groups_screen.dart';
 enum AdminSection {
   dashboard('Panel', Icons.space_dashboard_outlined),
   payments('Pagos', Icons.payments_outlined),
+  coachChanges('Cambios de entrenador', Icons.swap_horiz_rounded),
+  expirations('Vencimientos', Icons.event_busy_outlined),
   users('Usuarios', Icons.people_alt_outlined),
   coaches('Entrenadores', Icons.fitness_center_rounded),
   plans('Planes', Icons.sell_outlined),
   groups('Grupos', Icons.groups_2_outlined),
   appointments('Citas', Icons.event_available_outlined),
   support('Soporte', Icons.support_agent_rounded),
-  announcements('Anuncios', Icons.campaign_outlined);
+  announcements('Anuncios', Icons.campaign_outlined),
+  assistant('Asistente', Icons.smart_toy_outlined);
 
   const AdminSection(this.label, this.icon);
 
@@ -60,6 +67,15 @@ class _AdminShellState extends State<AdminShell> {
 
   AdminSection _section = AdminSection.dashboard;
 
+  /// Chat con el asistente (el equipo de soporte también puede usarlo).
+  late final AssistantController _assistant = AssistantController(
+    service: AppServices.instance.chat,
+    userName: widget.user.nombre,
+    welcome: '¡Hola! Soy el asistente de FitZone para el equipo. Puedo darte el '
+        'panorama del negocio, los pagos y cambios por validar, los planes por '
+        'vencer y buscar a un usuario por nombre o correo.',
+  );
+
   @override
   void initState() {
     super.initState();
@@ -69,6 +85,7 @@ class _AdminShellState extends State<AdminShell> {
   @override
   void dispose() {
     _controller.dispose();
+    _assistant.dispose();
     super.dispose();
   }
 
@@ -88,6 +105,8 @@ class _AdminShellState extends State<AdminShell> {
     if (s == AdminSection.payments) return _controller.pendingPayments;
     if (s == AdminSection.support) return _controller.openTickets;
     if (s == AdminSection.users) return _controller.pendingAccounts;
+    if (s == AdminSection.coachChanges) return _controller.pendingCoachChanges;
+    if (s == AdminSection.expirations) return _controller.expiringSoon;
     return 0;
   }
 
@@ -98,6 +117,10 @@ class _AdminShellState extends State<AdminShell> {
         page = AdminDashboardScreen(controller: _controller, service: _service, onNavigate: _go);
       case AdminSection.payments:
         page = AdminPaymentsScreen(service: _service, controller: _controller);
+      case AdminSection.coachChanges:
+        page = AdminCoachChangesScreen(service: _service, controller: _controller);
+      case AdminSection.expirations:
+        page = AdminExpirationsScreen(service: _service, controller: _controller);
       case AdminSection.users:
         page = AdminUsersScreen(service: _service, controller: _controller);
       case AdminSection.coaches:
@@ -112,6 +135,12 @@ class _AdminShellState extends State<AdminShell> {
         page = AdminAppointmentsScreen(service: _service);
       case AdminSection.announcements:
         page = AdminAnnouncementsScreen(service: _service);
+      case AdminSection.assistant:
+        page = AssistantScreen(
+          controller: _assistant,
+          staff: true,
+          onBack: () => _go(AdminSection.dashboard),
+        );
     }
 
     return AnimatedSwitcher(
@@ -123,7 +152,7 @@ class _AdminShellState extends State<AdminShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.bg,
       body: Stack(
         children: <Widget>[
           const Positioned.fill(child: AmbientBackground()),
@@ -232,7 +261,7 @@ class _Sidebar extends StatelessWidget {
     return Container(
       width: 252,
       decoration: BoxDecoration(
-        color: const Color(0xCC050505),
+        color: AppColors.glass(0.8),
         border: Border(right: BorderSide(color: AppColors.whiteA(0.08))),
       ),
       child: SafeArea(
@@ -258,7 +287,7 @@ class _Sidebar extends StatelessWidget {
                       ),
                       child: Text(
                         'FZ',
-                        style: AppText.display(size: 14, weight: FontWeight.w700, color: AppColors.cyan),
+                        style: AppText.display(size: 14, weight: FontWeight.w700, color: AppColors.cyanText),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -300,7 +329,7 @@ class _Sidebar extends StatelessWidget {
                       user.nombre,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppText.body(size: 13.5, weight: FontWeight.w700, color: Colors.white),
+                      style: AppText.body(size: 13.5, weight: FontWeight.w700, color: AppColors.ink),
                     ),
                     Text(
                       user.email,
@@ -358,7 +387,7 @@ class _SidebarItem extends StatelessWidget {
             ),
             child: Row(
               children: <Widget>[
-                Icon(section.icon, size: 19, color: selected ? AppColors.cyan : AppColors.whiteA(0.55)),
+                Icon(section.icon, size: 19, color: selected ? AppColors.cyanText : AppColors.whiteA(0.55)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -366,7 +395,7 @@ class _SidebarItem extends StatelessWidget {
                     style: AppText.body(
                       size: 14,
                       weight: selected ? FontWeight.w700 : FontWeight.w500,
-                      color: selected ? AppColors.cyan : AppColors.whiteA(0.75),
+                      color: selected ? AppColors.cyanText : AppColors.whiteA(0.75),
                     ),
                   ),
                 ),
@@ -391,7 +420,7 @@ class _Badge extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
       padding: const EdgeInsets.symmetric(horizontal: 6),
       alignment: Alignment.center,
-      decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: AppColors.redStrong, borderRadius: BorderRadius.circular(10)),
       child: Text(
         count > 9 ? '9+' : '$count',
         style: AppText.body(size: 11, weight: FontWeight.w700, color: Colors.white, height: 1),
@@ -412,7 +441,7 @@ class _MobileTopBar extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Row(
         children: <Widget>[
-          Icon(section.icon, size: 18, color: AppColors.cyan),
+          Icon(section.icon, size: 18, color: AppColors.cyanText),
           const SizedBox(width: 10),
           Text(
             'Admin · ${section.label}',
@@ -454,7 +483,7 @@ class _MobileBottomNav extends StatelessWidget {
                 Stack(
                   clipBehavior: Clip.none,
                   children: <Widget>[
-                    Icon(icon, size: 22, color: selected ? AppColors.cyan : AppColors.whiteA(0.50)),
+                    Icon(icon, size: 22, color: selected ? AppColors.cyanText : AppColors.whiteA(0.50)),
                     if (count > 0)
                       Positioned(top: -6, right: -12, child: _Badge(count: count)),
                   ],
@@ -465,7 +494,7 @@ class _MobileBottomNav extends StatelessWidget {
                   style: AppText.body(
                     size: 11,
                     weight: FontWeight.w600,
-                    color: selected ? AppColors.cyan : AppColors.whiteA(0.50),
+                    color: selected ? AppColors.cyanText : AppColors.whiteA(0.50),
                   ),
                 ),
               ],
@@ -477,7 +506,7 @@ class _MobileBottomNav extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xF2050505),
+        color: AppColors.glass(0.95),
         border: Border(top: BorderSide(color: AppColors.whiteA(0.08))),
       ),
       child: Row(
@@ -513,11 +542,11 @@ class _MoreItem extends StatelessWidget {
         ),
         child: Row(
           children: <Widget>[
-            Icon(section.icon, size: 20, color: selected ? AppColors.cyan : AppColors.whiteA(0.65)),
+            Icon(section.icon, size: 20, color: selected ? AppColors.cyanText : AppColors.whiteA(0.65)),
             const SizedBox(width: 12),
             Text(
               section.label,
-              style: AppText.body(size: 15, weight: FontWeight.w600, color: Colors.white),
+              style: AppText.body(size: 15, weight: FontWeight.w600, color: AppColors.ink),
             ),
           ],
         ),

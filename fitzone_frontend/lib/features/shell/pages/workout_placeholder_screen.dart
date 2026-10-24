@@ -18,7 +18,7 @@ class WorkoutPlaceholderScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.bg,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -38,7 +38,7 @@ class WorkoutPlaceholderScreen extends StatelessWidget {
                   Text(
                     'Próximamente',
                     textAlign: TextAlign.center,
-                    style: AppText.body(size: 14, color: AppColors.cyan),
+                    style: AppText.body(size: 14, color: AppColors.cyanText),
                   ),
                   const SizedBox(height: 28),
                   PressableScale(

@@ -110,6 +110,7 @@ OnboardingData onboardingFromJson(Map<String, dynamic> json) {
         physical: _string(p['medicalPhysical']),
         psychological: _string(p['medicalPsychological']),
       ),
+      touched: PersonalInfo.allTouched,
     ),
     bodyMeasurements: BodyMeasurements(
       skinfolds: skinfolds,
@@ -128,6 +129,7 @@ OnboardingData onboardingFromJson(Map<String, dynamic> json) {
       availability: availability is List
           ? <String>[for (final Object? a in availability) a.toString()]
           : const <String>[],
+      touched: TrainingHabits.allTouched,
     ),
   );
 }

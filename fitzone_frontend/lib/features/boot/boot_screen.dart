@@ -4,6 +4,7 @@ import '../../core/widgets/pulsing_dots.dart';
 import '../../core/widgets/shimmer_top_bar.dart';
 import '../auth/widgets/auth_background.dart';
 import '../auth/widgets/auth_logo.dart';
+import '../../core/theme/app_colors.dart';
 
 /// Pantalla de arranque: se muestra mientras se recupera la sesión guardada.
 class BootScreen extends StatelessWidget {
@@ -11,8 +12,8 @@ class BootScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.black,
+    return Scaffold(
+      backgroundColor: AppColors.bg,
       body: Stack(
         children: <Widget>[
           Positioned.fill(child: AuthBackground()),

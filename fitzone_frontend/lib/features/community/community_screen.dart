@@ -72,7 +72,7 @@ class _PostCard extends StatefulWidget {
 }
 
 class _PostCardState extends State<_PostCard> {
-  static const Color _red400 = Color(0xFFF87171);
+  static Color get _red400 => AppColors.red;
 
   late bool _liked = widget.post.liked;
   late int _likes = widget.post.likes;

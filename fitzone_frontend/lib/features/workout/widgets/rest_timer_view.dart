@@ -21,7 +21,7 @@ class RestTimerView extends StatelessWidget {
   final Exercise nextExercise;
   final VoidCallback onSkip;
 
-  static const Color _cyan400 = Color(0xFF22D3EE);
+  static Color get _cyan400 => AppColors.cyanLightText;
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +64,7 @@ class RestTimerView extends StatelessWidget {
                     style: AppText.display(
                       size: 24,
                       weight: FontWeight.w700,
-                      color: Colors.white,
+                      color: AppColors.ink,
                       height: 1.333,
                     ),
                   ),
@@ -138,7 +138,7 @@ class RestTimerView extends StatelessWidget {
                         style: AppText.body(
                           size: 14,
                           weight: FontWeight.w600,
-                          color: Colors.white,
+                          color: AppColors.ink,
                           height: 1.43,
                         ),
                       ),
@@ -171,7 +171,7 @@ class RestTimerView extends StatelessWidget {
                           style: AppText.body(
                             size: 14,
                             weight: FontWeight.w600,
-                            color: Colors.white,
+                            color: AppColors.ink,
                             height: 1.43,
                           ),
                         ),

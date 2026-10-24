@@ -23,9 +23,9 @@ class _TechniqueSheet extends StatelessWidget {
 
   final Exercise exercise;
 
-  static const Color _cyan400 = Color(0xFF22D3EE);
-  static const Color _teal400 = Color(0xFF2DD4BF);
-  static const Color _red400 = Color(0xFFF87171);
+  static Color get _cyan400 => AppColors.cyanLightText;
+  static Color get _teal400 => AppColors.teal400;
+  static Color get _red400 => AppColors.red;
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +36,7 @@ class _TechniqueSheet extends StatelessWidget {
       constraints: BoxConstraints(maxHeight: maxHeight),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF0D0D0D),
+          color: AppColors.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           border: Border.all(color: AppColors.whiteA(0.10)),
         ),
@@ -107,7 +107,7 @@ class _TechniqueSheet extends StatelessWidget {
                   style: AppText.body(
                     size: 12,
                     weight: FontWeight.w600,
-                    color: AppColors.cyan,
+                    color: AppColors.cyanText,
                     letterSpacing: 1.2,
                     height: 1.333,
                   ),
@@ -119,7 +119,7 @@ class _TechniqueSheet extends StatelessWidget {
                 style: AppText.display(
                   size: 20,
                   weight: FontWeight.w700,
-                  color: Colors.white,
+                  color: AppColors.ink,
                   height: 1.4,
                 ),
               ),
@@ -195,7 +195,7 @@ class _TechniqueSheet extends StatelessWidget {
                   style: AppText.body(
                     size: 12,
                     weight: FontWeight.w500,
-                    color: AppColors.teal,
+                    color: AppColors.tealText,
                     height: 1.333,
                   ),
                 ),
@@ -266,7 +266,7 @@ class _TechniqueSheet extends StatelessWidget {
                   style: AppText.body(
                     size: 12,
                     weight: FontWeight.w700,
-                    color: AppColors.cyan,
+                    color: AppColors.cyanText,
                     height: 1.333,
                   ),
                 ),

@@ -217,7 +217,7 @@ class _UserCard extends StatelessWidget {
                       name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppText.body(size: 14.5, weight: FontWeight.w700, color: Colors.white),
+                      style: AppText.body(size: 14.5, weight: FontWeight.w700, color: AppColors.ink),
                     ),
                     Text(
                       str(user['email']),
@@ -233,7 +233,7 @@ class _UserCard extends StatelessWidget {
                         if (rol.isNotEmpty)
                           StatusBadge(
                             label: statusLabel(rol),
-                            color: rol == 'admin' ? const Color(0xFFA78BFA) : AppColors.cyan,
+                            color: rol == 'admin' ? AppColors.violet : AppColors.cyan,
                           ),
                         if (estado.isNotEmpty)
                           StatusBadge(
@@ -241,9 +241,9 @@ class _UserCard extends StatelessWidget {
                             color: statusColor(estado),
                           ),
                         if (plan.isNotEmpty)
-                          StatusBadge(label: plan, color: const Color(0xFF2DD4BF)),
+                          StatusBadge(label: plan, color: AppColors.teal400),
                         if (!verified)
-                          const StatusBadge(label: 'Correo sin verificar', color: Color(0xFFF87171)),
+                          StatusBadge(label: 'Correo sin verificar', color: AppColors.red),
                       ],
                     ),
                   ],
@@ -532,7 +532,7 @@ class _UserEditorState extends State<_UserEditor> {
         ],
         if (_error.isNotEmpty) ...<Widget>[
           const SizedBox(height: 14),
-          Text(_error, style: AppText.body(size: 13, color: const Color(0xFFF87171))),
+          Text(_error, style: AppText.body(size: 13, color: AppColors.red)),
         ],
         const SizedBox(height: 18),
         AdminButton(
@@ -606,7 +606,7 @@ class _UserEditorState extends State<_UserEditor> {
               children: <Widget>[
                 Text(
                   'Zona de peligro',
-                  style: AppText.display(size: 15, weight: FontWeight.w700, color: const Color(0xFFF87171)),
+                  style: AppText.display(size: 15, weight: FontWeight.w700, color: AppColors.red),
                 ),
                 const SizedBox(height: 6),
                 Text(

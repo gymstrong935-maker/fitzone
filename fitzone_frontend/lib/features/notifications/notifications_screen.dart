@@ -233,10 +233,10 @@ class _NotificationCard extends StatelessWidget {
   final AppNotification notification;
   final VoidCallback onTap;
 
-  static const Color _cyan400 = Color(0xFF22D3EE);
-  static const Color _teal400 = Color(0xFF2DD4BF);
-  static const Color _amber400 = Color(0xFFFBBF24);
-  static const Color _violet400 = Color(0xFFA78BFA);
+  static Color get _cyan400 => AppColors.cyanLightText;
+  static Color get _teal400 => AppColors.teal400;
+  static Color get _amber400 => AppColors.amber;
+  static Color get _violet400 => AppColors.violet;
 
   ({IconData icon, Color color}) get _style {
     switch (notification.type) {
@@ -298,7 +298,7 @@ class _NotificationCard extends StatelessWidget {
                         style: AppText.body(
                           size: 14,
                           weight: unread ? FontWeight.w600 : FontWeight.w400,
-                          color: unread ? Colors.white : AppColors.whiteA(0.65),
+                          color: unread ? AppColors.ink : AppColors.whiteA(0.65),
                           height: 1.45,
                         ),
                       ),

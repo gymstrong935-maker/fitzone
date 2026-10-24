@@ -24,6 +24,23 @@ class BodyMeasurements {
 
   bool get isEmpty => skinfolds.isEmpty && circumferences.isEmpty;
 
+  /// Las seis circunferencias son obligatorias (la plicometría sigue siendo opcional).
+  List<String> get missing => <String>[
+        for (final MapEntry<CircumferenceSite, String> e in _labels.entries)
+          if ((circumferences[e.key] ?? 0) <= 0) e.value,
+      ];
+
+  bool get isComplete => missing.isEmpty;
+
+  static const Map<CircumferenceSite, String> _labels = <CircumferenceSite, String>{
+    CircumferenceSite.arm: 'brazo',
+    CircumferenceSite.chest: 'pecho',
+    CircumferenceSite.waist: 'cintura',
+    CircumferenceSite.hip: 'cadera',
+    CircumferenceSite.thigh: 'muslo',
+    CircumferenceSite.calf: 'pantorrilla',
+  };
+
   /// Devuelve una copia con la medida cambiada; `null` la elimina.
   BodyMeasurements withSkinfold(SkinfoldSite site, double? value) {
     final Map<SkinfoldSite, double> next =

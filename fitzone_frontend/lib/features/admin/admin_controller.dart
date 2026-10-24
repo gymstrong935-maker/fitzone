@@ -20,6 +20,8 @@ class AdminController extends ChangeNotifier {
 
   int get pendingPayments => asNum(asMap(stats['suscripciones'])['pendientes']).toInt();
   int get openTickets => asNum(stats['ticketsAbiertos']).toInt();
+  int get pendingCoachChanges => asNum(stats['cambiosEntrenadorPendientes']).toInt();
+  int get expiringSoon => asNum(asMap(stats['suscripciones'])['porVencer']).toInt();
   int get pendingAccounts => asNum(asMap(stats['usuarios'])['pendientes']).toInt();
 
   void start() {

@@ -18,7 +18,11 @@ class FzSelect<T> extends StatelessWidget {
     required this.value,
     required this.options,
     required this.onChanged,
+    this.placeholder,
   });
+
+  /// Si se da, el campo muestra este texto en gris hasta que la persona elija.
+  final String? placeholder;
 
   final T value;
   final List<FzSelectOption<T>> options;
@@ -43,7 +47,7 @@ class FzSelect<T> extends StatelessWidget {
           tooltip: '',
           position: PopupMenuPosition.under,
           offset: const Offset(0, 4),
-          color: const Color(0xF20F0F0F),
+          color: AppColors.glass(0.95),
           elevation: 8,
           surfaceTintColor: Colors.transparent,
           shadowColor: Colors.black,
@@ -67,18 +71,18 @@ class FzSelect<T> extends StatelessWidget {
                         Expanded(
                           child: Text(
                             option.label,
-                            style: AppText.body(size: 14, color: Colors.white),
+                            style: AppText.body(size: 14, color: AppColors.ink),
                           ),
                         ),
                         SizedBox(
                           width: 24,
                           child: option.value == value
-                              ? const Align(
+                              ? Align(
                                   alignment: Alignment.centerRight,
                                   child: Icon(
                                     Icons.check_rounded,
                                     size: 16,
-                                    color: Colors.white,
+                                    color: AppColors.ink,
                                   ),
                                 )
                               : null,
@@ -96,10 +100,13 @@ class FzSelect<T> extends StatelessWidget {
               children: <Widget>[
                 Expanded(
                   child: Text(
-                    currentLabel,
+                    placeholder ?? currentLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppText.body(size: 14, color: Colors.white),
+                    style: AppText.body(
+                      size: 14,
+                      color: placeholder != null ? AppColors.whiteA(0.35) : AppColors.ink,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),

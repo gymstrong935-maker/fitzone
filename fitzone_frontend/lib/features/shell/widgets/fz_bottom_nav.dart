@@ -38,7 +38,7 @@ class FzBottomNav extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xEB050505),
+            color: AppColors.glass(0.92),
             border: Border(top: BorderSide(color: AppColors.whiteA(0.09))),
           ),
           child: Stack(
@@ -233,7 +233,7 @@ class _NavButton extends StatelessWidget {
                             ? AppText.display(
                                 size: 10.72,
                                 weight: FontWeight.w500,
-                                color: AppColors.cyan,
+                                color: AppColors.cyanText,
                                 letterSpacing: 0.107,
                                 height: 1,
                               ).copyWith(

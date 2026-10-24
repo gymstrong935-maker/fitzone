@@ -80,15 +80,15 @@ class _WeeklyProgressCardState extends State<WeeklyProgressCard> {
                         style: AppText.body(
                           size: 12,
                           weight: FontWeight.w500,
-                          color: AppColors.cyanLight,
+                          color: AppColors.cyanLightText,
                           height: 1.333,
                         ),
                       ),
                       const SizedBox(width: 2),
-                      const Icon(
+                      Icon(
                         Icons.chevron_right_rounded,
                         size: 16,
-                        color: AppColors.cyanLight,
+                        color: AppColors.cyanLightText,
                       ),
                     ],
                   ),
@@ -115,7 +115,7 @@ class _WeeklyProgressCardState extends State<WeeklyProgressCard> {
                 style: AppText.body(
                   size: 12,
                   weight: FontWeight.w700,
-                  color: AppColors.cyanLight,
+                  color: AppColors.cyanLightText,
                   height: 1.333,
                 ),
               ),

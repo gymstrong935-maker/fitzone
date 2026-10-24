@@ -63,9 +63,31 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case OnboardingStep.experience:
         return _data.experienceLevel != null;
       case OnboardingStep.personalInfo:
+        return _data.personalInfo.isComplete;
       case OnboardingStep.measurements:
+        return _data.bodyMeasurements.isComplete;
       case OnboardingStep.habits:
-        return true;
+        return _data.trainingHabits.isComplete;
+    }
+  }
+
+  /// Qué falta por llenar en el paso actual (vacío si no falta nada).
+  List<String> get _missing {
+    switch (_current) {
+      case OnboardingStep.trainer:
+        return _data.trainer == null ? <String>['tu entrenador'] : const <String>[];
+      case OnboardingStep.goals:
+        return _data.goal == null ? <String>['tu objetivo'] : const <String>[];
+      case OnboardingStep.experience:
+        return _data.experienceLevel == null
+            ? <String>['tu nivel de experiencia']
+            : const <String>[];
+      case OnboardingStep.personalInfo:
+        return _data.personalInfo.missing;
+      case OnboardingStep.measurements:
+        return _data.bodyMeasurements.missing;
+      case OnboardingStep.habits:
+        return _data.trainingHabits.missing;
     }
   }
 
@@ -144,7 +166,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     final double bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.bg,
       body: Stack(
         children: <Widget>[
           // ── Fondo ambiental ──
@@ -262,6 +284,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               showBack: false,
               isLast: _isLast,
               nextEnabled: _nextEnabled,
+              hint: _missing.isEmpty ? null : 'Para continuar completa: ${_missing.join(', ')}',
               onBack: _goBack,
               onNext: _goNext,
             ),
@@ -368,7 +391,7 @@ class _BackButton extends StatelessWidget {
             color: AppColors.whiteA(0.08),
             border: Border.all(color: AppColors.whiteA(0.14)),
           ),
-          child: const Icon(Icons.arrow_back_rounded, size: 20, color: Colors.white),
+          child: Icon(Icons.arrow_back_rounded, size: 20, color: AppColors.ink),
         ),
       ),
     );

@@ -13,8 +13,8 @@ class AchievementsScreen extends StatelessWidget {
 
   final VoidCallback onBack;
 
-  static const Color _yellow400 = Color(0xFFFACC15);
-  static const Color _cyan400 = Color(0xFF22D3EE);
+  static Color get _yellow400 => AppColors.yellow;
+  static Color get _cyan400 => AppColors.cyanLightText;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +52,7 @@ class AchievementsScreen extends StatelessWidget {
                   border: AppColors.whiteA(0.09),
                   leading: const Text('🎯', style: TextStyle(fontSize: 20)),
                   value: '${total - done}',
-                  valueColor: Colors.white,
+                  valueColor: AppColors.ink,
                   label: 'En progreso',
                 ),
               ),
@@ -148,8 +148,8 @@ class _AchievementCard extends StatelessWidget {
   final Achievement achievement;
   final int index;
 
-  static const Color _yellow400 = Color(0xFFFACC15);
-  static const Color _yellow500 = Color(0xFFEAB308);
+  static Color get _yellow400 => AppColors.yellow;
+  static Color get _yellow500 => AppColors.yellowStrong;
 
   @override
   Widget build(BuildContext context) {

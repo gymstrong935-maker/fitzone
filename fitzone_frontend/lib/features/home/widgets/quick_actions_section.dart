@@ -136,7 +136,7 @@ class _QuickActionButtonState extends State<_QuickActionButton> {
                         style: AppText.body(
                           size: 14,
                           weight: FontWeight.w600,
-                          color: Colors.white,
+                          color: AppColors.ink,
                           height: 1.43,
                         ),
                       ),

@@ -243,7 +243,7 @@ class _TicketTileState extends State<_TicketTile> {
                     children: <Widget>[
                       Text(
                         t.subject,
-                        style: AppText.body(size: 14.5, weight: FontWeight.w700, color: Colors.white),
+                        style: AppText.body(size: 14.5, weight: FontWeight.w700, color: AppColors.ink),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -328,11 +328,11 @@ class _Msg extends StatelessWidget {
                 style: AppText.body(
                   size: 11.5,
                   weight: FontWeight.w600,
-                  color: fromAdmin ? AppColors.cyan : AppColors.whiteA(0.50),
+                  color: fromAdmin ? AppColors.cyanText : AppColors.whiteA(0.50),
                 ),
               ),
               const SizedBox(height: 3),
-              Text(text, style: AppText.body(size: 14, color: Colors.white, height: 1.5)),
+              Text(text, style: AppText.body(size: 14, color: AppColors.ink, height: 1.5)),
             ],
           ),
         ),
