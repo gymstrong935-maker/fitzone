@@ -304,7 +304,7 @@ class _AppFlowState extends State<AppFlow> {
     if (status != null && status != SubscriptionStatus.active) {
       if (status == SubscriptionStatus.pending) {
         // ¿Falta elegir cómo paga (y subir la factura)? Primero eso.
-        final BackendPayment? pay = await _loadPendingPayment();
+        final BackendPayment? pay = await _services.payments.pendingSubscriptionPayment();
         if (!mounted) return;
         if (pay != null && pay.needsMethod) {
           _activePayment = pay;
@@ -424,6 +424,16 @@ class _AppFlowState extends State<AppFlow> {
   Plan get _currentPlan {
     final PlanId id = _selectedPlan ?? PlanId.free;
     return _plans.firstWhere((Plan p) => p.id == id, orElse: () => kPlans.first);
+  }
+
+  /// Permite entrar al flujo de autenticación desde la pantalla de planes.
+  void _handleHaveAccount() {
+    if (!mounted) return;
+    setState(() {
+      _selectedPlan = null;
+      _authNotice = null;
+      _stage = AppStage.auth;
+    });
   }
 
   void _handleSelectPlan(PlanId plan) {

@@ -325,7 +325,7 @@ class ActiveExerciseView extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              const Icon(
+              Icon(
                 Icons.error_outline_rounded,
                 size: 16,
                 color: _cyan400,

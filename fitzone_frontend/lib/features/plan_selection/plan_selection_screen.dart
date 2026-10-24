@@ -212,7 +212,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                 letterSpacing: -0.78,
                 height: 1.15,
               ),
-              children: const <TextSpan>[
+              children: <TextSpan>[
                 TextSpan(text: 'Bienvenido a '),
                 TextSpan(
                   text: 'FitZone',

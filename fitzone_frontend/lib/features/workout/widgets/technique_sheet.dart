@@ -172,7 +172,7 @@ class _TechniqueSheet extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const _SectionTitle(
+        _SectionTitle(
           icon: Icons.track_changes_rounded,
           color: _cyan400,
           text: 'Músculos trabajados',
@@ -218,7 +218,7 @@ class _TechniqueSheet extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          const _SectionTitle(
+          _SectionTitle(
             icon: Icons.air_rounded,
             color: _cyan400,
             text: 'Respiración',
@@ -242,7 +242,7 @@ class _TechniqueSheet extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const _SectionTitle(
+        _SectionTitle(
           icon: Icons.bolt_rounded,
           color: _teal400,
           text: 'Técnica correcta',
@@ -294,7 +294,7 @@ class _TechniqueSheet extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const _SectionTitle(
+        _SectionTitle(
           icon: Icons.error_outline_rounded,
           color: _red400,
           text: 'Errores frecuentes',
@@ -312,8 +312,8 @@ class _TechniqueSheet extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const Padding(
-                  padding: EdgeInsets.only(top: 3),
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
                   child: Icon(Icons.close_rounded, size: 12, color: _red400),
                 ),
                 const SizedBox(width: 10),
@@ -337,7 +337,7 @@ class _TechniqueSheet extends StatelessWidget {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
+  _SectionTitle({
     required this.icon,
     required this.color,
     required this.text,

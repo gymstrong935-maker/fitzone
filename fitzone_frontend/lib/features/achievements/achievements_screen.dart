@@ -35,7 +35,7 @@ class AchievementsScreen extends StatelessWidget {
                 child: _SummaryTile(
                   background: const Color.fromRGBO(234, 179, 8, 0.12),
                   border: const Color.fromRGBO(234, 179, 8, 0.25),
-                  leading: const Icon(
+                  leading: Icon(
                     Icons.emoji_events_outlined,
                     size: 20,
                     color: _yellow400,
@@ -219,7 +219,7 @@ class _AchievementCard extends StatelessWidget {
                     ),
                     if (a.done) ...<Widget>[
                       const SizedBox(width: 8),
-                      const Icon(
+                      Icon(
                         Icons.check_rounded,
                         size: 18,
                         color: _yellow400,

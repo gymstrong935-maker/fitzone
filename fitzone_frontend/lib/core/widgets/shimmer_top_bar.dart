@@ -25,7 +25,7 @@ class ShimmerTopBar extends StatefulWidget {
   ];
 
   /// Tema claro.
-  static const List<Color> lightColors = <Color>[
+  static final List<Color> lightColors = <Color>[
     Color(0xFF0891B2),
     Color(0xFF0D9488),
     AppColors.cyanText,
