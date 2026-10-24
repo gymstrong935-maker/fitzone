@@ -345,7 +345,7 @@ class _PulseFigureState extends State<_PulseFigure>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: success
-                        ? const <Color>[AppColors.green, AppColors.emerald]
+                        ? <Color>[AppColors.green, AppColors.emerald]
                         : <Color>[
                             AppColors.cyanA(0.22),
                             AppColors.tealA(0.12),

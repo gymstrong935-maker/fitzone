@@ -168,7 +168,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
                   shape: BoxShape.circle,
                   color: _green500.withAlpha(51),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.local_fire_department_outlined,
                   size: 40,
                   color: _green400,

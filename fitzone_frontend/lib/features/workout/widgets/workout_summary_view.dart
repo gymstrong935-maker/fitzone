@@ -179,7 +179,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
           const SizedBox(height: 8),
           Row(
             children: <Widget>[
-              const Icon(Icons.favorite_border_rounded, size: 16, color: _pink400),
+              Icon(Icons.favorite_border_rounded, size: 16, color: _pink400),
               const SizedBox(width: 8),
               Expanded(
                 child: _HeartRateField(

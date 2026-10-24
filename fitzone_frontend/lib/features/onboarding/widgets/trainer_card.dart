@@ -248,7 +248,7 @@ class _TrainerCardState extends State<TrainerCard> {
         const SizedBox(height: 6),
         Row(
           children: <Widget>[
-            const Icon(
+            Icon(
               Icons.star_rounded,
               size: 14,
               color: _yellow400,

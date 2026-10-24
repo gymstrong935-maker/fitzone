@@ -276,7 +276,7 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const <Widget>[
+              children: <Widget>[
                 _SummaryChip(value: '5', label: 'sesiones', color: _cyan400),
                 _SummaryChip(value: '240', label: 'minutos', color: _teal400),
                 _SummaryChip(value: '1920', label: 'kcal', color: _orange400),
@@ -653,7 +653,7 @@ class _CircumferenceRow extends StatelessWidget {
             duration: const Duration(milliseconds: 600),
             gradient: LinearGradient(
               colors: stat.isGood
-                  ? const <Color>[AppColors.cyan, _emerald400]
+                  ? <Color>[AppColors.cyan, _emerald400]
                   : const <Color>[AppColors.teal, AppColors.cyan],
             ),
           ),
