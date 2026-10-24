@@ -22,7 +22,7 @@ class WorkoutDayCard extends StatelessWidget {
   final VoidCallback onToggle;
   final VoidCallback onStart;
 
-  static const Color _cyan400 = Color(0xFF22D3EE);
+  static Color get _cyan400 => AppColors.cyanLightText;
   static const Color _ink = Colors.black;
 
   @override
@@ -121,10 +121,10 @@ class WorkoutDayCard extends StatelessWidget {
               ? const Icon(Icons.check_rounded, size: 20, color: _ink)
               : w.rest
                   ? const Text('😴', style: TextStyle(fontSize: 18))
-                  : const Icon(
+                  : Icon(
                       Icons.fitness_center_rounded,
                       size: 20,
-                      color: AppColors.cyan,
+                      color: AppColors.cyanText,
                     ),
         ),
         const SizedBox(width: 12),
@@ -163,7 +163,7 @@ class WorkoutDayCard extends StatelessWidget {
                 style: AppText.body(
                   size: 14,
                   weight: FontWeight.w700,
-                  color: Colors.white,
+                  color: AppColors.ink,
                   height: 1.25,
                 ),
               ),

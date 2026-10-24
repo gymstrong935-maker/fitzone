@@ -1,5 +1,6 @@
 import '../../features/onboarding/models/trainer.dart';
 import '../api/api_client.dart';
+import 'backend_models.dart';
 
 String _string(Object? v) => v is String ? v : '';
 
@@ -60,5 +61,27 @@ class CoachesService {
   /// El usuario elige a este entrenador como el suyo.
   Future<void> assign(String coachId) async {
     await _api.put('/api/coaches/$coachId/asignarme');
+  }
+
+  // ── Cambio de entrenador (lo valida el admin) ─────────────────────────────
+
+  /// Pide cambiar de entrenador. Si el nuevo cuesta más, se genera un pago por
+  /// la diferencia que el usuario debe completar.
+  Future<CoachChange> requestChange(String coachId) async {
+    final dynamic data = await _api.post(
+      '/api/coaches/cambio',
+      body: <String, dynamic>{'entrenadorId': coachId},
+    );
+    return CoachChange.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// Última solicitud de cambio del usuario (o `null` si nunca pidió una).
+  Future<CoachChange?> myChange() async {
+    final dynamic data = await _api.get('/api/coaches/cambio/mia');
+    return data is Map<String, dynamic> ? CoachChange.fromJson(data) : null;
+  }
+
+  Future<void> cancelChange(String id) async {
+    await _api.delete('/api/coaches/cambio/$id');
   }
 }

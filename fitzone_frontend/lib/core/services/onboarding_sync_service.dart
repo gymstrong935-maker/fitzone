@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../features/onboarding/data/trainers_repository.dart';
 import '../../features/onboarding/models/goal.dart';
 import '../../features/onboarding/models/onboarding_data.dart';
@@ -88,6 +90,37 @@ class OnboardingSyncService {
   /// Registra un cambio de objetivo como un nuevo período de entrenamiento.
   Future<void> syncGoal(String userId, Goal goal) async {
     await _api.post('/api/training-periods', body: periodPayload(userId, goal));
+  }
+
+  /// Envía solo lo que cambió entre [before] y [after] (edición de perfil).
+  /// Cada cambio se guarda como un registro nuevo: el servidor usa el más reciente.
+  /// Lanza [ApiException] si algún envío falla.
+  Future<void> syncChanges(
+    String userId,
+    OnboardingData before,
+    OnboardingData after,
+  ) async {
+    bool changed(Map<String, dynamic> a, Map<String, dynamic> b) =>
+        jsonEncode(a) != jsonEncode(b);
+
+    if (changed(userProfilePayload(before), userProfilePayload(after))) {
+      await _api.put('/api/users/$userId', body: userProfilePayload(after));
+    }
+    if (changed(conditionPayload(userId, before), conditionPayload(userId, after))) {
+      await _api.post('/api/physical-conditions', body: conditionPayload(userId, after));
+    }
+    if (changed(measurementPayload(userId, before), measurementPayload(userId, after))) {
+      await _api.post('/api/physical-measurements', body: measurementPayload(userId, after));
+    }
+    if (changed(sleepPayload(userId, before), sleepPayload(userId, after))) {
+      await _api.post('/api/sleep-quality', body: sleepPayload(userId, after));
+    }
+    if (changed(motivationPayload(userId, before), motivationPayload(userId, after))) {
+      await _api.post('/api/motivation', body: motivationPayload(userId, after));
+    }
+    if (changed(frequencyPayload(userId, before), frequencyPayload(userId, after))) {
+      await _api.post('/api/training-frequency', body: frequencyPayload(userId, after));
+    }
   }
 
   bool _isSubscriptionBlock(ApiException e) {

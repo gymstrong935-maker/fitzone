@@ -8,56 +8,25 @@ class AuthResult {
   final BackendUser user;
 }
 
+/// FitZone solo permite ingresar con Google (registro e inicio de sesión
+/// comparten el mismo endpoint).
 class AuthService {
   AuthService(this._api);
 
   final ApiClient _api;
 
-  /// Crea la cuenta. El backend envía un código de 6 dígitos al correo.
-  Future<BackendUser> register({
-    required String nombre,
-    required String email,
-    required String password,
-    required String planId,
-    String? metodoPago,
-  }) async {
-    final dynamic data = await _api.post(
-      '/api/users/register',
-      body: <String, dynamic>{
-        'nombre': nombre,
-        'email': email,
-        'password': password,
-        'planId': planId,
-        if (metodoPago != null) 'metodoPago': metodoPago,
-      },
-    );
-    return BackendUser.fromJson(
-      (data as Map<String, dynamic>)['usuario'] as Map<String, dynamic>,
-    );
-  }
-
-  Future<AuthResult> login({
-    required String email,
-    required String password,
-  }) async {
-    final dynamic data = await _api.post(
-      '/api/users/login',
-      body: <String, dynamic>{'email': email, 'password': password},
-    );
-    final Map<String, dynamic> map = data as Map<String, dynamic>;
-    final String token = map['token'] as String;
-    _api.setToken(token);
-    return AuthResult(
-      token: token,
-      user: BackendUser.fromJson(map['usuario'] as Map<String, dynamic>),
-    );
-  }
-
   /// Inicia sesión (o crea la cuenta) con el ID token que entrega Google.
-  Future<AuthResult> loginWithGoogle(String idToken) async {
+  ///
+  /// [planId] es el plan elegido en pantalla. Es obligatorio para crear una
+  /// cuenta nueva; si la persona ya tiene cuenta, el servidor comprueba que
+  /// sea su mismo plan mientras su inscripción siga vigente.
+  Future<AuthResult> loginWithGoogle(String idToken, {String? planId}) async {
     final dynamic data = await _api.post(
       '/api/users/google',
-      body: <String, dynamic>{'idToken': idToken},
+      body: <String, dynamic>{
+        'idToken': idToken,
+        if (planId != null) 'planId': planId,
+      },
     );
     final Map<String, dynamic> map = data as Map<String, dynamic>;
     final String token = map['token'] as String;
@@ -65,47 +34,6 @@ class AuthService {
     return AuthResult(
       token: token,
       user: BackendUser.fromJson(map['usuario'] as Map<String, dynamic>),
-    );
-  }
-
-  Future<void> verifyAccount({
-    required String email,
-    required String code,
-  }) async {
-    await _api.post(
-      '/api/users/verificar-cuenta',
-      body: <String, dynamic>{'email': email, 'codigo': code},
-    );
-  }
-
-  Future<void> resendCode(String email) async {
-    await _api.post(
-      '/api/users/reenviar-codigo',
-      body: <String, dynamic>{'email': email},
-    );
-  }
-
-  /// Envía un código de 6 dígitos al correo para restablecer la contraseña.
-  Future<void> forgotPassword(String email) async {
-    await _api.post(
-      '/api/users/forgot-password',
-      body: <String, dynamic>{'email': email},
-    );
-  }
-
-  /// Cambia la contraseña con el código recibido por correo.
-  Future<void> resetPassword({
-    required String email,
-    required String code,
-    required String password,
-  }) async {
-    await _api.post(
-      '/api/users/reset-password',
-      body: <String, dynamic>{
-        'email': email,
-        'codigo': code,
-        'password': password,
-      },
     );
   }
 

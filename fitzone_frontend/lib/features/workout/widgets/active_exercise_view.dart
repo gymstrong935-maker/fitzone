@@ -29,8 +29,8 @@ class ActiveExerciseView extends StatelessWidget {
   final VoidCallback onCancel;
   final VoidCallback onComplete;
 
-  static const Color _cyan400 = Color(0xFF22D3EE);
-  static const Color _purple400 = Color(0xFFA78BFA);
+  static Color get _cyan400 => AppColors.cyanLightText;
+  static Color get _purple400 => AppColors.violet;
 
   bool get _isLast => index == total - 1;
 
@@ -77,7 +77,7 @@ class ActiveExerciseView extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12 + topInset, 16, 12),
       decoration: BoxDecoration(
-        color: const Color(0xE6000000),
+        color: AppColors.bg.withValues(alpha: 0.90),
         border: Border(bottom: BorderSide(color: AppColors.whiteA(0.08))),
       ),
       child: Center(
@@ -103,10 +103,10 @@ class ActiveExerciseView extends StatelessWidget {
                           shape: BoxShape.circle,
                           color: AppColors.whiteA(0.08),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.close_rounded,
                           size: 16,
-                          color: Colors.white,
+                          color: AppColors.ink,
                         ),
                       ),
                     ),
@@ -203,7 +203,7 @@ class ActiveExerciseView extends StatelessWidget {
                   style: AppText.display(
                     size: 20,
                     weight: FontWeight.w700,
-                    color: Colors.white,
+                    color: AppColors.ink,
                     height: 1.4,
                   ),
                 ),
@@ -287,7 +287,7 @@ class ActiveExerciseView extends StatelessWidget {
             icon: Icons.monitor_heart_outlined,
             label: 'Series',
             value: '${exercise.sets}',
-            color: const Color(0xFF06B6D4),
+            color: AppColors.cyanText,
           ),
         ),
         const SizedBox(width: 12),
@@ -296,7 +296,7 @@ class ActiveExerciseView extends StatelessWidget {
             icon: Icons.bolt_rounded,
             label: 'Reps',
             value: exercise.reps,
-            color: const Color(0xFF14B8A6),
+            color: AppColors.tealText,
           ),
         ),
         const SizedBox(width: 12),
@@ -363,7 +363,7 @@ class ActiveExerciseView extends StatelessWidget {
                       style: AppText.body(
                         size: 12,
                         weight: FontWeight.w700,
-                        color: AppColors.cyan,
+                        color: AppColors.cyanText,
                         height: 1.333,
                       ),
                     ),
@@ -418,11 +418,11 @@ class ActiveExerciseView extends StatelessWidget {
   Widget _buildCta(double bottomInset) {
     return Container(
       padding: EdgeInsets.fromLTRB(20, 16, 20, 32 + bottomInset),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
-          colors: <Color>[Color(0xFF000000), Color(0xFF000000), Color(0x00000000)],
+          colors: <Color>[AppColors.bg, AppColors.bg, AppColors.bg.withValues(alpha: 0)],
           stops: <double>[0.0, 0.6, 1.0],
         ),
       ),

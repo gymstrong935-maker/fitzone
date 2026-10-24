@@ -44,17 +44,20 @@ String _friendlyMessage(Object error) {
 }
 
 class AssistantController extends ChangeNotifier {
-  AssistantController({required ChatService service, required String userName})
-      : _service = service {
+  AssistantController({
+    required ChatService service,
+    required String userName,
+    String? welcome,
+  }) : _service = service {
     final String first = userName.trim().split(' ').first;
     _messages.add(
       ChatMessage(
         id: _nextId++,
         fromUser: false,
         isWelcome: true,
-        text:
+        text: welcome ??
             '¡Hola${first.isEmpty ? '' : ', $first'}! Soy el asistente de FitZone. '
-            'Puedo ayudarte con planes, entrenadores, citas, tu cuenta y el uso de la app.',
+                'Puedo ayudarte con planes, entrenadores, citas, tu cuenta y el uso de la app.',
       ),
     );
   }

@@ -47,7 +47,7 @@ class NotificationBell extends StatelessWidget {
                         ? Icons.notifications_active_outlined
                         : Icons.notifications_none_rounded,
                     size: 20,
-                    color: Colors.white,
+                    color: AppColors.ink,
                   ),
                 ),
                 if (unread > 0)
@@ -62,9 +62,9 @@ class NotificationBell extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEF4444),
+                        color: AppColors.redStrong,
                         borderRadius: BorderRadius.circular(9),
-                        border: Border.all(color: Colors.black, width: 2),
+                        border: Border.all(color: AppColors.bg, width: 2),
                       ),
                       child: Text(
                         unread > 9 ? '9+' : '$unread',

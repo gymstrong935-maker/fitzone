@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Métodos de pago disponibles.
-enum PayMethod { cash, card, digital }
+enum PayMethod { cash, digital }
 
 class PaymentMethodOption {
   const PaymentMethodOption({

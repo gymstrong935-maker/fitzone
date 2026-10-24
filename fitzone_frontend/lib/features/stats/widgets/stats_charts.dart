@@ -172,7 +172,7 @@ class _WeightPainter extends CustomPainter {
         pts[active],
         6,
         Paint()
-          ..color = Colors.white
+          ..color = AppColors.ink
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2,
       );

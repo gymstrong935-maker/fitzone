@@ -6,7 +6,8 @@ import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import Plan from '../models/Plan.js';
 import transporter from '../utils/mailer.js';
-import { crearSuscripcionParaPlan } from '../helpers/suscripciones.js';
+import mongoose from 'mongoose';
+import { crearSuscripcionParaPlan, planBloqueante } from '../helpers/suscripciones.js';
 import { borrarImagenCloudinary } from '../utils/cloudinary.js';
 import { enviarCorreoSeguro } from '../utils/enviarCorreoSeguro.js';
 import notificarAdmin from '../helpers/notificarAdmin.js';
@@ -341,14 +342,16 @@ export const iniciarSesion = async (req, res) => {
 //    para ver la pantalla de revisión (authMiddleware bloquea el resto)
 
 const clientIdsGoogle = () =>
-  String(process.env.GOOGLE_SERVER_CLIENT_ID || '')
+  [process.env.GOOGLE_SERVER_CLIENT_ID, process.env.GOOGLE_ANDROID_CLIENT_ID, process.env.GOOGLE_WEB_CLIENT_ID]
+    .filter(Boolean)
+    .join(',')
     .split(',')
     .map((id) => id.trim())
     .filter(Boolean);
 
 export const iniciarSesionGoogle = async (req, res) => {
   try {
-    const { idToken } = req.body || {};
+    const { idToken, planId } = req.body || {};
 
     if (!idToken || typeof idToken !== 'string') {
       return res.status(400).json({
@@ -378,10 +381,15 @@ export const iniciarSesionGoogle = async (req, res) => {
 
       payload = ticket.getPayload();
     } catch (error) {
-      console.error('❌ Token de Google rechazado:', error.message);
+      // El motivo exacto (audiencia distinta, token vencido...) queda en el log del servidor
+      console.error(
+        '❌ Token de Google rechazado:', error.message,
+        '| audiencias aceptadas:', audiencias.length
+      );
 
       return res.status(401).json({
-        mensaje: 'No se pudo validar la cuenta de Google. Inténtalo de nuevo.'
+        mensaje: 'No se pudo validar la cuenta de Google. Inténtalo de nuevo.',
+        codigo: 'GOOGLE_TOKEN_INVALIDO'
       });
     }
 
@@ -423,7 +431,23 @@ export const iniciarSesionGoogle = async (req, res) => {
       });
     }
 
-    // 3) Buscar la cuenta (por Google o por correo) o crearla
+    // 3) Plan que eligió en la pantalla (opcional al iniciar sesión,
+    //    obligatorio para crear una cuenta nueva)
+    let planElegido = null;
+
+    if (planId) {
+      if (!mongoose.isValidObjectId(planId)) {
+        return res.status(400).json({ mensaje: 'El plan elegido no es válido' });
+      }
+
+      planElegido = await Plan.findById(planId);
+
+      if (!planElegido) {
+        return res.status(404).json({ mensaje: 'El plan elegido ya no existe' });
+      }
+    }
+
+    // 4) Buscar la cuenta (por Google o por correo) o crearla
     let usuario = await User.findOne({
       $or: [{ googleId }, { email }]
     });
@@ -437,9 +461,27 @@ export const iniciarSesionGoogle = async (req, res) => {
         });
       }
 
-      // Cuenta existente (registro normal): se vincula con Google.
-      // Google ya confirmó que el correo es del usuario, así que también
-      // queda verificada.
+      // 4a) REGLA DE PLAN: quien se registró con un plan solo entra con ese plan,
+      //     salvo que su suscripción ya haya terminado. Los admins no tienen esta regla.
+      if (planElegido && usuario.rol !== 'admin') {
+        const bloqueo = await planBloqueante(usuario._id);
+
+        if (bloqueo && String(bloqueo.planId) !== String(planElegido._id)) {
+          const planPropio = await Plan.findById(bloqueo.planId).select('nombre');
+
+          return res.status(409).json({
+            mensaje:
+              `Tu cuenta está registrada con el plan ${planPropio?.nombre || 'anterior'}. ` +
+              'Solo puedes ingresar con ese plan hasta que termine tu inscripción.',
+            codigo: 'PLAN_DISTINTO',
+            planActual: planPropio?.nombre,
+            planActualId: String(bloqueo.planId),
+            vigenteHasta: bloqueo.fechaFin || undefined
+          });
+        }
+      }
+
+      // Cuenta existente: se vincula con Google (Google ya confirmó el correo).
       if (!usuario.googleId) {
         usuario.googleId = googleId;
 
@@ -462,40 +504,38 @@ export const iniciarSesionGoogle = async (req, res) => {
 
       await usuario.save();
 
-      // Era una cuenta que esperaba el código del correo: ahora el equipo
-      // puede revisarla (igual que al verificar por código).
       if (eraNoVerificada && usuario.estadoCuenta === 'pendiente') {
         await notificarNuevaCuentaGoogle(usuario);
       }
 
     } else {
-      const plan = await Plan.findOne({ esGratuito: true });
-
-      if (!plan) {
+      // Cuenta nueva: necesita un plan elegido
+      if (!planElegido) {
         return res.status(404).json({
-          mensaje: 'No existe un plan gratuito disponible para registrar la cuenta'
+          mensaje: 'No encontramos una cuenta con ese correo. Elige un plan para registrarte.',
+          codigo: 'CUENTA_NO_EXISTE'
         });
       }
 
       // estadoCuenta queda "pendiente" (valor por defecto del modelo):
-      // el equipo debe aprobar toda cuenta nueva, como en el registro normal.
+      // el equipo debe aprobar toda cuenta nueva.
       usuario = await User.create({
         nombre: name || 'Usuario Google',
         email,
         googleId,
         proveedorAuth: 'google',
-        planActual: plan._id,
+        planActual: planElegido._id,
         cuentaVerificada: true,
         fotoPerfil: picture || undefined
       });
 
       esNueva = true;
 
-      await crearSuscripcionParaPlan(usuario, plan, undefined);
+      await crearSuscripcionParaPlan(usuario, planElegido, undefined);
       await notificarNuevaCuentaGoogle(usuario);
     }
 
-    // 4) Suspendidas o inactivas no entran. Las pendientes o rechazadas sí
+    // 5) Suspendidas o inactivas no entran. Las pendientes o rechazadas sí
     //    reciben sesión para ver su estado (authMiddleware bloquea el resto).
     if (['inactivo', 'suspendido'].includes(usuario.estadoCuenta)) {
       return res.status(403).json({
@@ -596,7 +636,47 @@ export const actualizarUsuario = async (req, res) => {
     }
 
     if (req.body.telefono !== undefined) {
-      datosActualizar.telefono = req.body.telefono;
+      const telefono = String(req.body.telefono).trim();
+
+      if (telefono && !/^[0-9+()\-\s]{7,20}$/.test(telefono)) {
+        return res.status(400).json({
+          mensaje: 'El teléfono no es válido'
+        });
+      }
+
+      datosActualizar.telefono = telefono;
+    }
+
+    // Correo electrónico (único y con formato válido)
+    if (req.body.email !== undefined) {
+      const email = String(req.body.email).toLowerCase().trim();
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+        return res.status(400).json({
+          mensaje: 'Correo electrónico inválido'
+        });
+      }
+
+      const enUso = await User.findOne({
+        email,
+        _id: { $ne: req.params.id }
+      }).select('_id');
+
+      if (enUso) {
+        return res.status(409).json({
+          mensaje: 'Ese correo ya está registrado en otra cuenta'
+        });
+      }
+
+      const revocado = await RevokedAccount.findOne({ email }).select('_id');
+
+      if (revocado) {
+        return res.status(403).json({
+          mensaje: 'Ese correo no puede usarse en FitZone'
+        });
+      }
+
+      datosActualizar.email = email;
     }
 
     // Edad (entero de 10 a 120)
@@ -681,6 +761,78 @@ export const actualizarUsuario = async (req, res) => {
     return res.status(500).json({
       error: error.message
     });
+  }
+};
+
+
+// ======================================================
+// CAMBIAR / CREAR CONTRASEÑA (con validación y confirmación)
+// ======================================================
+
+const validarPasswordNueva = (password) => {
+  if (typeof password !== 'string' || password.length < 8) {
+    return 'La contraseña debe tener al menos 8 caracteres';
+  }
+  if (password.length > 72) {
+    return 'La contraseña no puede superar 72 caracteres';
+  }
+  if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+    return 'La contraseña debe incluir mayúscula, minúscula y número';
+  }
+  return null;
+};
+
+export const cambiarPassword = async (req, res) => {
+  try {
+    const { passwordActual, passwordNueva, confirmacion } = req.body || {};
+
+    const usuario = await User.findById(req.params.id);
+
+    if (!usuario) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    const errorFormato = validarPasswordNueva(passwordNueva);
+
+    if (errorFormato) {
+      return res.status(400).json({ mensaje: errorFormato });
+    }
+
+    if (passwordNueva !== confirmacion) {
+      return res.status(400).json({
+        mensaje: 'La confirmación no coincide con la contraseña nueva'
+      });
+    }
+
+    // Si ya tiene contraseña, debe demostrar que conoce la actual
+    if (usuario.passwordHash) {
+      if (!passwordActual) {
+        return res.status(400).json({ mensaje: 'Escribe tu contraseña actual' });
+      }
+
+      const coincide = await bcrypt.compare(String(passwordActual), usuario.passwordHash);
+
+      if (!coincide) {
+        return res.status(400).json({ mensaje: 'La contraseña actual no es correcta' });
+      }
+
+      if (await bcrypt.compare(passwordNueva, usuario.passwordHash)) {
+        return res.status(400).json({
+          mensaje: 'La contraseña nueva debe ser distinta a la actual'
+        });
+      }
+    }
+
+    usuario.passwordHash = await bcrypt.hash(passwordNueva, 10);
+    usuario.resetPasswordToken = undefined;
+    usuario.resetPasswordExpira = undefined;
+    await usuario.save();
+
+    return res.json({ mensaje: 'Contraseña actualizada correctamente' });
+
+  } catch (error) {
+    console.error('❌ Error al cambiar la contraseña:', error);
+    return res.status(500).json({ mensaje: 'No se pudo cambiar la contraseña' });
   }
 };
 

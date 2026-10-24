@@ -110,7 +110,7 @@ Future<bool?> showLogoutDialog(BuildContext context) {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF0F0F0F),
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: AppColors.whiteA(0.10)),
             ),
@@ -145,7 +145,7 @@ Future<bool?> showLogoutDialog(BuildContext context) {
                         label: 'Cancelar',
                         background: AppColors.whiteA(0.08),
                         border: AppColors.whiteA(0.12),
-                        textColor: Colors.white,
+                        textColor: AppColors.ink,
                         onTap: () => Navigator.of(ctx).pop(false),
                       ),
                     ),
@@ -155,7 +155,7 @@ Future<bool?> showLogoutDialog(BuildContext context) {
                         label: 'Cerrar sesión',
                         background: const Color.fromRGBO(239, 68, 68, 0.12),
                         border: const Color.fromRGBO(239, 68, 68, 0.30),
-                        textColor: const Color(0xFFF87171),
+                        textColor: AppColors.red,
                         onTap: () => Navigator.of(ctx).pop(true),
                       ),
                     ),
@@ -205,7 +205,7 @@ class _SheetFrame extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
         decoration: BoxDecoration(
-          color: const Color(0xFA0A0A0A),
+          color: AppColors.glass(0.98),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           border: Border(top: BorderSide(color: AppColors.whiteA(0.10))),
         ),
@@ -306,7 +306,7 @@ class _OptionRow extends StatelessWidget {
                         style: AppText.body(
                           size: 14,
                           weight: FontWeight.w700,
-                          color: Colors.white,
+                          color: AppColors.ink,
                           height: 1.43,
                         ),
                       ),
@@ -328,7 +328,7 @@ class _OptionRow extends StatelessWidget {
                     style: AppText.body(
                       size: 14,
                       weight: FontWeight.w700,
-                      color: const Color(0xFF2DD4BF),
+                      color: AppColors.teal400,
                     ),
                   ),
                 ],
@@ -513,8 +513,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                   LengthLimitingTextInputFormatter(40),
                 ],
                 onSubmitted: (_) => _save(),
-                cursorColor: Colors.white,
-                style: AppText.body(size: 15, color: Colors.white),
+                cursorColor: AppColors.ink,
+                style: AppText.body(size: 15, color: AppColors.ink),
                 decoration: InputDecoration(
                   isCollapsed: true,
                   border: InputBorder.none,

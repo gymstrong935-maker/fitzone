@@ -325,6 +325,7 @@ OnboardingData? onboardingFromRemote({
       medicalConditions: MedicalConditions(
         physical: (condition['observacionesMedicas'] ?? '').toString(),
       ),
+      touched: PersonalInfo.allTouched,
     ),
     bodyMeasurements: BodyMeasurements(
       skinfolds: skinfolds,
@@ -339,6 +340,7 @@ OnboardingData? onboardingFromRemote({
       sleepDuration:
           (_num(sleep?['horasDormidas']) ?? 7).clamp(4.0, 12.0).toDouble(),
       activityLevel: activity,
+      touched: TrainingHabits.allTouched,
     ),
   );
 }

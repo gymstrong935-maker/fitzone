@@ -1,309 +1,134 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
+import '../../core/widgets/error_box.dart';
 import '../../core/widgets/fade_slide_in.dart';
 import '../../core/widgets/shimmer_top_bar.dart';
-import 'models/auth_models.dart';
 import 'widgets/auth_background.dart';
 import 'widgets/auth_glass_card.dart';
 import 'widgets/auth_logo.dart';
-import 'widgets/auth_mode_tabs.dart';
-import 'widgets/auth_submit_button.dart';
-import 'widgets/fancy_input.dart';
-import 'widgets/social_auth_section.dart';
 
+const String _googleSvg = r'''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path fill="#EA4335" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+  <path fill="#4A90D9" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+  <path fill="#FBBC05" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+</svg>
+''';
+
+/// Acceso a FitZone: ÚNICAMENTE con Google (sirve para registrarse y para entrar).
 class AuthScreen extends StatefulWidget {
   const AuthScreen({
     super.key,
-    required this.onLogin,
-    required this.onRegister,
-    required this.onForgotPassword,
-    this.onGoogleLogin,
+    required this.onGoogleLogin,
+    this.planName,
     this.onBack,
-    this.initialEmail,
     this.notice,
   });
 
-  /// Inicia sesión. Debe devolver la acción a ejecutar cuando termine la
-  /// animación de éxito (normalmente: navegar a la siguiente pantalla).
-  /// Lanza [ApiException] si algo sale mal.
-  final Future<VoidCallback> Function(String email, String password) onLogin;
+  /// Inicia sesión con Google. Devuelve la acción a ejecutar cuando termina la
+  /// animación de éxito, o `null` si la persona cancela. Lanza [ApiException]
+  /// si algo sale mal (por ejemplo, plan distinto al de su cuenta).
+  final Future<VoidCallback?> Function() onGoogleLogin;
 
-  final Future<VoidCallback> Function(
-    String name,
-    String email,
-    String password,
-  ) onRegister;
-
-  /// Envía el código de recuperación. Devuelve la acción a ejecutar al
-  /// terminar la animación (ir a la pantalla de restablecer).
-  final Future<VoidCallback> Function(String email) onForgotPassword;
-
-  /// Inicia sesión con Google. Devuelve `null` si la persona cancela.
-  final Future<VoidCallback?> Function()? onGoogleLogin;
+  /// Plan elegido. `null` = "Ya tengo cuenta" (entra con el plan de su cuenta).
+  final String? planName;
   final VoidCallback? onBack;
 
-  /// Correo que aparece ya escrito (p. ej. tras cambiar la contraseña).
-  final String? initialEmail;
-
-  /// Aviso verde sobre el formulario (p. ej. "Contraseña actualizada").
+  /// Aviso verde sobre el botón.
   final String? notice;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen>
-    with SingleTickerProviderStateMixin {
-  static final RegExp _emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
-
-  final TextEditingController _nameCtrl = TextEditingController();
-  final TextEditingController _emailCtrl = TextEditingController();
-  final TextEditingController _passCtrl = TextEditingController();
-
-  late final AnimationController _shakeCtrl;
-  late final Animation<double> _shake;
-  Timer? _pending;
-
-  AuthMode _mode = AuthMode.login;
-  int _direction = 1;
-  String _error = '';
+class _AuthScreenState extends State<AuthScreen> {
   bool _loading = false;
   bool _success = false;
-  bool _showPassword = false;
+  String _error = '';
+  String _hint = '';
 
-  bool get _busy => _loading || _success;
-
-  @override
-  void initState() {
-    super.initState();
-
-    final String? initial = widget.initialEmail;
-    if (initial != null && initial.isNotEmpty) _emailCtrl.text = initial;
-
-    _shakeCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 420),
-    );
-
-    Animatable<double> step(double from, double to) =>
-        Tween<double>(begin: from, end: to)
-            .chain(CurveTween(curve: Curves.easeInOut));
-
-    _shake = TweenSequence<double>(<TweenSequenceItem<double>>[
-      TweenSequenceItem<double>(tween: step(0, -7), weight: 18),
-      TweenSequenceItem<double>(tween: step(-7, 7), weight: 18),
-      TweenSequenceItem<double>(tween: step(7, -4), weight: 18),
-      TweenSequenceItem<double>(tween: step(-4, 4), weight: 18),
-      TweenSequenceItem<double>(tween: step(4, 0), weight: 28),
-    ]).animate(_shakeCtrl);
-  }
-
-  @override
-  void dispose() {
-    _pending?.cancel();
-    _shakeCtrl.dispose();
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
-    _passCtrl.dispose();
-    super.dispose();
-  }
-
-  // ── Lógica ────────────────────────────────────────────────────────────────
-
-  void _switchMode(AuthMode next, int direction) {
-    if (_busy) return;
+  Future<void> _google() async {
+    if (_loading) return;
     setState(() {
-      _direction = direction;
-      _mode = next;
-      _error = '';
-    });
-  }
-
-  void _showError(String message) {
-    setState(() => _error = message);
-    _shakeCtrl.forward(from: 0);
-  }
-
-  Future<void> _submit() async {
-    if (_busy) return;
-    FocusManager.instance.primaryFocus?.unfocus();
-
-    final AuthMode mode = _mode;
-    final String email = _emailCtrl.text.trim();
-    final String password = _passCtrl.text;
-    final String name = _nameCtrl.text.trim();
-
-    if (email.isEmpty || (mode != AuthMode.forgot && password.isEmpty)) {
-      _showError('Por favor completa todos los campos');
-      return;
-    }
-    if (mode == AuthMode.register && name.isEmpty) {
-      _showError('Por favor ingresa tu nombre');
-      return;
-    }
-    if (mode == AuthMode.register && name.length < 2) {
-      _showError('El nombre debe tener al menos 2 caracteres');
-      return;
-    }
-    if (!_emailRegex.hasMatch(email)) {
-      _showError('Ingresa un email válido');
-      return;
-    }
-    if (mode == AuthMode.register && password.length < 6) {
-      _showError('La contraseña debe tener al menos 6 caracteres');
-      return;
-    }
-
-    setState(() {
-      _error = '';
       _loading = true;
+      _error = '';
+      _hint = '';
     });
 
-    VoidCallback? proceed;
     try {
-      switch (mode) {
-        case AuthMode.login:
-          proceed = await widget.onLogin(email, password);
-        case AuthMode.register:
-          proceed = await widget.onRegister(name, email, password);
-        case AuthMode.forgot:
-          proceed = await widget.onForgotPassword(email);
+      final VoidCallback? next = await widget.onGoogleLogin();
+      if (!mounted) return;
+
+      if (next == null) {
+        // La persona cerró el selector de cuentas (o Google lo canceló).
+        setState(() {
+          _loading = false;
+          _hint = 'No se completó el inicio de sesión con Google. Si el selector '
+              'de cuentas se cerró solo, inténtalo de nuevo.';
+        });
+        return;
       }
+
+      setState(() => _success = true);
+      await Future<void>.delayed(const Duration(milliseconds: 650));
+      if (!mounted) return;
+      next();
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => _loading = false);
-      _showError(e.message);
-      return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _loading = false);
-      _showError('Ocurrió un error inesperado. Inténtalo de nuevo.');
-      return;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
-      _success = true;
-    });
-
-    _pending = Timer(const Duration(milliseconds: 700), () {
-      if (mounted) proceed?.call();
-    });
-  }
-
-  Future<void> _handleSocial(String provider) async {
-    if (_busy) return;
-    FocusManager.instance.primaryFocus?.unfocus();
-
-    final Future<VoidCallback?> Function()? google = widget.onGoogleLogin;
-    if (provider != 'Google' || google == null) {
-      _showError('El inicio de sesión con $provider estará disponible pronto');
-      return;
-    }
-
-    setState(() {
-      _error = '';
-      _loading = true;
-    });
-
-    VoidCallback? proceed;
-    try {
-      proceed = await google();
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      _showError(e.message);
-      return;
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      _showError('No se pudo iniciar sesión con Google. Inténtalo de nuevo.');
-      return;
-    }
-
-    if (!mounted) return;
-    if (proceed == null) {
-      setState(() => _loading = false); // canceló el selector de cuentas
-      return;
-    }
-
-    setState(() {
-      _loading = false;
-      _success = true;
-    });
-    final VoidCallback go = proceed;
-    _pending = Timer(const Duration(milliseconds: 700), () {
-      if (mounted) go();
-    });
-  }
-
-  String get _submitLabel {
-    switch (_mode) {
-      case AuthMode.login:
-        return 'Iniciar Sesión';
-      case AuthMode.register:
-        return 'Crear Cuenta';
-      case AuthMode.forgot:
-        return 'Enviar código';
+      setState(() {
+        _loading = false;
+        _error = 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.';
+      });
     }
   }
-
-  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: Stack(
-          children: <Widget>[
-            const Positioned.fill(child: AuthBackground()),
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (BuildContext context, BoxConstraints constraints) {
-                  return SingleChildScrollView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 480),
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 32, 24, 40),
-                            child: _buildContent(),
-                          ),
+      backgroundColor: AppColors.bg,
+      body: Stack(
+        children: <Widget>[
+          const Positioned.fill(child: AuthBackground()),
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 32, 24, 40),
+                          child: _buildContent(),
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
-            const Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: ShimmerTopBar(),
-            ),
-          ],
-        ),
+          ),
+          const Positioned(top: 0, left: 0, right: 0, child: ShimmerTopBar()),
+        ],
       ),
     );
   }
 
   Widget _buildContent() {
+    final bool registering = widget.planName != null;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -318,7 +143,26 @@ class _AuthScreenState extends State<AuthScreen>
         FadeSlideIn(
           duration: const Duration(milliseconds: 500),
           offsetY: 22,
-          child: _buildBrand(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const AuthLogo(),
+              const SizedBox(height: 16),
+              Text(
+                'FitZone',
+                style: AppText.display(size: 28.8, letterSpacing: -0.72, height: 1),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Tu entrenador personal digital',
+                style: AppText.body(
+                  size: 13.1,
+                  color: AppColors.whiteA(0.42),
+                  letterSpacing: 0.52,
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 32),
         Center(
@@ -328,280 +172,199 @@ class _AuthScreenState extends State<AuthScreen>
               delay: const Duration(milliseconds: 120),
               duration: const Duration(milliseconds: 500),
               offsetY: 30,
-              child: _buildCard(),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── Logo + eslogan ────────────────────────────────────────────────────────
-  Widget _buildBrand() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        const AuthLogo(),
-        const SizedBox(height: 16),
-        Text(
-          'FitZone',
-          style: AppText.display(size: 28.8, letterSpacing: -0.72, height: 1),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Tu entrenador personal digital',
-          style: AppText.body(
-            size: 13.12,
-            color: AppColors.whiteA(0.42),
-            letterSpacing: 0.52,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── Tarjeta ───────────────────────────────────────────────────────────────
-  Widget _buildCard() {
-    final bool isForgot = _mode == AuthMode.forgot;
-    final String? notice = widget.notice;
-
-    return AuthGlassCard(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          if (notice != null && notice.isNotEmpty && !isForgot) ...<Widget>[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color.fromRGBO(52, 211, 153, 0.10),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color.fromRGBO(52, 211, 153, 0.25),
-                ),
-              ),
-              child: Row(
-                children: <Widget>[
-                  const Icon(
-                    Icons.check_circle_outline_rounded,
-                    size: 16,
-                    color: Color(0xFF34D399),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      notice,
+              child: AuthGlassCard(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    if (widget.notice != null && widget.notice!.isNotEmpty) ...<Widget>[
+                      _Notice(widget.notice!),
+                      const SizedBox(height: 16),
+                    ],
+                    if (registering)
+                      Align(
+                        alignment: Alignment.center,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.cyanA(0.12),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: AppColors.cyanA(0.25)),
+                          ),
+                          child: Text(
+                            'PLAN ${widget.planName!.toUpperCase()}',
+                            style: AppText.body(
+                              size: 11.5,
+                              weight: FontWeight.w600,
+                              color: AppColors.cyanText,
+                              letterSpacing: 0.92,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (registering) const SizedBox(height: 14),
+                    Text(
+                      registering ? 'Crea tu cuenta' : 'Bienvenido de vuelta',
+                      textAlign: TextAlign.center,
+                      style: AppText.display(size: 22),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      registering
+                          ? 'Regístrate o inicia sesión con tu cuenta de Google.'
+                          : 'Entra con la cuenta de Google con la que te registraste.',
+                      textAlign: TextAlign.center,
                       style: AppText.body(
-                        size: 12,
-                        color: const Color(0xFF34D399),
-                        height: 1.4,
+                        size: 13.2,
+                        color: AppColors.whiteA(0.5),
+                        height: 1.45,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (!isForgot) ...<Widget>[
-            AuthModeTabs(
-              mode: _mode,
-              onChanged: (AuthMode m) =>
-                  _switchMode(m, m == AuthMode.register ? 1 : -1),
-            ),
-            const SizedBox(height: 24),
-          ] else ...<Widget>[
-            Text('Recuperar contraseña', style: AppText.display(size: 20)),
-            const SizedBox(height: 4),
-            Text(
-              'Te enviaremos un código de 6 dígitos por email',
-              style: AppText.body(size: 13.12, color: AppColors.whiteA(0.45)),
-            ),
-            const SizedBox(height: 20),
-          ],
-          _buildFormArea(),
-          if (!isForgot)
-            SocialAuthSection(enabled: !_busy, onPressed: _handleSocial),
-          const SizedBox(height: 20),
-          _buildBottomLink(),
-        ],
-      ),
-    );
-  }
-
-  /// Formulario con transición lateral entre modos y sacudida al haber error.
-  Widget _buildFormArea() {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      clipBehavior: Clip.none,
-      child: AnimatedBuilder(
-        animation: _shake,
-        builder: (BuildContext context, Widget? child) {
-          return Transform.translate(offset: Offset(_shake.value, 0), child: child);
-        },
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          layoutBuilder: (Widget? current, List<Widget> previous) {
-            return Stack(
-              alignment: Alignment.topCenter,
-              children: <Widget>[...previous, if (current != null) current],
-            );
-          },
-          transitionBuilder: (Widget child, Animation<double> animation) {
-            final bool incoming = child.key == ValueKey<AuthMode>(_mode);
-            final double dx = (incoming ? _direction : -_direction) * 18.0;
-            return FadeTransition(
-              opacity: animation,
-              child: AnimatedBuilder(
-                animation: animation,
-                child: child,
-                builder: (BuildContext context, Widget? c) {
-                  return Transform.translate(
-                    offset: Offset((1 - animation.value) * dx, 0),
-                    child: c,
-                  );
-                },
-              ),
-            );
-          },
-          child: _buildForm(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildForm() {
-    final bool isRegister = _mode == AuthMode.register;
-    final bool isForgot = _mode == AuthMode.forgot;
-
-    return Column(
-      key: ValueKey<AuthMode>(_mode),
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        if (isRegister) ...<Widget>[
-          FancyInput(
-            icon: Icons.person_outline_rounded,
-            hint: 'Tu nombre completo',
-            controller: _nameCtrl,
-            keyboardType: TextInputType.name,
-            textInputAction: TextInputAction.next,
-            autofillHints: const <String>[AutofillHints.name],
-          ),
-          const SizedBox(height: 12),
-        ],
-        FancyInput(
-          icon: Icons.mail_outline_rounded,
-          hint: 'tu@email.com',
-          controller: _emailCtrl,
-          keyboardType: TextInputType.emailAddress,
-          textInputAction: isForgot ? TextInputAction.done : TextInputAction.next,
-          autofillHints: const <String>[AutofillHints.email],
-          onSubmitted: isForgot ? (_) => _submit() : null,
-        ),
-        if (!isForgot) ...<Widget>[
-          const SizedBox(height: 12),
-          FancyInput(
-            icon: Icons.lock_outline_rounded,
-            hint: '••••••••',
-            controller: _passCtrl,
-            obscureText: !_showPassword,
-            textInputAction: TextInputAction.done,
-            autofillHints: <String>[
-              isRegister ? AutofillHints.newPassword : AutofillHints.password,
-            ],
-            onSubmitted: (_) => _submit(),
-            trailing: TextFieldTapRegion(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => setState(() => _showPassword = !_showPassword),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(
-                    _showPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 17,
-                    color: AppColors.whiteA(0.35),
-                  ),
+                    const SizedBox(height: 22),
+                    if (_error.isNotEmpty) ...<Widget>[
+                      ErrorBox(_error),
+                      const SizedBox(height: 14),
+                    ] else if (_hint.isNotEmpty) ...<Widget>[
+                      Text(
+                        _hint,
+                        textAlign: TextAlign.center,
+                        style: AppText.body(size: 12.5, color: AppColors.amber, height: 1.45),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    _GoogleButton(
+                      loading: _loading,
+                      success: _success,
+                      onTap: _google,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      registering
+                          ? 'Si ya tienes cuenta, solo podrás entrar con el plan con el que te registraste.'
+                          : 'Es la única forma de acceso a FitZone. No necesitas contraseña.',
+                      textAlign: TextAlign.center,
+                      style: AppText.body(
+                        size: 11.8,
+                        color: AppColors.whiteA(0.38),
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        ],
-        _buildErrorBox(),
-        const SizedBox(height: 12),
-        AuthSubmitButton(
-          label: _submitLabel,
-          successLabel: isForgot ? '¡Código enviado!' : '¡Bienvenido!',
-          loading: _loading,
-          success: _success,
-          onPressed: _submit,
         ),
       ],
     );
-  }
-
-  Widget _buildErrorBox() {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-      alignment: Alignment.topCenter,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        child: _error.isEmpty
-            ? const SizedBox(key: ValueKey<String>('no-error'), width: double.infinity)
-            : Padding(
-                key: ValueKey<String>(_error),
-                padding: const EdgeInsets.only(top: 12),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color.fromRGBO(239, 68, 68, 0.10),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color.fromRGBO(239, 68, 68, 0.22),
-                    ),
-                  ),
-                  child: Text(
-                    _error,
-                    style: AppText.body(
-                      size: 12,
-                      color: const Color(0xFFF87171),
-                    ),
-                  ),
-                ),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildBottomLink() {
-    switch (_mode) {
-      case AuthMode.login:
-        return _LinkButton(
-          label: '¿Olvidaste tu contraseña?',
-          color: AppColors.cyanA(0.75),
-          onTap: () => _switchMode(AuthMode.forgot, 1),
-        );
-      case AuthMode.forgot:
-        return _LinkButton(
-          label: '← Volver al inicio',
-          color: AppColors.cyan,
-          onTap: () => _switchMode(AuthMode.login, -1),
-        );
-      case AuthMode.register:
-        return const SizedBox.shrink();
-    }
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Piezas pequeñas privadas
-// ═══════════════════════════════════════════════════════════════════════════
+class _GoogleButton extends StatefulWidget {
+  const _GoogleButton({
+    required this.loading,
+    required this.success,
+    required this.onTap,
+  });
+
+  final bool loading;
+  final bool success;
+  final VoidCallback onTap;
+
+  @override
+  State<_GoogleButton> createState() => _GoogleButtonState();
+}
+
+class _GoogleButtonState extends State<_GoogleButton> {
+  bool _pressing = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool disabled = widget.loading;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: disabled ? null : (_) => setState(() => _pressing = true),
+      onTapUp: (_) => setState(() => _pressing = false),
+      onTapCancel: () => setState(() => _pressing = false),
+      onTap: disabled ? null : widget.onTap,
+      child: AnimatedScale(
+        scale: _pressing ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        child: Container(
+          height: 54,
+          decoration: BoxDecoration(
+            color: Colors.white, // botón oficial de Google: siempre blanco
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.whiteA(0.12)),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: AppColors.cyanA(0.18),
+                blurRadius: 18,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              if (widget.success)
+                const Icon(Icons.check_circle_rounded, size: 22, color: Color(0xFF16A34A))
+              else if (widget.loading)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.2, color: Color(0xFF0F172A)),
+                )
+              else
+                SvgPicture.string(_googleSvg, width: 22, height: 22),
+              const SizedBox(width: 12),
+              Text(
+                widget.success
+                    ? '¡Listo!'
+                    : widget.loading
+                        ? 'Conectando con Google...'
+                        : 'Continuar con Google',
+                style: AppText.body(
+                  size: 15.5,
+                  weight: FontWeight.w600,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Notice extends StatelessWidget {
+  const _Notice(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color.fromRGBO(52, 211, 153, 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color.fromRGBO(52, 211, 153, 0.25)),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.green),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text, style: AppText.body(size: 12, color: AppColors.green, height: 1.4)),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _BackButton extends StatelessWidget {
   const _BackButton({required this.onTap});
@@ -610,62 +373,18 @@ class _BackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-      builder: (BuildContext context, double v, Widget? child) {
-        return Opacity(
-          opacity: v,
-          child: Transform.translate(offset: Offset(-10 * (1 - v), 0), child: child),
-        );
-      },
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(
-                Icons.chevron_left_rounded,
-                size: 20,
-                color: AppColors.whiteA(0.45),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Volver',
-                style: AppText.body(size: 13.6, color: AppColors.whiteA(0.45)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LinkButton extends StatelessWidget {
-  const _LinkButton({
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-          child: Text(label, style: AppText.body(size: 12.8, color: color)),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(Icons.chevron_left_rounded, size: 22, color: AppColors.whiteA(0.5)),
+            const SizedBox(width: 6),
+            Text('Volver', style: AppText.body(size: 14, color: AppColors.whiteA(0.5))),
+          ],
         ),
       ),
     );

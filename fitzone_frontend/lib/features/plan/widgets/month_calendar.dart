@@ -108,7 +108,7 @@ class _MonthCalendarState extends State<MonthCalendar> {
                     style: AppText.body(
                       size: 14,
                       weight: FontWeight.w600,
-                      color: Colors.white,
+                      color: AppColors.ink,
                       height: 1.43,
                     ),
                   ),
@@ -214,7 +214,7 @@ class _NavButtonState extends State<_NavButton> {
               child: AnimatedOpacity(
                 opacity: _hover ? 1.0 : 0.5,
                 duration: const Duration(milliseconds: 150),
-                child: Icon(widget.icon, size: 16, color: Colors.white),
+                child: Icon(widget.icon, size: 16, color: AppColors.ink),
               ),
             ),
           ),
@@ -244,7 +244,7 @@ class _DayCell extends StatefulWidget {
 }
 
 class _DayCellState extends State<_DayCell> {
-  static const Color _cyan400 = Color(0xFF22D3EE);
+  static Color get _cyan400 => AppColors.cyanLightText;
 
   bool _hover = false;
 

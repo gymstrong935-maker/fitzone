@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_text.dart';
 import 'fz_field_frame.dart';
+import '../../../core/theme/app_colors.dart';
 
 /// 70.0 -> "70", 154.3 -> "154.3"
 String formatNumber(double value) {
@@ -19,6 +20,7 @@ class FzNumberField extends StatefulWidget {
     this.min = 0,
     this.decimal = false,
     this.maxLength = 3,
+    this.hint,
   });
 
   final double value;
@@ -33,6 +35,9 @@ class FzNumberField extends StatefulWidget {
   /// Máximo de dígitos para campos enteros.
   final int maxLength;
 
+  /// Texto de ayuda cuando el campo está vacío.
+  final String? hint;
+
   @override
   State<FzNumberField> createState() => _FzNumberFieldState();
 }
@@ -44,7 +49,7 @@ class _FzNumberFieldState extends State<FzNumberField> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: formatNumber(widget.value));
+    _controller = TextEditingController(text: _show(widget.value));
     _focus = FocusNode()..addListener(_onFocusChange);
   }
 
@@ -54,9 +59,12 @@ class _FzNumberFieldState extends State<FzNumberField> {
     // Si el valor cambió desde fuera (p. ej. conversión kg/lb), actualiza el
     // texto, salvo que el usuario esté escribiendo.
     if (!_focus.hasFocus && oldWidget.value != widget.value) {
-      _setText(formatNumber(widget.value));
+      _setText(_show(widget.value));
     }
   }
+
+  /// 0 = sin llenar: el campo se ve vacío.
+  String _show(double v) => v <= 0 ? '' : formatNumber(v);
 
   @override
   void dispose() {
@@ -82,7 +90,7 @@ class _FzNumberFieldState extends State<FzNumberField> {
           : (parsed < widget.min ? widget.min : parsed);
 
       if (next != widget.value) widget.onChanged(next);
-      _setText(formatNumber(next));
+      _setText(_show(next));
     }
     if (mounted) setState(() {});
   }
@@ -111,13 +119,15 @@ class _FzNumberFieldState extends State<FzNumberField> {
             LengthLimitingTextInputFormatter(widget.maxLength),
           ],
         ],
-        cursorColor: Colors.white,
+        cursorColor: AppColors.ink,
         onChanged: _handleChanged,
-        style: AppText.body(size: 15, color: Colors.white),
-        decoration: const InputDecoration(
+        style: AppText.body(size: 15, color: AppColors.ink),
+        decoration: InputDecoration(
           isCollapsed: true,
           border: InputBorder.none,
           contentPadding: EdgeInsets.zero,
+          hintText: widget.hint,
+          hintStyle: AppText.body(size: 15, color: AppColors.whiteA(0.28)),
         ),
       ),
     );

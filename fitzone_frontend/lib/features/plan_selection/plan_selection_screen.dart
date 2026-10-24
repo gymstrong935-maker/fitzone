@@ -22,6 +22,7 @@ class PlanSelectionScreen extends StatefulWidget {
     this.onRetry,
     this.allowFree = true,
     this.onLogout,
+    this.onHaveAccount,
   });
 
   final ValueChanged<PlanId> onSelectPlan;
@@ -38,6 +39,9 @@ class PlanSelectionScreen extends StatefulWidget {
 
   /// Si se da, muestra "Cerrar sesión" abajo.
   final VoidCallback? onLogout;
+
+  /// Si se da, muestra "Ya tengo cuenta": entra con Google sin elegir plan.
+  final VoidCallback? onHaveAccount;
 
   @override
   State<PlanSelectionScreen> createState() => _PlanSelectionScreenState();
@@ -70,7 +74,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.bg,
       body: Stack(
         children: <Widget>[
           // ── Fondo ambiental ──
@@ -158,14 +162,14 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.cloud_off_rounded, size: 18, color: Color(0xFFF87171)),
+          Icon(Icons.cloud_off_rounded, size: 18, color: AppColors.red),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               widget.errorMessage!,
               style: AppText.body(
                 size: 12,
-                color: const Color(0xFFF87171),
+                color: AppColors.red,
                 height: 1.4,
               ),
             ),
@@ -182,7 +186,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                   style: AppText.body(
                     size: 12,
                     weight: FontWeight.w600,
-                    color: Colors.white,
+                    color: AppColors.ink,
                   ),
                 ),
               ),
@@ -212,7 +216,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                 TextSpan(text: 'Bienvenido a '),
                 TextSpan(
                   text: 'FitZone',
-                  style: TextStyle(color: AppColors.cyan),
+                  style: TextStyle(color: AppColors.cyanText),
                 ),
               ],
             ),
@@ -269,7 +273,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       child: Column(
         children: <Widget>[
           Text(
-            'Puedes cambiar o cancelar tu plan en cualquier momento',
+            'Tu plan se mantiene mientras dure tu inscripción. Al terminar podrás elegir otro.',
             textAlign: TextAlign.center,
             style: AppText.body(
               size: 11.2,
@@ -277,6 +281,24 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
               height: 1.5,
             ),
           ),
+          if (widget.onHaveAccount != null) ...<Widget>[
+            const SizedBox(height: 14),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onHaveAccount,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Text(
+                  '¿Ya tienes cuenta? Inicia sesión',
+                  style: AppText.body(
+                    size: 13.5,
+                    weight: FontWeight.w600,
+                    color: AppColors.cyanText,
+                  ),
+                ),
+              ),
+            ),
+          ],
           if (widget.onLogout != null) ...<Widget>[
             const SizedBox(height: 12),
             GestureDetector(

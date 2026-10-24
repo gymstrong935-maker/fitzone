@@ -22,7 +22,7 @@ class ExperienceCard extends StatefulWidget {
 }
 
 class _ExperienceCardState extends State<ExperienceCard> {
-  static const Color _cyan400 = Color(0xFF22D3EE);
+  static Color get _cyan400 => AppColors.cyanLightText;
 
   bool _pressing = false;
 

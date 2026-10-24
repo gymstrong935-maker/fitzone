@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/api/api_exception.dart';
 import '../../../core/services/admin_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
@@ -33,16 +32,6 @@ class AdminDashboardScreen extends StatelessWidget {
   final AdminService service;
   final ValueChanged<AdminSection> onNavigate;
 
-  Future<void> _runExpirations(BuildContext context) async {
-    try {
-      await service.runExpirations();
-      if (context.mounted) adminToast(context, 'Vencimientos revisados');
-      controller.refresh(silent: true);
-    } on ApiException catch (e) {
-      if (context.mounted) adminToast(context, e.message, error: true);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -62,7 +51,7 @@ class AdminDashboardScreen extends StatelessWidget {
             AdminButton(
               label: 'Revisar vencimientos',
               icon: Icons.event_busy_outlined,
-              onTap: () => _runExpirations(context),
+              onTap: () => onNavigate(AdminSection.expirations),
             ),
           ],
           child: stats.isEmpty
@@ -96,7 +85,7 @@ class AdminDashboardScreen extends StatelessWidget {
       ),
         _Tile(
         icon: Icons.how_to_reg_outlined,
-        color: const Color(0xFFFBBF24),
+        color: AppColors.amber,
         label: 'Cuentas por aprobar',
         value: '${asNum(users['pendientes']).toInt()}',
         sub: asNum(users['pendientes']) == 0 ? 'todo al día' : 'esperan tu aprobación',
@@ -105,7 +94,7 @@ class AdminDashboardScreen extends StatelessWidget {
       ),
       _Tile(
         icon: Icons.verified_outlined,
-        color: const Color(0xFF34D399),
+        color: AppColors.green,
         label: 'Suscripciones activas',
         value: '${asNum(subs['activas']).toInt()}',
         sub: 'planes vigentes',
@@ -113,7 +102,7 @@ class AdminDashboardScreen extends StatelessWidget {
       ),
       _Tile(
         icon: Icons.hourglass_top_rounded,
-        color: const Color(0xFFFBBF24),
+        color: AppColors.amber,
         label: 'Pagos pendientes',
         value: '$pending',
         sub: pending == 0 ? 'todo al día' : 'esperan aprobación',
@@ -121,15 +110,35 @@ class AdminDashboardScreen extends StatelessWidget {
         onTap: () => onNavigate(AdminSection.payments),
       ),
       _Tile(
+        icon: Icons.swap_horiz_rounded,
+        color: AppColors.violet,
+        label: 'Cambios de entrenador',
+        value: '${asNum(stats['cambiosEntrenadorPendientes']).toInt()}',
+        sub: asNum(stats['cambiosEntrenadorPendientes']) == 0
+            ? 'todo al día'
+            : 'esperan tu validación',
+        alert: asNum(stats['cambiosEntrenadorPendientes']) > 0,
+        onTap: () => onNavigate(AdminSection.coachChanges),
+      ),
+      _Tile(
+        icon: Icons.event_busy_outlined,
+        color: AppColors.orange,
+        label: 'Por vencer (7 días)',
+        value: '${asNum(subs['porVencer']).toInt()}',
+        sub: asNum(subs['porVencer']) == 0 ? 'nadie por vencer' : 'planes que terminan pronto',
+        alert: asNum(subs['porVencer']) > 0,
+        onTap: () => onNavigate(AdminSection.expirations),
+      ),
+      _Tile(
         icon: Icons.payments_outlined,
-        color: const Color(0xFF2DD4BF),
+        color: AppColors.teal400,
         label: 'Ingresos totales',
         value: formatCop(asNum(income['total'])),
         sub: 'pagos aprobados',
       ),
       _Tile(
         icon: Icons.fitness_center_rounded,
-        color: const Color(0xFFA78BFA),
+        color: AppColors.violet,
         label: 'Entrenadores',
         value: '${asNum(stats['entrenadores']).toInt()}',
         sub: 'en la plataforma',
@@ -137,7 +146,7 @@ class AdminDashboardScreen extends StatelessWidget {
       ),
       _Tile(
         icon: Icons.event_available_outlined,
-        color: const Color(0xFF60A5FA),
+        color: AppColors.blue,
         label: 'Citas próximas',
         value: '${asNum(stats['citasProximas']).toInt()}',
         sub: 'confirmadas',
@@ -145,7 +154,7 @@ class AdminDashboardScreen extends StatelessWidget {
       ),
       _Tile(
         icon: Icons.support_agent_rounded,
-        color: const Color(0xFFF472B6),
+        color: AppColors.pink,
         label: 'Soporte abierto',
         value: '$tickets',
         sub: tickets == 0 ? 'sin pendientes' : 'solicitudes sin cerrar',
@@ -154,7 +163,7 @@ class AdminDashboardScreen extends StatelessWidget {
       ),
       _Tile(
         icon: Icons.local_fire_department_outlined,
-        color: const Color(0xFFFB923C),
+        color: AppColors.orange,
         label: 'Entrenamientos',
         value: '${asNum(stats['entrenamientosSemana']).toInt()}',
         sub: 'últimos 7 días',
@@ -243,7 +252,7 @@ class _Tile extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          Text(label, style: AppText.body(size: 13, weight: FontWeight.w600, color: Colors.white)),
+          Text(label, style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.ink)),
           Text(sub, style: AppText.body(size: 12, color: AppColors.whiteA(0.40), height: 1.4)),
         ],
       ),
@@ -386,7 +395,7 @@ class _PlansCard extends StatelessWidget {
                   ),
                   Text(
                     '${asNum(plans[i]['total']).toInt()}',
-                    style: AppText.body(size: 13, weight: FontWeight.w700, color: Colors.white),
+                    style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.ink),
                   ),
                 ],
               ),

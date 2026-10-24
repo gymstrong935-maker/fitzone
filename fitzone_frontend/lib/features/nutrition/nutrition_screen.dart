@@ -34,11 +34,11 @@ class NutritionScreen extends StatefulWidget {
 }
 
 class _NutritionScreenState extends State<NutritionScreen> {
-  static const Color _green400 = Color(0xFF4ADE80);
-  static const Color _green500 = Color(0xFF22C55E);
-  static const Color _emerald500 = Color(0xFF10B981);
-  static const Color _yellow500 = Color(0xFFF59E0B);
-  static const Color _orange400 = Color(0xFFFB923C);
+  static Color get _green400 => AppColors.green400;
+  static Color get _green500 => AppColors.greenStrong;
+  static Color get _emerald500 => AppColors.emerald;
+  static Color get _yellow500 => AppColors.amberStrong;
+  static Color get _orange400 => AppColors.orange;
 
   @override
   void initState() {
@@ -64,7 +64,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
   Widget build(BuildContext context) {
     // Esta pantalla tiene fondo negro sólido (no deja ver el degradado global).
     return ColoredBox(
-      color: Colors.black,
+      color: AppColors.bg,
       child: ListenableBuilder(
         listenable: widget.controller,
         builder: (BuildContext context, Widget? _) {
@@ -370,7 +370,7 @@ class _AddButtonState extends State<_AddButton> {
             height: 32,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: _hover ? const Color(0xFF16A34A) : const Color(0xFF22C55E),
+              color: _hover ? const Color(0xFF16A34A) : AppColors.greenStrong,
               borderRadius: BorderRadius.circular(18),
             ),
             child: Row(
@@ -413,7 +413,7 @@ class _ConfirmDialog extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: const Color(0xFF0F0F0F),
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: AppColors.whiteA(0.10)),
           ),
@@ -444,7 +444,7 @@ class _ConfirmDialog extends StatelessWidget {
                       label: 'Conservar',
                       background: AppColors.whiteA(0.08),
                       border: AppColors.whiteA(0.12),
-                      textColor: Colors.white,
+                      textColor: AppColors.ink,
                       onTap: () => Navigator.of(context).pop(false),
                     ),
                   ),
@@ -454,7 +454,7 @@ class _ConfirmDialog extends StatelessWidget {
                       label: 'Borrar',
                       background: const Color.fromRGBO(239, 68, 68, 0.12),
                       border: const Color.fromRGBO(239, 68, 68, 0.30),
-                      textColor: const Color(0xFFF87171),
+                      textColor: AppColors.red,
                       onTap: () => Navigator.of(context).pop(true),
                     ),
                   ),

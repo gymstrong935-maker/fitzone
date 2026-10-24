@@ -57,9 +57,9 @@ class _FzTextAreaState extends State<FzTextArea> {
         minLines: 2,
         maxLines: null,
         keyboardType: TextInputType.multiline,
-        cursorColor: Colors.white,
+        cursorColor: AppColors.ink,
         onChanged: widget.onChanged,
-        style: AppText.body(size: 14, color: Colors.white, height: 1.43),
+        style: AppText.body(size: 14, color: AppColors.ink, height: 1.43),
         decoration: InputDecoration(
           isCollapsed: true,
           border: InputBorder.none,

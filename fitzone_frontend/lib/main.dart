@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
@@ -17,8 +18,6 @@ import 'core/theme/theme_controller.dart';
 import 'features/admin/admin_shell.dart';
 import 'features/auth/account_pending_screen.dart';
 import 'features/auth/auth_screen.dart';
-import 'features/auth/email_verification_screen.dart';
-import 'features/auth/reset_password_screen.dart';
 import 'features/boot/boot_screen.dart';
 import 'features/onboarding/data/trainers_repository.dart';
 import 'features/onboarding/models/onboarding_data.dart';
@@ -44,36 +43,21 @@ Future<void> main() async {
 class FitZoneApp extends StatelessWidget {
   const FitZoneApp({super.key});
 
-  static final GlobalKey _appKey = GlobalKey(debugLabel: 'fz_app');
-
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'FitZone',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
-      home: const AppFlow(),
-      // El modo claro se aplica sobre TODA la app (incluye hojas y diálogos).
-      builder: (BuildContext context, Widget? child) {
-        final Widget app = KeyedSubtree(key: _appKey, child: child ?? const SizedBox());
-
-        return ListenableBuilder(
-          listenable: ThemeController.instance,
-          builder: (BuildContext context, Widget? _) {
-            return TweenAnimationBuilder<double>(
-              tween: Tween<double>(end: ThemeController.instance.isLight ? 1.0 : 0.0),
-              duration: const Duration(milliseconds: 450),
-              curve: Curves.easeInOut,
-              child: app,
-              builder: (BuildContext context, double t, Widget? c) {
-                if (t <= 0.001) return c!;
-                return ColorFiltered(
-                  colorFilter: ThemeController.filterFor(t),
-                  child: c,
-                );
-              },
-            );
-          },
+    // El tema (claro/oscuro) cambia al instante y toda la app se vuelve a
+    // dibujar con la paleta del modo elegido (ver ThemeController).
+    return ListenableBuilder(
+      listenable: ThemeController.instance,
+      builder: (BuildContext context, Widget? _) {
+        return MaterialApp(
+          title: 'FitZone',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode:
+              ThemeController.instance.isLight ? ThemeMode.light : ThemeMode.dark,
+          home: const AppFlow(),
         );
       },
     );
@@ -85,8 +69,6 @@ enum AppStage {
   boot,
   planSelection,
   auth,
-  emailVerification,
-  resetPassword,
   accountPending,
   paymentMethod,
   paymentValidation,
@@ -94,19 +76,6 @@ enum AppStage {
   building,
   main,
   admin,
-}
-
-/// Datos del registro que se guardan en memoria hasta crear la cuenta.
-class _RegistrationDraft {
-  const _RegistrationDraft({
-    required this.name,
-    required this.email,
-    required this.password,
-  });
-
-  final String name;
-  final String email;
-  final String password;
 }
 
 class _Notice {
@@ -135,13 +104,12 @@ class _AppFlowState extends State<AppFlow> {
   Future<void>? _plansFuture;
   Future<void>? _trainersFuture;
 
-  _RegistrationDraft? _draft;
   BackendUser? _user;
   SubscriptionStatus? _subscriptionStatus;
   UserProfile? _profile;
   OnboardingData? _pendingData;
+  BackendPayment? _activePayment;
 
-  String? _resetEmail;
   String? _authNotice;
 
   Timer? _syncTimer;
@@ -334,12 +302,22 @@ class _AppFlowState extends State<AppFlow> {
     _selectedPlan = _planIdForBackend(user.planActual);
 
     if (status != null && status != SubscriptionStatus.active) {
-      // Pago pendiente pero onboarding ya hecho: puede usar la app.
-      if (status == SubscriptionStatus.pending && saved != null) {
-        _openMain(user, saved);
-      } else {
-        _goTo(AppStage.paymentValidation);
+      if (status == SubscriptionStatus.pending) {
+        // ¿Falta elegir cómo paga (y subir la factura)? Primero eso.
+        final BackendPayment? pay = await _loadPendingPayment();
+        if (!mounted) return;
+        if (pay != null && pay.needsMethod) {
+          _activePayment = pay;
+          _goTo(AppStage.paymentMethod);
+          return;
+        }
+        // Pago ya enviado pero onboarding hecho: puede usar la app.
+        if (saved != null) {
+          _openMain(user, saved);
+          return;
+        }
       }
+      _goTo(AppStage.paymentValidation);
       return;
     }
 
@@ -456,52 +434,23 @@ class _AppFlowState extends State<AppFlow> {
     });
   }
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
+  // ── Auth (solo Google) ────────────────────────────────────────────────────
 
-  Future<VoidCallback> _handleLogin(String email, String password) async {
-    try {
-      final AuthResult result = await _services.auth.login(
-        email: email,
-        password: password,
-      );
-      await _services.session.saveSession(
-        token: result.token,
-        userJson: result.user.raw,
-      );
-      final BackendUser user = result.user;
-      return () {
-        _enterApp(user);
-      };
-    } on ApiException catch (e) {
-      if (e.code == 'CUENTA_REVOCADA') {
-        _showNotice('Cuenta revocada', e.message, Icons.gpp_bad_outlined);
-        rethrow;
-      }
-
-      final bool unverified = e.code == 'CUENTA_NO_VERIFICADA' ||
-          e.message.contains('verificar tu cuenta');
-      if (!unverified) rethrow;
-
-      // La cuenta existe pero falta el código del correo.
-      _draft = _RegistrationDraft(name: '', email: email, password: password);
-      try {
-        await _services.auth.resendCode(email);
-      } on ApiException {
-        // Se puede reenviar desde la pantalla de verificación.
-      }
-      return () => _goTo(AppStage.emailVerification);
-    }
-  }
-
-  /// Inicio de sesión con Google. Devuelve `null` si la persona canceló.
-  /// Si la cuenta es nueva queda pendiente de aprobación y [_enterApp] la
-  /// lleva a la pantalla de revisión (igual que el registro normal).
+  /// Inicio de sesión / registro con Google. Devuelve `null` si la persona
+  /// canceló. Si la cuenta es nueva queda pendiente de aprobación y
+  /// [_enterApp] la lleva a la pantalla de revisión.
+  ///
+  /// Con un plan elegido, quien ya tenía cuenta solo entra si es el mismo plan
+  /// (mientras su inscripción siga vigente): lo comprueba el servidor.
   Future<VoidCallback?> _handleGoogleLogin() async {
     final String? idToken = await _services.google.pickIdToken();
     if (idToken == null) return null;
 
+    final String? planId = _selectedPlan == null ? null : _currentPlan.backendId;
+
     try {
-      final AuthResult result = await _services.auth.loginWithGoogle(idToken);
+      final AuthResult result =
+          await _services.auth.loginWithGoogle(idToken, planId: planId);
       await _services.session.saveSession(
         token: result.token,
         userJson: result.user.raw,
@@ -510,159 +459,39 @@ class _AppFlowState extends State<AppFlow> {
       return () {
         _enterApp(user);
       };
-    } on ApiException {
+    } on ApiException catch (e) {
       // Libera la cuenta elegida para poder probar con otra la próxima vez.
       unawaited(_services.google.signOut());
+      if (e.code == 'CUENTA_REVOCADA') {
+        _showNotice('Cuenta revocada', e.message, Icons.gpp_bad_outlined);
+      }
       rethrow;
     }
   }
 
-  Future<VoidCallback> _handleRegister(
-    String name,
-    String email,
-    String password,
-  ) async {
-    _draft = _RegistrationDraft(name: name, email: email, password: password);
-
-    // Plan gratuito: se crea la cuenta ya. Planes de pago: primero el método
-    // de pago (el registro lleva plan + método en una sola llamada).
-    if (_currentPlan.id == PlanId.free) {
-      await _registerAccount();
-      return () => _goTo(AppStage.emailVerification);
-    }
-    return () => _goTo(AppStage.paymentMethod);
-  }
-
-  Future<void> _registerAccount({String? metodoPago}) async {
-    final _RegistrationDraft? draft = _draft;
-    if (draft == null) {
-      throw const ApiException('Falta información del registro. Vuelve a empezar.');
-    }
-
-    await _plansFuture;
-    String? planId = _currentPlan.backendId;
-    if (planId == null) {
-      await _loadPlans();
-      planId = _currentPlan.backendId;
-    }
-    if (planId == null) {
-      throw const ApiException(
-        'No pudimos cargar los planes del servidor. Revisa tu conexión e inténtalo de nuevo.',
-      );
-    }
-
-    await _services.auth.register(
-      nombre: draft.name,
-      email: draft.email,
-      password: draft.password,
-      planId: planId,
-      metodoPago: metodoPago,
-    );
-  }
-
-  // ── Recuperar contraseña ──────────────────────────────────────────────────
-
-  Future<VoidCallback> _handleForgotPassword(String email) async {
-    await _services.auth.forgotPassword(email);
-    _resetEmail = email;
-    return () => _goTo(AppStage.resetPassword);
-  }
-
-  Future<void> _handleResendResetCode() async {
-    final String? email = _resetEmail;
-    if (email == null) return;
-    await _services.auth.forgotPassword(email);
-  }
-
-  Future<VoidCallback> _handleResetPassword(String code, String password) async {
-    final String? email = _resetEmail;
-    if (email == null) {
-      throw const ApiException('Falta el correo. Vuelve a empezar.');
-    }
-
-    await _services.auth.resetPassword(
-      email: email,
-      code: code,
-      password: password,
-    );
-
-    return () {
-      if (!mounted) return;
-      setState(() {
-        _authNotice = 'Contraseña actualizada. Ya puedes iniciar sesión.';
-        _stage = AppStage.auth;
-      });
-    };
-  }
-
-  // ── Verificación de correo ────────────────────────────────────────────────
-
-  Future<VoidCallback> _handleVerify(String code) async {
-    final _RegistrationDraft? draft = _draft;
-    if (draft == null) {
-      throw const ApiException(
-        'La sesión de registro expiró. Inicia sesión de nuevo.',
-      );
-    }
-
-    try {
-      await _services.auth.verifyAccount(email: draft.email, code: code);
-    } on ApiException catch (e) {
-      // Si ya estaba verificada, simplemente seguimos con el inicio de sesión.
-      if (!e.message.contains('ya está verificada')) rethrow;
-    }
-
-    final AuthResult result = await _services.auth.login(
-      email: draft.email,
-      password: draft.password,
-    );
-    await _services.session.saveSession(
-      token: result.token,
-      userJson: result.user.raw,
-    );
-
-    _draft = null;
-    final BackendUser user = result.user;
-    return () {
-      _enterApp(user);
-    };
-  }
-
-  Future<void> _handleResend() async {
-    final _RegistrationDraft? draft = _draft;
-    if (draft == null) return;
-    await _services.auth.resendCode(draft.email);
-  }
-
   // ── Pago ──────────────────────────────────────────────────────────────────
 
-  Future<void> _handlePaymentMethod(PayMethod method) async {
-    final String metodoPago = payMethodToBackend(method);
-    final BackendUser? user = _user;
-
-    if (user != null) {
-      // Usuario con cuenta que pide otro plan.
-      final String? planId = _currentPlan.backendId;
-      if (planId == null) {
-        throw const ApiException(
-          'No pudimos cargar los planes del servidor. Inténtalo de nuevo.',
-        );
-      }
-      await _services.subscriptions.changePlan(
-        userId: user.id,
-        planId: planId,
-        metodoPago: metodoPago,
-      );
-      if (!mounted) return;
-      _subscriptionStatus = SubscriptionStatus.pending;
-      _goTo(AppStage.paymentValidation);
-      return;
+  /// El usuario eligió cómo paga (y subió la factura si es pago digital).
+  Future<void> _handlePaymentSubmit(
+    PayMethod method,
+    Uint8List? receipt,
+    String? receiptName,
+  ) async {
+    final BackendPayment? pay = _activePayment;
+    if (pay == null) {
+      throw const ApiException('No encontramos tu pago pendiente. Vuelve a elegir el plan.');
     }
 
-    // Registro nuevo con plan de pago.
-    await _registerAccount(metodoPago: metodoPago);
+    await _services.payments.submit(
+      paymentId: pay.id,
+      method: payMethodToBackend(method),
+      receiptBytes: receipt,
+      receiptName: receiptName,
+    );
     if (!mounted) return;
-    _goTo(AppStage.emailVerification);
+    _activePayment = null;
+    _subscriptionStatus = SubscriptionStatus.pending;
+    _goTo(AppStage.paymentValidation);
   }
 
   Future<SubscriptionStatus> _fetchSubscriptionStatus() async {
@@ -716,16 +545,58 @@ class _AppFlowState extends State<AppFlow> {
 
     final BackendUser updated =
         await _services.users.updateName(userId: user.id, name: name);
+    await _rememberUser(updated);
+    _profile = _profile?.copyWith(name: name);
+  }
 
+  /// Nombre y correo desde "Editar perfil".
+  Future<void> _handleSaveAccount(String name, String email) async {
+    final BackendUser? user = _user;
+    if (user == null) return;
+
+    final BackendUser updated = await _services.users.updateProfile(
+      userId: user.id,
+      name: name,
+      email: email,
+    );
+    await _rememberUser(updated);
+    _profile = _profile?.copyWith(name: updated.nombre, email: updated.email);
+  }
+
+  Future<void> _handleChangePassword(
+    String? current,
+    String next,
+    String confirmation,
+  ) async {
+    final BackendUser? user = _user;
+    if (user == null) return;
+
+    await _services.users.changePassword(
+      userId: user.id,
+      currentPassword: current,
+      newPassword: next,
+      confirmation: confirmation,
+    );
+  }
+
+  /// Datos personales / medidas / hábitos editados: se guardan en el servidor.
+  Future<void> _handleSaveData(OnboardingData before, OnboardingData after) async {
+    final BackendUser? user = _user;
+    if (user == null) return;
+
+    await _services.onboardingSync.syncChanges(user.id, before, after);
+  }
+
+  Future<void> _rememberUser(BackendUser updated) async {
     final String? token = _services.api.token;
     if (token != null) {
       await _services.session.saveSession(token: token, userJson: updated.raw);
     }
     _user = updated;
-    _profile = _profile?.copyWith(name: name);
   }
 
-  /// Objetivo o entrenador cambiados en Ajustes.
+  /// Objetivo o datos cambiados en Ajustes (el entrenador cambia por solicitud
+  /// y lo valida el equipo, no se asigna desde aquí).
   void _handleProfileChanged(UserProfile previous, UserProfile next) {
     final BackendUser? user = _user;
     if (user == null) return;
@@ -742,18 +613,6 @@ class _AppFlowState extends State<AppFlow> {
         }),
       );
     }
-
-    // Un nuevo entrenador real se asigna en el servidor.
-    final trainer = next.onboardingData.trainer;
-    if (trainer != null &&
-        trainer.id != previous.onboardingData.trainer?.id &&
-        TrainersRepository.isRemote(trainer.id)) {
-      unawaited(
-        _services.coaches.assign(trainer.id).catchError((Object e) {
-          debugPrint('No se pudo asignar el entrenador en el servidor: $e');
-        }),
-      );
-    }
   }
 
   void _handleLogout() {
@@ -764,8 +623,8 @@ class _AppFlowState extends State<AppFlow> {
     setState(() {
       _user = null;
       _profile = null;
-      _draft = null;
       _pendingData = null;
+      _activePayment = null;
       _selectedPlan = null;
       _subscriptionStatus = null;
       _authNotice = null;
@@ -795,37 +654,17 @@ class _AppFlowState extends State<AppFlow> {
           onRetry: _loadPlans,
           allowFree: _user == null,
           onLogout: _user != null ? _handleLogout : null,
+          onHaveAccount: _user == null ? _handleHaveAccount : null,
           onSelectPlan: _handleSelectPlan,
         );
 
       case AppStage.auth:
         return AuthScreen(
           key: key,
-          initialEmail: _resetEmail,
+          planName: _selectedPlan == null ? null : _currentPlan.name,
           notice: _authNotice,
           onBack: () => _goTo(AppStage.planSelection),
-          onLogin: _handleLogin,
           onGoogleLogin: _handleGoogleLogin,
-          onRegister: _handleRegister,
-          onForgotPassword: _handleForgotPassword,
-        );
-
-      case AppStage.emailVerification:
-        return EmailVerificationScreen(
-          key: key,
-          email: _draft?.email ?? '',
-          onVerify: _handleVerify,
-          onResend: _handleResend,
-          onBack: () => _goTo(AppStage.auth),
-        );
-
-      case AppStage.resetPassword:
-        return ResetPasswordScreen(
-          key: key,
-          email: _resetEmail ?? '',
-          onSubmit: _handleResetPassword,
-          onResend: _handleResendResetCode,
-          onBack: () => _goTo(AppStage.auth),
         );
 
       case AppStage.accountPending:
@@ -846,12 +685,22 @@ class _AppFlowState extends State<AppFlow> {
         );
 
       case AppStage.paymentMethod:
+        final BackendPayment? pay = _activePayment;
+        if (pay == null) {
+          return PlanSelectionScreen(
+            key: key,
+            plans: _plans,
+            allowFree: _user == null,
+            onLogout: _user != null ? _handleLogout : null,
+            onSelectPlan: _handleSelectPlan,
+          );
+        }
         return PaymentMethodScreen(
           key: key,
-          planType: _selectedPlan ?? PlanId.monthly,
-          onContinue: _handlePaymentMethod,
-          onBack: () =>
-              _goTo(_user != null ? AppStage.planSelection : AppStage.auth),
+          label: _currentPlan.name,
+          amount: pay.monto,
+          onSubmit: _handlePaymentSubmit,
+          onBack: () => _goTo(AppStage.planSelection),
         );
 
       case AppStage.paymentValidation:
@@ -908,6 +757,9 @@ class _AppFlowState extends State<AppFlow> {
           onLogout: _handleLogout,
           onRename: _handleRename,
           onProfileChanged: _handleProfileChanged,
+          onSaveAccount: _handleSaveAccount,
+          onChangePassword: _handleChangePassword,
+          onSaveData: _handleSaveData,
         );
 
       case AppStage.admin:
@@ -1001,7 +853,7 @@ class _NoticeDialog extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(26),
             decoration: BoxDecoration(
-              color: const Color(0xFF0F0F0F),
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: AppColors.whiteA(0.10)),
             ),
@@ -1019,7 +871,7 @@ class _NoticeDialog extends StatelessWidget {
                       color: const Color.fromRGBO(239, 68, 68, 0.12),
                       border: Border.all(color: const Color.fromRGBO(239, 68, 68, 0.30)),
                     ),
-                    child: Icon(notice.icon, size: 30, color: const Color(0xFFF87171)),
+                    child: Icon(notice.icon, size: 30, color: AppColors.red),
                   ),
                 ),
                 const SizedBox(height: 18),

@@ -124,8 +124,17 @@ export const asignarmeEntrenador = async (req, res) => {
       return res.json({ mensaje: 'Ya tienes asignado este entrenador', entrenadorAsignado: coach._id });
     }
 
+    // Cambiar de entrenador requiere solicitud: la valida el admin y, si el nuevo
+    // cuesta más, se paga la diferencia (POST /api/coaches/cambio).
     if (anterior) {
-      await Coach.findByIdAndUpdate(anterior, { $pull: { clientesAsignados: usuario._id } });
+      const sigueExistiendo = await Coach.exists({ _id: anterior });
+
+      if (sigueExistiendo) {
+        return res.status(409).json({
+          mensaje: 'Para cambiar de entrenador debes enviar una solicitud que valida el equipo.',
+          codigo: 'USAR_CAMBIO'
+        });
+      }
     }
 
     usuario.entrenadorAsignado = coach._id;

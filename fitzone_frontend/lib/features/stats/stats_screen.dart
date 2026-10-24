@@ -19,11 +19,11 @@ class StatsScreen extends StatefulWidget {
 }
 
 class _StatsScreenState extends State<StatsScreen> {
-  static const Color _cyan400 = Color(0xFF22D3EE);
-  static const Color _teal400 = Color(0xFF2DD4BF);
-  static const Color _orange400 = Color(0xFFFB923C);
-  static const Color _purple400 = Color(0xFFC084FC);
-  static const Color _emerald400 = Color(0xFF34D399);
+  static Color get _cyan400 => AppColors.cyanLightText;
+  static Color get _teal400 => AppColors.teal400;
+  static Color get _orange400 => AppColors.orange;
+  static Color get _purple400 => AppColors.purple;
+  static Color get _emerald400 => AppColors.green;
 
   StatsTab _tab = StatsTab.weight;
 
@@ -357,7 +357,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   style: AppText.body(
                     size: 16,
                     weight: FontWeight.w700,
-                    color: Colors.white,
+                    color: AppColors.ink,
                     height: 1.5,
                   ),
                 ),
@@ -405,10 +405,10 @@ class _KpiCard extends StatelessWidget {
     switch (kpi.up) {
       case true:
         pillBackground = const Color.fromRGBO(52, 211, 153, 0.15);
-        pillColor = const Color(0xFF34D399);
+        pillColor = AppColors.green;
       case false:
         pillBackground = const Color.fromRGBO(6, 182, 212, 0.15);
-        pillColor = const Color(0xFF06B6D4);
+        pillColor = AppColors.cyanText;
       case null:
         pillBackground = AppColors.whiteA(0.08);
         pillColor = AppColors.whiteA(0.55);
@@ -523,7 +523,7 @@ class _TabChip extends StatelessWidget {
             style: AppText.body(
               size: 14,
               weight: FontWeight.w600,
-              color: selected ? AppColors.cyan : AppColors.whiteA(0.5),
+              color: selected ? AppColors.cyanText : AppColors.whiteA(0.5),
               height: 1.43,
             ),
             child: Text(label),
@@ -578,8 +578,8 @@ class _CircumferenceRow extends StatelessWidget {
   final CircumferenceStat stat;
   final int index;
 
-  static const Color _emerald400 = Color(0xFF34D399);
-  static const Color _red400 = Color(0xFFF87171);
+  static Color get _emerald400 => AppColors.green;
+  static Color get _red400 => AppColors.red;
 
   @override
   Widget build(BuildContext context) {
@@ -637,7 +637,7 @@ class _CircumferenceRow extends StatelessWidget {
                     style: AppText.body(
                       size: 14,
                       weight: FontWeight.w700,
-                      color: Colors.white,
+                      color: AppColors.ink,
                       height: 1.43,
                     ),
                   ),

@@ -31,7 +31,34 @@ class TrainingHabits {
     this.sleepDuration = 7,
     this.activityLevel = ActivityLevel.moderate,
     this.availability = const <String>[],
+    this.touched = const <String>{},
   });
+
+  static const String kFrequency = 'frequency';
+  static const String kDuration = 'duration';
+  static const String kSleepQuality = 'sleepQuality';
+  static const String kSleepDuration = 'sleepDuration';
+  static const String kActivity = 'activity';
+  static const Set<String> allTouched = <String>{
+    kFrequency, kDuration, kSleepQuality, kSleepDuration, kActivity,
+  };
+
+  /// Controles que la persona ya confirmó.
+  final Set<String> touched;
+
+  List<String> get missing => <String>[
+        if (!touched.contains(kFrequency)) 'frecuencia semanal',
+        if (!touched.contains(kDuration)) 'duración por sesión',
+        if (!touched.contains(kSleepQuality)) 'calidad del sueño',
+        if (!touched.contains(kSleepDuration)) 'horas de sueño',
+        if (!touched.contains(kActivity)) 'nivel de actividad',
+      ];
+
+  bool get isComplete => missing.isEmpty;
+
+  TrainingHabits withTouched(String key) =>
+      copyWith(touched: <String>{...touched, key});
+
 
   /// Días de entrenamiento por semana (1 a 7).
   final int frequency;
@@ -54,6 +81,7 @@ class TrainingHabits {
     double? sleepDuration,
     ActivityLevel? activityLevel,
     List<String>? availability,
+    Set<String>? touched,
   }) {
     return TrainingHabits(
       frequency: frequency ?? this.frequency,
@@ -62,6 +90,7 @@ class TrainingHabits {
       sleepDuration: sleepDuration ?? this.sleepDuration,
       activityLevel: activityLevel ?? this.activityLevel,
       availability: availability ?? this.availability,
+      touched: touched ?? this.touched,
     );
   }
 }

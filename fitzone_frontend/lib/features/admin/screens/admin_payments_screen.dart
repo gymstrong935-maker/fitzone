@@ -40,10 +40,14 @@ class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
     );
     if (!ok || !mounted) return;
 
+    await _send(id, approve: approve);
+  }
+
+  Future<void> _send(String id, {required bool approve, bool force = false}) async {
     setState(() => _busyId = id);
     try {
       if (approve) {
-        await widget.service.approve(id);
+        await widget.service.approve(id, force: force);
       } else {
         await widget.service.reject(id);
       }
@@ -52,7 +56,21 @@ class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
       widget.controller.refresh(silent: true);
       setState(() => _version++);
     } on ApiException catch (e) {
-      if (mounted) adminToast(context, e.message, error: true);
+      if (!mounted) return;
+      // El pago está incompleto (sin método o sin factura): el admin decide.
+      if (approve && !force && e.code == 'PAGO_INCOMPLETO') {
+        setState(() => _busyId = null);
+        final bool again = await adminConfirm(
+          context,
+          title: 'El pago está incompleto',
+          message: '${e.message}\n\n¿Quieres aprobarlo de todas formas (por ejemplo, si ya cobraste en caja)?',
+          confirmLabel: 'Aprobar igual',
+          danger: false,
+        );
+        if (again && mounted) await _send(id, approve: true, force: true);
+        return;
+      }
+      adminToast(context, e.message, error: true);
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -169,11 +187,20 @@ class _SubscriptionCard extends StatelessWidget {
             children: <Widget>[
               _Info('Plan', str(plan['nombre'])),
               _Info('Monto', plan['precio'] == null ? '—' : formatCop(asNum(plan['precio']))),
-              _Info('Método', str(payment['metodoPago']).isEmpty ? '—' : str(payment['metodoPago'])),
+              _Info(
+                'Método',
+                (str(payment['metodoPago']).isEmpty || str(payment['metodoPago']) == 'Sin definir')
+                    ? 'Aún no elige'
+                    : str(payment['metodoPago']),
+              ),
               _Info('Solicitud', shortDate(asDate(payment['fechaPago']))),
               if (!pending) _Info('Vence', shortDate(end)),
             ],
           ),
+          if (str(payment['comprobanteUrl']).isNotEmpty) ...<Widget>[
+            const SizedBox(height: 14),
+            _ReceiptPreview(url: str(payment['comprobanteUrl'])),
+          ],
           if (pending) ...<Widget>[
             const SizedBox(height: 16),
             Wrap(
@@ -220,9 +247,60 @@ class _Info extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           value.isEmpty ? '—' : value,
-          style: AppText.body(size: 13.5, weight: FontWeight.w600, color: Colors.white),
+          style: AppText.body(size: 13.5, weight: FontWeight.w600, color: AppColors.ink),
         ),
       ],
+    );
+  }
+}
+
+/// Miniatura de la factura; al tocarla se abre en grande.
+class _ReceiptPreview extends StatelessWidget {
+  const _ReceiptPreview({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => showReceiptViewer(context, url),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.whiteA(0.04),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.cyanA(0.25)),
+        ),
+        child: Row(
+          children: <Widget>[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                url,
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+                errorBuilder: (BuildContext c, Object e, StackTrace? s) => Container(
+                  width: 56,
+                  height: 56,
+                  color: AppColors.whiteA(0.06),
+                  child: Icon(Icons.receipt_long_outlined, color: AppColors.whiteA(0.4)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Factura del pago digital',
+                style: AppText.body(size: 13.5, weight: FontWeight.w600),
+              ),
+            ),
+            Text('Ver', style: AppText.body(size: 13, weight: FontWeight.w600, color: AppColors.cyanText)),
+            const SizedBox(width: 4),
+            Icon(Icons.open_in_full_rounded, size: 16, color: AppColors.cyanText),
+          ],
+        ),
+      ),
     );
   }
 }

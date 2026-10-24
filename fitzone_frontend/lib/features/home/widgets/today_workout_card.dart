@@ -33,7 +33,7 @@ class TodayWorkoutCard extends StatelessWidget {
       child: Stack(
         children: <Widget>[
           // Círculos decorativos.
-          const Positioned(
+          Positioned(
             top: -39.2,
             right: -39.2,
             width: 112,
@@ -42,7 +42,7 @@ class TodayWorkoutCard extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color.fromRGBO(255, 255, 255, 0.08),
+                  color: AppColors.whiteA(0.08),
                 ),
               ),
             ),
@@ -207,7 +207,7 @@ class _PulsingPlayState extends State<_PulsingPlay>
         final double t = Curves.easeInOut.transform(_controller.value);
         return Transform.scale(scale: 1 + 0.15 * t, child: child);
       },
-      child: const Icon(Icons.play_arrow_rounded, size: 18, color: Colors.white),
+      child: Icon(Icons.play_arrow_rounded, size: 18, color: Colors.white),
     );
   }
 }

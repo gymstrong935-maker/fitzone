@@ -31,6 +31,8 @@ import '../workout/models/exercise.dart';
 import '../workout/models/workout_log.dart';
 import '../workout/workout_screen.dart';
 import 'widgets/fz_bottom_nav.dart';
+import '../../core/theme/app_colors.dart';
+import '../onboarding/models/onboarding_data.dart';
 
 /// Pestañas con barra de navegación inferior.
 const List<String> kMainTabs = <String>['home', 'stats', 'plan', 'settings'];
@@ -53,6 +55,9 @@ class MainShell extends StatefulWidget {
     required this.onLogout,
     required this.onRename,
     required this.onProfileChanged,
+    required this.onSaveAccount,
+    required this.onChangePassword,
+    required this.onSaveData,
   });
 
   final UserProfile userProfile;
@@ -65,6 +70,16 @@ class MainShell extends StatefulWidget {
 
   /// Avisa que cambió el objetivo o el entrenador (para guardarlo).
   final void Function(UserProfile previous, UserProfile next) onProfileChanged;
+
+  /// Guarda nombre y correo. Lanza `ApiException` si falla.
+  final Future<void> Function(String name, String email) onSaveAccount;
+
+  /// Cambia la contraseña (con confirmación). Lanza `ApiException` si falla.
+  final Future<void> Function(String? current, String next, String confirmation)
+      onChangePassword;
+
+  /// Guarda en el servidor los datos personales editados. Lanza `ApiException`.
+  final Future<void> Function(OnboardingData before, OnboardingData after) onSaveData;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -196,6 +211,26 @@ class _MainShellState extends State<MainShell> {
     widget.onProfileChanged(previous, profile);
   }
 
+  /// Cuenta (nombre y correo): primero el servidor; luego se refleja en pantalla.
+  Future<void> _saveAccount(String name, String email) async {
+    await widget.onSaveAccount(name, email);
+    if (!mounted) return;
+    setState(() => _profile = _profile.copyWith(name: name, email: email));
+  }
+
+  /// Datos personales: se guardan en el servidor y el plan se vuelve a calcular.
+  Future<void> _saveData(OnboardingData data) async {
+    final UserProfile previous = _profile;
+    await widget.onSaveData(previous.onboardingData, data);
+    if (!mounted) return;
+    final UserProfile next = previous.copyWith(onboardingData: data);
+    setState(() {
+      _profile = next;
+      _plan = _buildPlan(next);
+    });
+    widget.onProfileChanged(previous, next);
+  }
+
   /// Nombre: primero el servidor; solo si responde bien se cambia en pantalla.
   Future<void> _rename(String name) async {
     await widget.onRename(name);
@@ -216,7 +251,7 @@ class _MainShellState extends State<MainShell> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.bg,
       body: Stack(
         children: <Widget>[
           const Positioned.fill(child: AmbientBackground()),
@@ -292,6 +327,9 @@ class _MainShellState extends State<MainShell> {
           onBack: backHome,
           onProfileChanged: _updateProfile,
           onRename: _rename,
+          onSaveAccount: _saveAccount,
+          onChangePassword: widget.onChangePassword,
+          onSaveData: _saveData,
           onOpenNotifications: () => _navigate('notifications'),
           onLogout: widget.onLogout,
         );

@@ -193,7 +193,11 @@ class FzSliderField extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.gap = 0,
+    this.touched = true,
   });
+
+  /// `false` = aún sin confirmar: muestra "—/10".
+  final bool touched;
 
   final String label;
   final int value;
@@ -212,11 +216,11 @@ class FzSliderField extends StatelessWidget {
           children: <Widget>[
             FzLabel(label),
             Text(
-              '$value/10',
+              touched ? '$value/10' : '—/10',
               style: AppText.body(
                 size: 14,
                 weight: FontWeight.w700,
-                color: AppColors.cyanLight,
+                color: AppColors.cyanLightText,
                 height: 1.43,
               ),
             ),
@@ -243,7 +247,11 @@ class FzStepSliderField extends StatelessWidget {
     required this.onChanged,
     this.minLabel,
     this.maxLabel,
+    this.touched = true,
   });
+
+  /// `false` = aún sin confirmar: el valor se muestra como "—".
+  final bool touched;
 
   final String label;
 
@@ -273,11 +281,11 @@ class FzStepSliderField extends StatelessWidget {
           children: <Widget>[
             FzLabel(label),
             Text(
-              valueText,
+              touched ? valueText : '—',
               style: AppText.body(
                 size: 14,
                 weight: FontWeight.w700,
-                color: AppColors.cyanLight,
+                color: AppColors.cyanLightText,
                 height: 1.43,
               ),
             ),

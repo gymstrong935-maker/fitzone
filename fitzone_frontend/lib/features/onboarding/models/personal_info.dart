@@ -47,15 +47,30 @@ class MedicalConditions {
 /// que el diseño).
 class PersonalInfo {
   const PersonalInfo({
-    this.age = 25,
-    this.weight = 70,
+    this.age = 0,
+    this.weight = 0,
     this.weightUnit = WeightUnit.kg,
-    this.height = 170,
+    this.height = 0,
     this.gender = Gender.male,
     this.physicalCondition = 5,
     this.psychologicalCondition = const PsychologicalCondition(),
     this.medicalConditions = const MedicalConditions(),
+    this.touched = const <String>{},
   });
+
+  /// Claves de los controles que traen un valor de partida y que la persona
+  /// debe confirmar tocándolos: género y los cuatro deslizadores.
+  static const String kGender = 'gender';
+  static const String kPhysical = 'physical';
+  static const String kMotivation = 'motivation';
+  static const String kStress = 'stress';
+  static const String kEnergy = 'energy';
+  static const Set<String> allTouched = <String>{
+    kGender, kPhysical, kMotivation, kStress, kEnergy,
+  };
+
+  /// Controles que la persona ya llenó / confirmó.
+  final Set<String> touched;
 
   final int age;
   final double weight;
@@ -79,6 +94,7 @@ class PersonalInfo {
     int? physicalCondition,
     PsychologicalCondition? psychologicalCondition,
     MedicalConditions? medicalConditions,
+    Set<String>? touched,
   }) {
     return PersonalInfo(
       age: age ?? this.age,
@@ -90,8 +106,29 @@ class PersonalInfo {
       psychologicalCondition:
           psychologicalCondition ?? this.psychologicalCondition,
       medicalConditions: medicalConditions ?? this.medicalConditions,
+      touched: touched ?? this.touched,
     );
   }
+
+  PersonalInfo withTouched(String key) =>
+      copyWith(touched: <String>{...touched, key});
+
+  double get weightKg => weightUnit == WeightUnit.kg ? weight : weight / 2.20462;
+
+  /// Datos obligatorios que todavía faltan (en el orden de la pantalla).
+  List<String> get missing => <String>[
+        if (age < 10) 'edad',
+        if (!touched.contains(kGender)) 'género',
+        if (weightKg < 20) 'peso',
+        if (height < 100) 'estatura',
+        if (!touched.contains(kPhysical)) 'condición física',
+        if (!touched.contains(kMotivation)) 'motivación',
+        if (!touched.contains(kStress)) 'nivel de estrés',
+        if (!touched.contains(kEnergy)) 'energía',
+        if (medicalConditions.physical.trim().isEmpty) 'condiciones médicas',
+      ];
+
+  bool get isComplete => missing.isEmpty;
 
   /// Aplica los mínimos del diseño (edad 10, peso 20, estatura 100).
   PersonalInfo sanitized() {

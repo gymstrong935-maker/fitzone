@@ -99,7 +99,7 @@ class _PaymentValidationScreenState extends State<PaymentValidationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.bg,
       body: Stack(
         children: <Widget>[
           Positioned.fill(
@@ -345,7 +345,7 @@ class _PulseFigureState extends State<_PulseFigure>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: success
-                        ? const <Color>[Color(0xFF34D399), Color(0xFF10B981)]
+                        ? const <Color>[AppColors.green, AppColors.emerald]
                         : <Color>[
                             AppColors.cyanA(0.22),
                             AppColors.tealA(0.12),
@@ -368,7 +368,7 @@ class _PulseFigureState extends State<_PulseFigure>
                       ? Icons.check_rounded
                       : Icons.fitness_center_rounded,
                   size: success ? 52 : 40,
-                  color: success ? Colors.black : AppColors.cyan,
+                  color: success ? Colors.black : AppColors.cyanText,
                 ),
               ),
             ),
@@ -441,7 +441,7 @@ class _SecondaryButton extends StatelessWidget {
           style: AppText.body(
             size: 14,
             weight: FontWeight.w600,
-            color: onTap == null ? AppColors.whiteA(0.4) : Colors.white,
+            color: onTap == null ? AppColors.whiteA(0.4) : AppColors.ink,
           ),
         ),
       ),

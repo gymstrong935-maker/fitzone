@@ -22,8 +22,41 @@ class AdminService {
   Future<Map<String, dynamic>> stats() async =>
       _map(await _api.get('/api/admin/stats'));
 
-  Future<void> runExpirations() async {
-    await _api.post('/api/admin/maintenance/vencimientos');
+  /// Revisa los vencimientos: marca las suscripciones vencidas y avisa a los
+  /// usuarios. Devuelve el detalle (quién venció, a quién se avisó...).
+  Future<Map<String, dynamic>> runExpirations() async =>
+      _map(await _api.post('/api/admin/maintenance/vencimientos'));
+
+  /// Listado de planes por vencer y vencidos sin renovar.
+  Future<Map<String, dynamic>> expirations({int days = 7}) async =>
+      _map(await _api.get('/api/admin/expirations?dias=$days'));
+
+  /// Aviso manual (notificación + correo) a un usuario concreto.
+  Future<void> notifyExpiration(String subscriptionId) async {
+    await _api.post('/api/admin/expirations/$subscriptionId/avisar');
+  }
+
+  // Cambios de entrenador
+  Future<List<Map<String, dynamic>>> coachChanges({String estado = ''}) async {
+    final String qs = estado.isEmpty ? '' : '?${_query(<String, String>{'estado': estado})}';
+    return _list(await _api.get('/api/admin/coach-changes$qs'));
+  }
+
+  Future<void> approveCoachChange(String id) async {
+    await _api.put('/api/admin/coach-changes/$id/aprobar');
+  }
+
+  Future<void> rejectCoachChange(String id, {String reason = ''}) async {
+    await _api.put(
+      '/api/admin/coach-changes/$id/rechazar',
+      body: <String, dynamic>{if (reason.trim().isNotEmpty) 'motivo': reason.trim()},
+    );
+  }
+
+  // Pagos
+  Future<List<Map<String, dynamic>>> payments({String estado = ''}) async {
+    final String qs = estado.isEmpty ? '' : '?${_query(<String, String>{'estado': estado})}';
+    return _list(await _api.get('/api/admin/payments$qs'));
   }
 
   // Usuarios
@@ -65,8 +98,11 @@ class AdminService {
     return _list(await _api.get('/api/admin/subscriptions$qs'));
   }
 
-  Future<void> approve(String subscriptionId) async {
-    await _api.put('/api/admin/subscriptions/$subscriptionId/aprobar');
+  Future<void> approve(String subscriptionId, {bool force = false}) async {
+    await _api.put(
+      '/api/admin/subscriptions/$subscriptionId/aprobar',
+      body: force ? <String, dynamic>{'forzar': true} : null,
+    );
   }
 
   Future<void> reject(String subscriptionId) async {

@@ -26,7 +26,7 @@ class HabitsStep extends StatelessWidget {
         const StepHeader(
           icon: Icons.schedule_rounded,
           title: 'Hábitos de Entrenamiento',
-          subtitle: 'Cuéntanos sobre tu rutina diaria',
+          subtitle: 'Todos los datos son obligatorios. Podrás modificarlos luego en Ajustes.',
           teal: true,
         ),
         const SizedBox(height: 24),
@@ -41,8 +41,10 @@ class HabitsStep extends StatelessWidget {
           step: 1,
           minLabel: '1 día',
           maxLabel: '7 días',
-          onChanged: (double v) =>
-              onChanged(habits.copyWith(frequency: v.round())),
+          touched: habits.touched.contains(TrainingHabits.kFrequency),
+          onChanged: (double v) => onChanged(
+            habits.copyWith(frequency: v.round()).withTouched(TrainingHabits.kFrequency),
+          ),
         ),
         const SizedBox(height: 20),
 
@@ -56,8 +58,10 @@ class HabitsStep extends StatelessWidget {
           step: 15,
           minLabel: '30 min',
           maxLabel: '2 horas',
-          onChanged: (double v) =>
-              onChanged(habits.copyWith(duration: v.round())),
+          touched: habits.touched.contains(TrainingHabits.kDuration),
+          onChanged: (double v) => onChanged(
+            habits.copyWith(duration: v.round()).withTouched(TrainingHabits.kDuration),
+          ),
         ),
         const SizedBox(height: 20),
 
@@ -66,6 +70,8 @@ class HabitsStep extends StatelessWidget {
         const SizedBox(height: 6),
         FzSelect<SleepQuality>(
           value: habits.sleepQuality,
+          placeholder:
+              habits.touched.contains(TrainingHabits.kSleepQuality) ? null : 'Selecciona',
           options: const <FzSelectOption<SleepQuality>>[
             FzSelectOption<SleepQuality>(
               value: SleepQuality.poor,
@@ -84,8 +90,9 @@ class HabitsStep extends StatelessWidget {
               label: 'Excelente',
             ),
           ],
-          onChanged: (SleepQuality v) =>
-              onChanged(habits.copyWith(sleepQuality: v)),
+          onChanged: (SleepQuality v) => onChanged(
+            habits.copyWith(sleepQuality: v).withTouched(TrainingHabits.kSleepQuality),
+          ),
         ),
         const SizedBox(height: 20),
 
@@ -97,8 +104,10 @@ class HabitsStep extends StatelessWidget {
           min: 4,
           max: 12,
           step: 0.5,
-          onChanged: (double v) =>
-              onChanged(habits.copyWith(sleepDuration: v)),
+          touched: habits.touched.contains(TrainingHabits.kSleepDuration),
+          onChanged: (double v) => onChanged(
+            habits.copyWith(sleepDuration: v).withTouched(TrainingHabits.kSleepDuration),
+          ),
         ),
         // 16 + los 4 px de aire que ya tiene el slider debajo = 20.
         const SizedBox(height: 16),
@@ -108,6 +117,8 @@ class HabitsStep extends StatelessWidget {
         const SizedBox(height: 6),
         FzSelect<ActivityLevel>(
           value: habits.activityLevel,
+          placeholder:
+              habits.touched.contains(TrainingHabits.kActivity) ? null : 'Selecciona',
           options: const <FzSelectOption<ActivityLevel>>[
             FzSelectOption<ActivityLevel>(
               value: ActivityLevel.sedentary,
@@ -130,8 +141,9 @@ class HabitsStep extends StatelessWidget {
               label: 'Muy Activa',
             ),
           ],
-          onChanged: (ActivityLevel v) =>
-              onChanged(habits.copyWith(activityLevel: v)),
+          onChanged: (ActivityLevel v) => onChanged(
+            habits.copyWith(activityLevel: v).withTouched(TrainingHabits.kActivity),
+          ),
         ),
       ],
     );

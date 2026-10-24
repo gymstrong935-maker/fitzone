@@ -55,10 +55,12 @@ Color statusColor(String estado) {
     case 'aprobado':
     case 'confirmada':
     case 'cerrado':
-      return const Color(0xFF34D399);
+    case 'aprobada':
+      return AppColors.green;
     case 'pendiente':
+    case 'pendiente_pago':
     case 'abierto':
-      return const Color(0xFFFBBF24);
+      return AppColors.amber;
     case 'en_proceso':
       return AppColors.cyan;
     case 'rechazada':
@@ -69,9 +71,9 @@ Color statusColor(String estado) {
     case 'suspendido':
     case 'inactiva':
     case 'inactivo':
-      return const Color(0xFFF87171);
+      return AppColors.red;
     default:
-      return const Color(0xFFA78BFA);
+      return AppColors.violet;
   }
 }
 
@@ -323,14 +325,14 @@ class AdminButton extends StatelessWidget {
           gradient: const LinearGradient(colors: <Color>[AppColors.cyan, AppColors.teal]),
         );
       case AdminButtonKind.danger:
-        text = const Color(0xFFF87171);
+        text = AppColors.red;
         decoration = BoxDecoration(
           borderRadius: BorderRadius.circular(999),
           color: const Color.fromRGBO(239, 68, 68, 0.10),
           border: Border.all(color: const Color.fromRGBO(239, 68, 68, 0.30)),
         );
       case AdminButtonKind.secondary:
-        text = Colors.white;
+        text = AppColors.ink;
         decoration = BoxDecoration(
           borderRadius: BorderRadius.circular(999),
           color: AppColors.whiteA(0.08),
@@ -415,7 +417,7 @@ class AdminChoiceChips<T> extends StatelessWidget {
                   style: AppText.body(
                     size: 13,
                     weight: FontWeight.w600,
-                    color: value == selected ? AppColors.cyan : AppColors.whiteA(0.70),
+                    color: value == selected ? AppColors.cyanText : AppColors.whiteA(0.70),
                   ),
                 ),
               ),
@@ -494,8 +496,8 @@ class _AdminTextFieldState extends State<AdminTextField> {
           if (widget.maxLength != null) LengthLimitingTextInputFormatter(widget.maxLength),
         ],
         onChanged: widget.onChanged,
-        cursorColor: Colors.white,
-        style: AppText.body(size: 15, color: Colors.white, height: multi ? 1.45 : null),
+        cursorColor: AppColors.ink,
+        style: AppText.body(size: 15, color: AppColors.ink, height: multi ? 1.45 : null),
         decoration: InputDecoration(
           isCollapsed: true,
           border: InputBorder.none,
@@ -614,7 +616,7 @@ Future<bool> adminConfirm(
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: const Color(0xFF0F0F0F),
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: AppColors.whiteA(0.10)),
           ),
@@ -680,7 +682,7 @@ class AdminSheet extends StatelessWidget {
         constraints: BoxConstraints(maxHeight: maxHeight),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFA0A0A0A),
+            color: AppColors.glass(0.98),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             border: Border(top: BorderSide(color: AppColors.whiteA(0.10))),
           ),
@@ -741,11 +743,11 @@ void adminToast(BuildContext context, String message, {bool error = false}) {
       SnackBar(
         content: Text(
           message,
-          style: AppText.body(size: 14, color: error ? const Color(0xFFF87171) : Colors.white),
+          style: AppText.body(size: 14, color: error ? AppColors.red : AppColors.ink),
         ),
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-        backgroundColor: const Color(0xFF111111),
+        backgroundColor: AppColors.surface,
         duration: Duration(seconds: error ? 4 : 2),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -753,4 +755,64 @@ void adminToast(BuildContext context, String message, {bool error = false}) {
         ),
       ),
     );
+}
+
+/// Muestra la factura / comprobante que subió el usuario (con zoom).
+Future<void> showReceiptViewer(BuildContext context, String url) {
+  return showDialog<void>(
+    context: context,
+    barrierColor: const Color(0xE6000000),
+    builder: (BuildContext ctx) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(16),
+      child: Stack(
+        children: <Widget>[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Container(
+              color: AppColors.surface,
+              constraints: const BoxConstraints(maxHeight: 640, maxWidth: 560),
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 5,
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (BuildContext c, Widget child, ImageChunkEvent? p) =>
+                      p == null
+                          ? child
+                          : const SizedBox(
+                              height: 240,
+                              child: Center(child: PulsingDots(dotSize: 6, gap: 6)),
+                            ),
+                  errorBuilder: (BuildContext c, Object e, StackTrace? st) => SizedBox(
+                    height: 200,
+                    child: Center(
+                      child: Text(
+                        'No se pudo cargar la imagen',
+                        style: AppText.body(size: 14, color: AppColors.whiteA(0.6)),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: () => Navigator.of(ctx).pop(),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xB3000000)),
+                child: const Icon(Icons.close_rounded, size: 20, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

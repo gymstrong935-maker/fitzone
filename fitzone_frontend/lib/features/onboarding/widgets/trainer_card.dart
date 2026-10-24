@@ -23,8 +23,8 @@ class TrainerCard extends StatefulWidget {
 }
 
 class _TrainerCardState extends State<TrainerCard> {
-  static const Color _teal400 = Color(0xFF2DD4BF);
-  static const Color _yellow400 = Color(0xFFFACC15);
+  static Color get _teal400 => AppColors.teal400;
+  static Color get _yellow400 => AppColors.yellow;
   static const Color _ink = Color(0xFF0A0A0A);
 
   bool _pressing = false;
@@ -198,7 +198,7 @@ class _TrainerCardState extends State<TrainerCard> {
                     t.specialty,
                     style: AppText.body(
                       size: 12,
-                      color: AppColors.cyanLight,
+                      color: AppColors.cyanLightText,
                     ),
                   ),
                 ],

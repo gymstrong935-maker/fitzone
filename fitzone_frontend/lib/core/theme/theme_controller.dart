@@ -3,6 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Modo claro / oscuro de toda la app (se recuerda entre sesiones).
+///
+/// Los colores salen de `AppColors`, que lee [isLight]. Al cambiar de modo se
+/// avisa a los oyentes y se fuerza un redibujado completo del árbol de widgets
+/// (sin perder el estado de ninguna pantalla).
 class ThemeController extends ChangeNotifier {
   ThemeController._();
 
@@ -27,6 +31,7 @@ class ThemeController extends ChangeNotifier {
     _light = value;
     _applySystemUi();
     notifyListeners();
+    _rebuildAll();
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_key, value);
@@ -43,45 +48,22 @@ class ThemeController extends ChangeNotifier {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: _light ? Brightness.dark : Brightness.light,
         statusBarBrightness: _light ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: _light ? const Color(0xFFF4F7FB) : Colors.black,
+        systemNavigationBarIconBrightness:
+            _light ? Brightness.dark : Brightness.light,
       ),
     );
   }
 
-  // ── Matrices de color ─────────────────────────────────────────────────────
+  /// Marca todos los elementos para reconstruirse en el siguiente frame,
+  /// de modo que los colores calculados en `build` se lean otra vez.
+  void _rebuildAll() {
+    void visit(Element element) {
+      element.markNeedsBuild();
+      element.visitChildren(visit);
+    }
 
-  static const List<double> _identity = <double>[
-    1, 0, 0, 0, 0,
-    0, 1, 0, 0, 0,
-    0, 0, 1, 0, 0,
-    0, 0, 0, 1, 0,
-  ];
-
-  /// Invierte la luminosidad conservando el tono (invertir + rotar 180°).
-  /// Aplicada dos veces vuelve al color original.
-  static const List<double> _flip = <double>[
-    0.574, -1.430, -0.144, 0, 255,
-    -0.426, -0.430, -0.144, 0, 255,
-    -0.426, -1.430, 0.856, 0, 255,
-    0, 0, 0, 1, 0,
-  ];
-
-  /// El blanco resultante es #F1F5F9 (no blanco puro).
-  static const List<double> _scale = <double>[241 / 255, 245 / 255, 249 / 255];
-
-  static final List<double> _lightMatrix = <double>[
-    for (int row = 0; row < 3; row++)
-      for (int col = 0; col < 5; col++) _flip[row * 5 + col] * _scale[row],
-    0, 0, 0, 1, 0,
-  ];
-
-  static List<double> _lerp(List<double> a, List<double> b, double t) =>
-      <double>[for (int i = 0; i < 20; i++) a[i] + (b[i] - a[i]) * t];
-
-  /// Filtro de toda la app (`t` = 0 oscuro … 1 claro).
-  static ColorFilter filterFor(double t) =>
-      ColorFilter.matrix(_lerp(_identity, _lightMatrix, t));
-
-  /// Deshace el filtro en las fotos para que conserven sus colores.
-  static ColorFilter counterFor(double t) =>
-      ColorFilter.matrix(_lerp(_identity, _flip, t));
+    final Element? root = WidgetsBinding.instance.rootElement;
+    root?.visitChildren(visit);
+  }
 }

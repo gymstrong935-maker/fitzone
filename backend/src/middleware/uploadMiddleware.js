@@ -3,13 +3,13 @@ import CloudinaryStorage from 'multer-storage-cloudinary';
 import { v2 as cloudinary } from 'cloudinary';
 import '../utils/cloudinary.js'; // ejecuta cloudinary.config(...) antes de usarlo aquí
 
-const crearUploadMiddleware = (carpeta) => {
+const crearUploadMiddleware = (carpeta, { maxLado = 800 } = {}) => {
   const storage = new CloudinaryStorage({
     cloudinary, // ahora sí es el objeto v2 correcto, no el paquete completo
     params: {
       folder: `fitzone/${carpeta}`,
       allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-      transformation: [{ width: 800, height: 800, crop: 'limit' }]
+      transformation: [{ width: maxLado, height: maxLado, crop: 'limit' }]
     }
   });
 

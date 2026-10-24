@@ -168,7 +168,7 @@ class _CoachCard extends StatelessWidget {
                     ),
                     Text(
                       specialties.isEmpty ? 'Sin especialidad' : specialties.join(' · '),
-                      style: AppText.body(size: 12.5, color: AppColors.cyanLight),
+                      style: AppText.body(size: 12.5, color: AppColors.cyanLightText),
                     ),
                     const SizedBox(height: 6),
                     Wrap(
@@ -177,11 +177,11 @@ class _CoachCard extends StatelessWidget {
                       children: <Widget>[
                         StatusBadge(
                           label: statusLabel(str(coach['nivel']).isEmpty ? 'standard' : str(coach['nivel'])),
-                          color: const Color(0xFFA78BFA),
+                          color: AppColors.violet,
                         ),
                         StatusBadge(
                           label: formatCop(asNum(coach['precio'])) + str(coach['descripcionPrecio']),
-                          color: const Color(0xFF2DD4BF),
+                          color: AppColors.teal400,
                         ),
                       ],
                     ),
@@ -501,7 +501,7 @@ class _CoachFormState extends State<_CoachForm> {
           ),
           if (_error.isNotEmpty) ...<Widget>[
             const SizedBox(height: 16),
-            Text(_error, style: AppText.body(size: 13, color: const Color(0xFFF87171), height: 1.4)),
+            Text(_error, style: AppText.body(size: 13, color: AppColors.red, height: 1.4)),
           ],
           const SizedBox(height: 22),
           AdminButton(
@@ -590,10 +590,10 @@ class _TimePill extends StatelessWidget {
             color: AppColors.whiteA(0.08),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: invalid ? const Color(0xFFF87171) : AppColors.whiteA(0.15),
+              color: invalid ? AppColors.red : AppColors.whiteA(0.15),
             ),
           ),
-          child: Text(text, style: AppText.body(size: 14.5, color: Colors.white)),
+          child: Text(text, style: AppText.body(size: 14.5, color: AppColors.ink)),
         ),
       ),
     );

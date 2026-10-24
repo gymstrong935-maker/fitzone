@@ -36,14 +36,14 @@ class ComingSoonPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppColors.cyanA(0.25)),
                 ),
-                child: Icon(icon, size: 28, color: AppColors.cyanLight),
+                child: Icon(icon, size: 28, color: AppColors.cyanLightText),
               ),
               const SizedBox(height: 16),
               Text(title, style: AppText.display(size: 24, letterSpacing: -0.48)),
               const SizedBox(height: 4),
               Text(
                 'Próximamente',
-                style: AppText.body(size: 14, color: AppColors.cyan),
+                style: AppText.body(size: 14, color: AppColors.cyanText),
               ),
               if (onBack != null) ...<Widget>[
                 const SizedBox(height: 24),

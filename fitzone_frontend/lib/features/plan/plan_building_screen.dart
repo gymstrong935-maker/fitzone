@@ -86,7 +86,7 @@ class _PlanBuildingScreenState extends State<PlanBuildingScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.bg,
       body: Stack(
         children: <Widget>[
           Positioned.fill(
@@ -140,7 +140,7 @@ class _PlanBuildingScreenState extends State<PlanBuildingScreen>
                   child: Icon(
                     ready ? Icons.check_rounded : Icons.fitness_center_rounded,
                     size: 46,
-                    color: AppColors.cyan,
+                    color: AppColors.cyanText,
                   ),
                 ),
               ),
@@ -269,7 +269,7 @@ class _StepRow extends StatelessWidget {
                         curve: Curves.elasticOut,
                         builder: (BuildContext context, double v, Widget? _) => Transform.scale(
                           scale: v,
-                          child: const Icon(Icons.check_circle_rounded, size: 24, color: Color(0xFF34D399)),
+                          child: Icon(Icons.check_circle_rounded, size: 24, color: AppColors.green),
                         ),
                       )
                     : (state == 1
@@ -286,7 +286,7 @@ class _StepRow extends StatelessWidget {
                   style: AppText.body(
                     size: 14.5,
                     weight: state == 1 ? FontWeight.w600 : FontWeight.w400,
-                    color: state == 0 ? AppColors.whiteA(0.40) : Colors.white,
+                    color: state == 0 ? AppColors.whiteA(0.40) : AppColors.ink,
                   ),
                 ),
               ),
@@ -316,9 +316,9 @@ class _Chip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: 15, color: AppColors.cyan),
+          Icon(icon, size: 15, color: AppColors.cyanText),
           const SizedBox(width: 6),
-          Text(text, style: AppText.body(size: 12.5, weight: FontWeight.w600, color: AppColors.cyan)),
+          Text(text, style: AppText.body(size: 12.5, weight: FontWeight.w600, color: AppColors.cyanText)),
         ],
       ),
     );

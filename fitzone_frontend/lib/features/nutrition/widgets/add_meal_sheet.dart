@@ -149,7 +149,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
         constraints: BoxConstraints(maxHeight: maxHeight),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFA0A0A0A),
+            color: AppColors.glass(0.98),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             border: Border(top: BorderSide(color: AppColors.whiteA(0.10))),
           ),
@@ -215,7 +215,7 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                         const SizedBox(width: 10),
                         Text(
                           '${_two(_time.hour)}:${_two(_time.minute)}',
-                          style: AppText.body(size: 15, color: Colors.white),
+                          style: AppText.body(size: 15, color: AppColors.ink),
                         ),
                       ],
                     ),
@@ -274,14 +274,14 @@ class _AddMealSheetState extends State<_AddMealSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Row(
                       children: <Widget>[
-                        const Icon(Icons.add_rounded, size: 18, color: AppColors.cyan),
+                        Icon(Icons.add_rounded, size: 18, color: AppColors.cyanText),
                         const SizedBox(width: 6),
                         Text(
                           'Agregar otro alimento',
                           style: AppText.body(
                             size: 13,
                             weight: FontWeight.w600,
-                            color: AppColors.cyan,
+                            color: AppColors.cyanText,
                           ),
                         ),
                       ],
@@ -387,7 +387,7 @@ class _TypeChip extends StatelessWidget {
             style: AppText.body(
               size: 13,
               weight: FontWeight.w600,
-              color: selected ? AppColors.cyan : AppColors.whiteA(0.70),
+              color: selected ? AppColors.cyanText : AppColors.whiteA(0.70),
             ),
           ),
         ),
@@ -480,8 +480,8 @@ class _FieldState extends State<_Field> {
           if (!widget.digitsOnly && widget.maxLength == null)
             LengthLimitingTextInputFormatter(60),
         ],
-        cursorColor: Colors.white,
-        style: AppText.body(size: 15, color: Colors.white),
+        cursorColor: AppColors.ink,
+        style: AppText.body(size: 15, color: AppColors.ink),
         decoration: InputDecoration(
           isCollapsed: true,
           border: InputBorder.none,

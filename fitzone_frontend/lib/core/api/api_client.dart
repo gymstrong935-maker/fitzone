@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show MediaType;
 
 import 'api_config.dart';
 import 'api_exception.dart';
@@ -81,6 +83,63 @@ class ApiClient {
       );
     }
 
+    return _process(response);
+  }
+
+  /// Envía un formulario con una imagen (PUT o POST multipart).
+  Future<dynamic> multipart(
+    String method,
+    String path, {
+    Map<String, String> fields = const <String, String>{},
+    String? fileField,
+    Uint8List? bytes,
+    String? filename,
+  }) async {
+    final Uri uri = Uri.parse('${ApiConfig.baseUrl}$path');
+    final http.MultipartRequest request = http.MultipartRequest(method, uri)
+      ..headers['Accept'] = 'application/json'
+      ..fields.addAll(fields);
+    if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
+
+    if (fileField != null && bytes != null) {
+      final String name = filename ?? 'imagen.jpg';
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          fileField,
+          bytes,
+          filename: name,
+          contentType: MediaType.parse(_mimeFor(name)),
+        ),
+      );
+    }
+
+    http.Response response;
+    try {
+      final http.StreamedResponse streamed =
+          await _client.send(request).timeout(const Duration(seconds: 60));
+      response = await http.Response.fromStream(streamed);
+    } on TimeoutException {
+      throw const ApiException(
+        'La subida tardó demasiado. Revisa tu conexión e inténtalo de nuevo.',
+      );
+    } on http.ClientException {
+      throw ApiException(
+        'No se pudo conectar con el servidor (${ApiConfig.baseUrl}). '
+        '¿Está encendido el backend?',
+      );
+    }
+
+    return _process(response);
+  }
+
+  String _mimeFor(String filename) {
+    final String lower = filename.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
+  }
+
+  dynamic _process(http.Response response) {
     dynamic data;
     if (response.bodyBytes.isNotEmpty) {
       try {

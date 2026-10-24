@@ -149,7 +149,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.bg,
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 250),
         child: body,
@@ -173,7 +173,7 @@ class _ExitDialog extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: const Color(0xFF0F0F0F),
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: AppColors.whiteA(0.10)),
           ),
@@ -208,7 +208,7 @@ class _ExitDialog extends StatelessWidget {
                       label: 'Seguir',
                       background: AppColors.whiteA(0.08),
                       border: AppColors.whiteA(0.12),
-                      textColor: Colors.white,
+                      textColor: AppColors.ink,
                       onTap: () => Navigator.of(context).pop(false),
                     ),
                   ),
@@ -218,7 +218,7 @@ class _ExitDialog extends StatelessWidget {
                       label: 'Salir',
                       background: const Color.fromRGBO(239, 68, 68, 0.12),
                       border: const Color.fromRGBO(239, 68, 68, 0.30),
-                      textColor: const Color(0xFFF87171),
+                      textColor: AppColors.red,
                       onTap: () => Navigator.of(context).pop(true),
                     ),
                   ),

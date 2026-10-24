@@ -79,7 +79,7 @@ class _FzLogoState extends State<FzLogo> with SingleTickerProviderStateMixin {
         },
         child: Text(
           'FZ',
-          style: AppText.display(size: 22.4, color: Colors.white),
+          style: AppText.display(size: 22.4, color: AppColors.ink),
         ),
       ),
     );

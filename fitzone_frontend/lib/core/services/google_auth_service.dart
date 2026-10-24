@@ -14,10 +14,14 @@ import '../api/api_exception.dart';
 class GoogleAuthConfig {
   GoogleAuthConfig._();
 
-static const String serverClientId = String.fromEnvironment(
-  'GOOGLE_SERVER_CLIENT_ID',
-  defaultValue: '5614844232-ar4n9p64skv3s48ilufdibmk7srj25h7.apps.googleusercontent.com',
-);
+  /// ID de cliente **Web** de Google Cloud (el mismo que `GOOGLE_SERVER_CLIENT_ID`
+  /// del backend). Si cambias el cliente en Google Cloud, cámbialo aquí también
+  /// o pásalo con --dart-define.
+  static const String serverClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+    defaultValue:
+        '5614844232-2oar3j6s58ipj1krfql51mbg3tck45pc.apps.googleusercontent.com',
+  );
   static const String iosClientId =
       String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
 }

@@ -35,7 +35,7 @@ class SubScreenHeader extends StatelessWidget {
         vertical,
       ),
       decoration: BoxDecoration(
-        color: large ? const Color(0xCC000000) : const Color(0xE6000000),
+        color: AppColors.bg.withValues(alpha: large ? 0.80 : 0.90),
         border: Border(
           bottom: BorderSide(color: AppColors.whiteA(large ? 0.10 : 0.08)),
         ),
@@ -62,7 +62,7 @@ class SubScreenHeader extends StatelessWidget {
                     child: Icon(
                       Icons.arrow_back_rounded,
                       size: large ? 20 : 16,
-                      color: Colors.white,
+                      color: AppColors.ink,
                     ),
                   ),
                 ),

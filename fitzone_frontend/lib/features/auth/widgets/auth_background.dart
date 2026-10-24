@@ -11,18 +11,13 @@ class AuthBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: <Widget>[
-        const Positioned.fill(
+        Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment(-0.36, -1),
                 end: Alignment(0.36, 1),
-                colors: <Color>[
-                  Color(0xFF06111C),
-                  Color(0xFF071E2A),
-                  Color(0xFF050D13),
-                  Color(0xFF03080D),
-                ],
+                colors: AppColors.authGradient,
                 stops: <double>[0.0, 0.4, 0.75, 1.0],
               ),
             ),

@@ -36,7 +36,7 @@ class StatPill extends StatelessWidget {
             style: AppText.body(
               size: 12,
               weight: FontWeight.w500,
-              color: Colors.white,
+              color: AppColors.ink,
               height: 1.333,
             ),
           ),

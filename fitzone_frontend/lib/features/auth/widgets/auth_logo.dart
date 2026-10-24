@@ -125,7 +125,7 @@ class _AuthLogoState extends State<AuthLogo> with TickerProviderStateMixin {
         },
         child: Text(
           'FZ',
-          style: AppText.display(size: 24, color: Colors.white),
+          style: AppText.display(size: 24, color: AppColors.ink),
         ),
       ),
     );

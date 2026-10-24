@@ -14,10 +14,10 @@ class MealCard extends StatelessWidget {
   /// Si se da, muestra el botón de borrar.
   final VoidCallback? onDelete;
 
-  static const Color _green400 = Color(0xFF4ADE80);
-  static const Color _cyan400 = Color(0xFF22D3EE);
-  static const Color _teal400 = Color(0xFF2DD4BF);
-  static const Color _yellow400 = Color(0xFFFACC15);
+  static Color get _green400 => AppColors.green400;
+  static Color get _cyan400 => AppColors.cyanLightText;
+  static Color get _teal400 => AppColors.teal400;
+  static Color get _yellow400 => AppColors.yellow;
 
   @override
   Widget build(BuildContext context) {

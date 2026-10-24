@@ -114,3 +114,92 @@ class BackendSubscription {
     );
   }
 }
+
+/// Pago del usuario (plan o diferencia por cambio de entrenador).
+class BackendPayment {
+  const BackendPayment({
+    required this.id,
+    required this.tipo,
+    required this.monto,
+    required this.metodoPago,
+    required this.estado,
+    this.comprobanteUrl,
+  });
+
+  factory BackendPayment.fromJson(Map<String, dynamic> json) {
+    return BackendPayment(
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      tipo: (json['tipo'] as String?) ?? 'suscripcion',
+      monto: (json['monto'] as num?)?.toDouble() ?? 0,
+      metodoPago: (json['metodoPago'] as String?) ?? 'Sin definir',
+      estado: (json['estado'] as String?) ?? 'pendiente',
+      comprobanteUrl: json['comprobanteUrl'] as String?,
+    );
+  }
+
+  final String id;
+
+  /// `suscripcion` o `cambio_entrenador`.
+  final String tipo;
+  final double monto;
+
+  /// `Efectivo`, `Pago digital` o `Sin definir` (aún no eligió).
+  final String metodoPago;
+  final String estado;
+  final String? comprobanteUrl;
+
+  bool get isPending => estado == 'pendiente';
+  bool get needsMethod => isPending && metodoPago == 'Sin definir';
+}
+
+/// Solicitud de cambio de entrenador.
+class CoachChange {
+  const CoachChange({
+    required this.id,
+    required this.estado,
+    required this.currentName,
+    required this.newName,
+    required this.newId,
+    required this.priceCurrent,
+    required this.priceNew,
+    required this.difference,
+    this.payment,
+    this.rejectionReason,
+  });
+
+  factory CoachChange.fromJson(Map<String, dynamic> json) {
+    String nameOf(Object? v) => v is Map ? (v['nombre'] as String? ?? '') : '';
+    String idOf(Object? v) =>
+        v is Map ? (v['_id'] ?? '').toString() : (v ?? '').toString();
+    final Object? pago = json['pagoId'];
+
+    return CoachChange(
+      id: (json['_id'] ?? '').toString(),
+      estado: (json['estado'] as String?) ?? 'pendiente',
+      currentName: nameOf(json['entrenadorActualId']),
+      newName: nameOf(json['entrenadorNuevoId']),
+      newId: idOf(json['entrenadorNuevoId']),
+      priceCurrent: (json['precioActual'] as num?)?.toDouble() ?? 0,
+      priceNew: (json['precioNuevo'] as num?)?.toDouble() ?? 0,
+      difference: (json['diferencia'] as num?)?.toDouble() ?? 0,
+      payment: pago is Map<String, dynamic> ? BackendPayment.fromJson(pago) : null,
+      rejectionReason: json['motivoRechazo'] as String?,
+    );
+  }
+
+  final String id;
+
+  /// `pendiente_pago`, `pendiente`, `aprobada`, `rechazada` o `cancelada`.
+  final String estado;
+  final String currentName;
+  final String newName;
+  final String newId;
+  final double priceCurrent;
+  final double priceNew;
+  final double difference;
+  final BackendPayment? payment;
+  final String? rejectionReason;
+
+  bool get isOpen => estado == 'pendiente_pago' || estado == 'pendiente';
+  bool get needsPayment => estado == 'pendiente_pago';
+}

@@ -36,7 +36,7 @@ class TrainerCard extends StatelessWidget {
                   style: AppText.body(
                     size: 12,
                     weight: FontWeight.w500,
-                    color: AppColors.cyanLight,
+                    color: AppColors.cyanLightText,
                     height: 1.333,
                   ),
                 ),
@@ -68,7 +68,7 @@ class TrainerCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: AppText.body(
                         size: 12,
-                        color: AppColors.cyanLight,
+                        color: AppColors.cyanLightText,
                         height: 1.333,
                       ),
                     ),

@@ -55,7 +55,7 @@ class PersonalInfoStep extends StatelessWidget {
         const StepHeader(
           icon: Icons.person_outline_rounded,
           title: 'Información Personal',
-          subtitle: 'Cuéntanos sobre ti para personalizar tu experiencia',
+          subtitle: 'Todos los datos son obligatorios. Podrás modificarlos luego en Ajustes.',
           teal: true,
         ),
         const SizedBox(height: 24),
@@ -85,6 +85,7 @@ class PersonalInfoStep extends StatelessWidget {
               FzNumberField(
                 value: info.age.toDouble(),
                 min: 10,
+                hint: 'Ej. 25',
                 onChanged: (double v) =>
                     onChanged(info.copyWith(age: v.round())),
               ),
@@ -100,6 +101,8 @@ class PersonalInfoStep extends StatelessWidget {
               const SizedBox(height: 6),
               FzSelect<Gender>(
                 value: info.gender,
+                placeholder:
+                    info.touched.contains(PersonalInfo.kGender) ? null : 'Selecciona',
                 options: const <FzSelectOption<Gender>>[
                   FzSelectOption<Gender>(
                     value: Gender.male,
@@ -111,7 +114,8 @@ class PersonalInfoStep extends StatelessWidget {
                   ),
                   FzSelectOption<Gender>(value: Gender.other, label: 'Otro'),
                 ],
-                onChanged: (Gender g) => onChanged(info.copyWith(gender: g)),
+                onChanged: (Gender g) =>
+                    onChanged(info.copyWith(gender: g).withTouched(PersonalInfo.kGender)),
               ),
             ],
           ),
@@ -133,6 +137,7 @@ class PersonalInfoStep extends StatelessWidget {
                 value: info.weight,
                 min: 20,
                 decimal: true,
+                hint: 'Ej. 70',
                 onChanged: (double v) => onChanged(info.copyWith(weight: v)),
               ),
             ),
@@ -177,6 +182,7 @@ class PersonalInfoStep extends StatelessWidget {
         FzNumberField(
           value: info.height.toDouble(),
           min: 100,
+          hint: 'Ej. 170',
           onChanged: (double v) => onChanged(info.copyWith(height: v.round())),
         ),
       ],
@@ -193,30 +199,42 @@ class PersonalInfoStep extends StatelessWidget {
           label: 'Condición Física',
           value: info.physicalCondition,
           gap: 12,
-          onChanged: (int v) => onChanged(info.copyWith(physicalCondition: v)),
+          touched: info.touched.contains(PersonalInfo.kPhysical),
+          onChanged: (int v) => onChanged(
+            info.copyWith(physicalCondition: v).withTouched(PersonalInfo.kPhysical),
+          ),
         ),
         const SizedBox(height: 12),
         FzSliderField(
           label: 'Motivación',
           value: psy.motivation,
+          touched: info.touched.contains(PersonalInfo.kMotivation),
           onChanged: (int v) => onChanged(
-            info.copyWith(psychologicalCondition: psy.copyWith(motivation: v)),
+            info
+                .copyWith(psychologicalCondition: psy.copyWith(motivation: v))
+                .withTouched(PersonalInfo.kMotivation),
           ),
         ),
         const SizedBox(height: 12),
         FzSliderField(
           label: 'Nivel de Estrés',
           value: psy.stress,
+          touched: info.touched.contains(PersonalInfo.kStress),
           onChanged: (int v) => onChanged(
-            info.copyWith(psychologicalCondition: psy.copyWith(stress: v)),
+            info
+                .copyWith(psychologicalCondition: psy.copyWith(stress: v))
+                .withTouched(PersonalInfo.kStress),
           ),
         ),
         const SizedBox(height: 12),
         FzSliderField(
           label: 'Energía',
           value: psy.energy,
+          touched: info.touched.contains(PersonalInfo.kEnergy),
           onChanged: (int v) => onChanged(
-            info.copyWith(psychologicalCondition: psy.copyWith(energy: v)),
+            info
+                .copyWith(psychologicalCondition: psy.copyWith(energy: v))
+                .withTouched(PersonalInfo.kEnergy),
           ),
         ),
       ],
@@ -227,11 +245,11 @@ class PersonalInfoStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const FzLabel('Condiciones Médicas (opcional)'),
+        const FzLabel('Condiciones Médicas'),
         const SizedBox(height: 6),
         FzTextArea(
           initialText: info.medicalConditions.physical,
-          hint: 'Lesiones, condiciones crónicas, alergias...',
+          hint: 'Lesiones, condiciones crónicas, alergias... (escribe «Ninguna» si no tienes)',
           onChanged: (String text) => onChanged(
             info.copyWith(
               medicalConditions:

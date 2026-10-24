@@ -123,7 +123,7 @@ class _PaymentMethodCardState extends State<PaymentMethodCard> {
       child: Icon(
         widget.option.icon,
         size: 20,
-        color: selected ? AppColors.cyan : AppColors.whiteA(0.55),
+        color: selected ? AppColors.cyanText : AppColors.whiteA(0.55),
       ),
     );
   }

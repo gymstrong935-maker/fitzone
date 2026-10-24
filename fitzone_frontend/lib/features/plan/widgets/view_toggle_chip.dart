@@ -43,7 +43,7 @@ class ViewToggleChip extends StatelessWidget {
               style: AppText.body(
                 size: 14,
                 weight: FontWeight.w600,
-                color: selected ? AppColors.cyan : AppColors.whiteA(0.5),
+                color: selected ? AppColors.cyanText : AppColors.whiteA(0.5),
                 height: 1.43,
               ),
               child: Text(label),
