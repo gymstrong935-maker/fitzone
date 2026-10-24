@@ -246,9 +246,37 @@ export const reenviarCodigo = async (req, res) => {
 // LOGIN
 // ======================================================
 
+// ======================================================
+// REGLA DE PLAN: quien se registró con un plan solo entra con ese plan mientras su
+// inscripción siga vigente (o pendiente). Los admins no tienen esta regla.
+// Devuelve el cuerpo del error 409 o null si puede entrar.
+// ======================================================
+
+const conflictoDePlan = async (usuario, planElegidoId) => {
+  if (!planElegidoId || usuario.rol === 'admin') return null;
+
+  const bloqueo = await planBloqueante(usuario._id);
+
+  if (bloqueo && String(bloqueo.planId) !== String(planElegidoId)) {
+    const planPropio = await Plan.findById(bloqueo.planId).select('nombre');
+
+    return {
+      mensaje:
+        `Tu cuenta está registrada con el plan ${planPropio?.nombre || 'anterior'}. ` +
+        'Solo puedes ingresar con ese plan hasta que termine tu inscripción.',
+      codigo: 'PLAN_DISTINTO',
+      planActual: planPropio?.nombre,
+      planActualId: String(bloqueo.planId),
+      vigenteHasta: bloqueo.fechaFin || undefined
+    };
+  }
+
+  return null;
+};
+
 export const iniciarSesion = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, planId } = req.body;
 
     const usuario = await User.findOne({ email });
 
@@ -299,6 +327,12 @@ export const iniciarSesion = async (req, res) => {
         mensaje: 'Tu cuenta está suspendida. Contacta al equipo de FitZone.',
         codigo: 'CUENTA_SUSPENDIDA'
       });
+    }
+
+    // Solo entra con el plan con el que se registró (mientras siga vigente)
+    if (mongoose.isValidObjectId(planId)) {
+      const conflicto = await conflictoDePlan(usuario, planId);
+      if (conflicto) return res.status(409).json(conflicto);
     }
 
     const token = jwt.sign(
@@ -461,24 +495,10 @@ export const iniciarSesionGoogle = async (req, res) => {
         });
       }
 
-      // 4a) REGLA DE PLAN: quien se registró con un plan solo entra con ese plan,
-      //     salvo que su suscripción ya haya terminado. Los admins no tienen esta regla.
-      if (planElegido && usuario.rol !== 'admin') {
-        const bloqueo = await planBloqueante(usuario._id);
-
-        if (bloqueo && String(bloqueo.planId) !== String(planElegido._id)) {
-          const planPropio = await Plan.findById(bloqueo.planId).select('nombre');
-
-          return res.status(409).json({
-            mensaje:
-              `Tu cuenta está registrada con el plan ${planPropio?.nombre || 'anterior'}. ` +
-              'Solo puedes ingresar con ese plan hasta que termine tu inscripción.',
-            codigo: 'PLAN_DISTINTO',
-            planActual: planPropio?.nombre,
-            planActualId: String(bloqueo.planId),
-            vigenteHasta: bloqueo.fechaFin || undefined
-          });
-        }
+      // 4a) REGLA DE PLAN (la misma que en el login por correo)
+      if (planElegido) {
+        const conflicto = await conflictoDePlan(usuario, planElegido._id);
+        if (conflicto) return res.status(409).json(conflicto);
       }
 
       // Cuenta existente: se vincula con Google (Google ya confirmó el correo).
