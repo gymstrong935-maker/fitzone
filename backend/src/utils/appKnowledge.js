@@ -2,8 +2,9 @@
 // Mantén esto al día cuando cambie la app.
 export const CONOCIMIENTO_APP = `
 ACCESO Y REGISTRO:
-- FitZone SOLO permite iniciar sesión o registrarse con Google. No hay contraseña propia para entrar ni "olvidé mi contraseña".
-- Para registrarse se elige primero un plan (Gratuito, Mensual o Anual) y luego se toca "Continuar con Google". Para entrar de nuevo basta con "Ya tengo cuenta" y Google.
+- Se puede ingresar con correo y contraseña o con Google (no hay acceso con Apple).
+- Para registrarse se elige primero un plan (Gratuito, Mensual o Anual). Con correo, se crea la cuenta y se confirma con un código de 6 dígitos que llega al correo; con Google se continúa directamente.
+- "Olvidé mi contraseña": se pide el correo, llega un código de 6 dígitos y con él se crea una contraseña nueva.
 - Quien se registró con un plan solo puede ingresar con ese plan mientras su inscripción siga vigente (o pendiente de aprobación). Cuando su tiempo termina, puede elegir otro plan.
 - Cuando una cuenta nueva se crea, el equipo de FitZone debe aprobarla. Mientras tanto la app muestra "Cuenta en revisión". Al aprobarla llega una notificación y un correo. Si la rechazan se muestra el motivo y se puede escribir a soporte.
 

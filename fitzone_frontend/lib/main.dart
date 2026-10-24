@@ -18,6 +18,8 @@ import 'core/theme/theme_controller.dart';
 import 'features/admin/admin_shell.dart';
 import 'features/auth/account_pending_screen.dart';
 import 'features/auth/auth_screen.dart';
+import 'features/auth/email_verification_screen.dart';
+import 'features/auth/reset_password_screen.dart';
 import 'features/boot/boot_screen.dart';
 import 'features/onboarding/data/trainers_repository.dart';
 import 'features/onboarding/models/onboarding_data.dart';
@@ -69,6 +71,8 @@ enum AppStage {
   boot,
   planSelection,
   auth,
+  emailVerification,
+  resetPassword,
   accountPending,
   paymentMethod,
   paymentValidation,
@@ -76,6 +80,19 @@ enum AppStage {
   building,
   main,
   admin,
+}
+
+/// Datos del registro que se guardan en memoria hasta verificar el correo.
+class _RegistrationDraft {
+  const _RegistrationDraft({
+    required this.name,
+    required this.email,
+    required this.password,
+  });
+
+  final String name;
+  final String email;
+  final String password;
 }
 
 class _Notice {
@@ -107,9 +124,11 @@ class _AppFlowState extends State<AppFlow> {
   BackendUser? _user;
   SubscriptionStatus? _subscriptionStatus;
   UserProfile? _profile;
+  _RegistrationDraft? _draft;
   OnboardingData? _pendingData;
   BackendPayment? _activePayment;
 
+  String? _resetEmail;
   String? _authNotice;
 
   Timer? _syncTimer;
@@ -444,23 +463,58 @@ class _AppFlowState extends State<AppFlow> {
     });
   }
 
-  // ── Auth (solo Google) ────────────────────────────────────────────────────
+  // ── Auth ──────────────────────────────────────────────────────────────────
 
-  /// Inicio de sesión / registro con Google. Devuelve `null` si la persona
-  /// canceló. Si la cuenta es nueva queda pendiente de aprobación y
-  /// [_enterApp] la lleva a la pantalla de revisión.
-  ///
-  /// Con un plan elegido, quien ya tenía cuenta solo entra si es el mismo plan
-  /// (mientras su inscripción siga vigente): lo comprueba el servidor.
+  /// Plan elegido en pantalla (null si entró con "Ya tengo cuenta").
+  /// El servidor lo usa para que quien ya tiene cuenta solo entre con su plan.
+  String? get _chosenPlanId => _selectedPlan == null ? null : _currentPlan.backendId;
+
+  Future<VoidCallback> _handleLogin(String email, String password) async {
+    try {
+      final AuthResult result = await _services.auth.login(
+        email: email,
+        password: password,
+        planId: _chosenPlanId,
+      );
+      await _services.session.saveSession(
+        token: result.token,
+        userJson: result.user.raw,
+      );
+      final BackendUser user = result.user;
+      return () {
+        _enterApp(user);
+      };
+    } on ApiException catch (e) {
+      if (e.code == 'CUENTA_REVOCADA') {
+        _showNotice('Cuenta revocada', e.message, Icons.gpp_bad_outlined);
+        rethrow;
+      }
+
+      final bool unverified = e.code == 'CUENTA_NO_VERIFICADA' ||
+          e.message.contains('verificar tu cuenta');
+      if (!unverified) rethrow;
+
+      // La cuenta existe pero falta el código del correo.
+      _draft = _RegistrationDraft(name: '', email: email, password: password);
+      try {
+        await _services.auth.resendCode(email);
+      } on ApiException {
+        // Se puede reenviar desde la pantalla de verificación.
+      }
+      return () => _goTo(AppStage.emailVerification);
+    }
+  }
+
+  /// Inicio de sesión con Google. Devuelve `null` si la persona canceló.
+  /// Si la cuenta es nueva queda pendiente de aprobación y [_enterApp] la
+  /// lleva a la pantalla de revisión (igual que el registro normal).
   Future<VoidCallback?> _handleGoogleLogin() async {
     final String? idToken = await _services.google.pickIdToken();
     if (idToken == null) return null;
 
-    final String? planId = _selectedPlan == null ? null : _currentPlan.backendId;
-
     try {
       final AuthResult result =
-          await _services.auth.loginWithGoogle(idToken, planId: planId);
+          await _services.auth.loginWithGoogle(idToken, planId: _chosenPlanId);
       await _services.session.saveSession(
         token: result.token,
         userJson: result.user.raw,
@@ -477,6 +531,124 @@ class _AppFlowState extends State<AppFlow> {
       }
       rethrow;
     }
+  }
+
+  /// Registro con correo: se crea la cuenta (con el plan elegido) y se pide el
+  /// código del correo. El pago se elige cuando el equipo aprueba la cuenta.
+  Future<VoidCallback> _handleRegister(
+    String name,
+    String email,
+    String password,
+  ) async {
+    if (_selectedPlan == null) {
+      throw const ApiException(
+        'Primero elige un plan para crear tu cuenta. Vuelve atrás y selecciónalo.',
+      );
+    }
+
+    _draft = _RegistrationDraft(name: name, email: email, password: password);
+    await _registerAccount();
+    return () => _goTo(AppStage.emailVerification);
+  }
+
+  Future<void> _registerAccount() async {
+    final _RegistrationDraft? draft = _draft;
+    if (draft == null) {
+      throw const ApiException('Falta información del registro. Vuelve a empezar.');
+    }
+
+    await _plansFuture;
+    String? planId = _currentPlan.backendId;
+    if (planId == null) {
+      await _loadPlans();
+      planId = _currentPlan.backendId;
+    }
+    if (planId == null) {
+      throw const ApiException(
+        'No pudimos cargar los planes del servidor. Revisa tu conexión e inténtalo de nuevo.',
+      );
+    }
+
+    await _services.auth.register(
+      nombre: draft.name,
+      email: draft.email,
+      password: draft.password,
+      planId: planId,
+    );
+  }
+
+  // ── Recuperar contraseña ──────────────────────────────────────────────────
+
+  Future<VoidCallback> _handleForgotPassword(String email) async {
+    await _services.auth.forgotPassword(email);
+    _resetEmail = email;
+    return () => _goTo(AppStage.resetPassword);
+  }
+
+  Future<void> _handleResendResetCode() async {
+    final String? email = _resetEmail;
+    if (email == null) return;
+    await _services.auth.forgotPassword(email);
+  }
+
+  Future<VoidCallback> _handleResetPassword(String code, String password) async {
+    final String? email = _resetEmail;
+    if (email == null) {
+      throw const ApiException('Falta el correo. Vuelve a empezar.');
+    }
+
+    await _services.auth.resetPassword(
+      email: email,
+      code: code,
+      password: password,
+    );
+
+    return () {
+      if (!mounted) return;
+      setState(() {
+        _authNotice = 'Contraseña actualizada. Ya puedes iniciar sesión.';
+        _stage = AppStage.auth;
+      });
+    };
+  }
+
+  // ── Verificación de correo ────────────────────────────────────────────────
+
+  Future<VoidCallback> _handleVerify(String code) async {
+    final _RegistrationDraft? draft = _draft;
+    if (draft == null) {
+      throw const ApiException(
+        'La sesión de registro expiró. Inicia sesión de nuevo.',
+      );
+    }
+
+    try {
+      await _services.auth.verifyAccount(email: draft.email, code: code);
+    } on ApiException catch (e) {
+      // Si ya estaba verificada, simplemente seguimos con el inicio de sesión.
+      if (!e.message.contains('ya está verificada')) rethrow;
+    }
+
+    final AuthResult result = await _services.auth.login(
+      email: draft.email,
+      password: draft.password,
+    );
+    await _services.session.saveSession(
+      token: result.token,
+      userJson: result.user.raw,
+    );
+
+    _draft = null;
+    final BackendUser user = result.user;
+    return () {
+      _enterApp(user);
+    };
+  }
+
+  Future<void> _handleResend() async {
+    final _RegistrationDraft? draft = _draft;
+    if (draft == null) return;
+    await _services.auth.resendCode(draft.email);
   }
 
   // ── Pago ──────────────────────────────────────────────────────────────────
@@ -633,6 +805,7 @@ class _AppFlowState extends State<AppFlow> {
     setState(() {
       _user = null;
       _profile = null;
+      _draft = null;
       _pendingData = null;
       _activePayment = null;
       _selectedPlan = null;
@@ -671,10 +844,31 @@ class _AppFlowState extends State<AppFlow> {
       case AppStage.auth:
         return AuthScreen(
           key: key,
-          planName: _selectedPlan == null ? null : _currentPlan.name,
+          initialEmail: _resetEmail,
           notice: _authNotice,
           onBack: () => _goTo(AppStage.planSelection),
+          onLogin: _handleLogin,
           onGoogleLogin: _handleGoogleLogin,
+          onRegister: _handleRegister,
+          onForgotPassword: _handleForgotPassword,
+        );
+
+      case AppStage.emailVerification:
+        return EmailVerificationScreen(
+          key: key,
+          email: _draft?.email ?? '',
+          onVerify: _handleVerify,
+          onResend: _handleResend,
+          onBack: () => _goTo(AppStage.auth),
+        );
+
+      case AppStage.resetPassword:
+        return ResetPasswordScreen(
+          key: key,
+          email: _resetEmail ?? '',
+          onSubmit: _handleResetPassword,
+          onResend: _handleResendResetCode,
+          onBack: () => _goTo(AppStage.auth),
         );
 
       case AppStage.accountPending:
