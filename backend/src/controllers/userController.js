@@ -23,6 +23,18 @@ const MSG_REVOCADA =
 const vencimientoCodigo = () => Date.now() + MINUTOS_CODIGO * 60 * 1000;
 
 
+// Busca por correo sin distinguir mayúsculas: así también entran las cuentas
+// creadas antes de que los correos se guardaran en minúsculas.
+const buscarPorEmail = async (email) => {
+  const limpio = String(email || '').trim().toLowerCase();
+  if (!limpio) return null;
+
+  return (
+    (await User.findOne({ email: limpio })) ||
+    (await User.findOne({ email: String(email).trim() }).collation({ locale: 'en', strength: 2 }))
+  );
+};
+
 // ======================================================
 // REGISTRAR USUARIO
 // ======================================================
@@ -43,7 +55,7 @@ export const registrarUsuario = async (req, res) => {
       return res.status(403).json({ mensaje: MSG_REVOCADA, codigo: 'CUENTA_REVOCADA' });
     }
 
-    const existe = await User.findOne({ email });
+    const existe = await buscarPorEmail(email);
     if (existe) {
       return res.status(400).json({
         mensaje: 'El correo ya está registrado'
@@ -91,7 +103,7 @@ export const registrarUsuario = async (req, res) => {
       codigo: codigoVerificacion
     });
 
-    await enviarCorreoSeguro({
+    const correoEnviado = await enviarCorreoSeguro({
       from: process.env.EMAIL_USER,
       to: nuevoUsuario.email,
       subject: correo.asunto,
@@ -99,7 +111,10 @@ export const registrarUsuario = async (req, res) => {
     });
 
     return res.status(201).json({
-      mensaje: 'Cuenta creada. Revisa tu correo para verificarla; después el equipo de FitZone aprobará tu cuenta.',
+      mensaje: correoEnviado
+        ? 'Cuenta creada. Revisa tu correo para verificarla; después el equipo de FitZone aprobará tu cuenta.'
+        : 'Cuenta creada, pero no pudimos enviar el correo con el código. Pulsa "Reenviar código" en unos segundos.',
+      correoEnviado,
       usuario: nuevoUsuario
     });
 
@@ -121,7 +136,7 @@ export const verificarCuenta = async (req, res) => {
   try {
     const { email, codigo } = req.body;
 
-    const usuario = await User.findOne({ email });
+    const usuario = await buscarPorEmail(email);
 
     if (!usuario) {
       return res.status(404).json({
@@ -190,7 +205,7 @@ export const reenviarCodigo = async (req, res) => {
   try {
     const { email } = req.body;
 
-    const usuario = await User.findOne({ email });
+    const usuario = await buscarPorEmail(email);
 
     if (!usuario) {
       return res.status(404).json({
@@ -221,12 +236,19 @@ export const reenviarCodigo = async (req, res) => {
       reenvio: true
     });
 
-    await enviarCorreoSeguro({
+    const enviado = await enviarCorreoSeguro({
       from: process.env.EMAIL_USER,
       to: usuario.email,
       subject: correo.asunto,
       html: correo.html
     });
+
+    if (!enviado) {
+      return res.status(502).json({
+        mensaje: 'No pudimos enviar el correo en este momento. Inténtalo de nuevo en unos segundos.',
+        codigo: 'CORREO_NO_ENVIADO'
+      });
+    }
 
     return res.json({
       mensaje: 'Código reenviado correctamente'
@@ -278,7 +300,7 @@ export const iniciarSesion = async (req, res) => {
   try {
     const { email, password, planId } = req.body;
 
-    const usuario = await User.findOne({ email });
+    const usuario = await buscarPorEmail(email);
 
     if (!usuario) {
       const revocada = await RevokedAccount.findOne({ email: String(email).toLowerCase().trim() });
@@ -291,14 +313,15 @@ export const iniciarSesion = async (req, res) => {
         });
       }
 
-      return res.status(404).json({
-        mensaje: 'Usuario no encontrado'
+      return res.status(401).json({
+        mensaje: 'Correo o contraseña incorrectos'
       });
     }
 
     if (!usuario.passwordHash) {
       return res.status(400).json({
-        mensaje: 'Esta cuenta utiliza inicio de sesión con Google'
+        mensaje:
+          'Esta cuenta se creó con Google. Entra con "Continuar con Google" o crea una contraseña con "¿Olvidaste tu contraseña?".'
       });
     }
 
@@ -309,7 +332,7 @@ export const iniciarSesion = async (req, res) => {
 
     if (!passwordValido) {
       return res.status(401).json({
-        mensaje: 'Contraseña incorrecta'
+        mensaje: 'Correo o contraseña incorrectos'
       });
     }
 
@@ -482,9 +505,8 @@ export const iniciarSesionGoogle = async (req, res) => {
     }
 
     // 4) Buscar la cuenta (por Google o por correo) o crearla
-    let usuario = await User.findOne({
-      $or: [{ googleId }, { email }]
-    });
+    let usuario =
+      (await User.findOne({ googleId })) || (await buscarPorEmail(email));
 
     let esNueva = false;
 
@@ -885,7 +907,7 @@ export const cambiarRolUsuario = async (req, res) => {
       });
     }
 
-    const usuario = await User.findOne({ email });
+    const usuario = await buscarPorEmail(email);
 
     if (!usuario) {
       return res.status(404).json({
@@ -940,7 +962,7 @@ export const solicitarRecuperacion = async (req, res) => {
         'Si el correo está registrado, te enviamos un código para restablecer tu contraseña'
     };
 
-    const usuario = await User.findOne({ email });
+    const usuario = await buscarPorEmail(email);
 
     if (!usuario) {
       return res.json(respuesta);
@@ -986,11 +1008,15 @@ export const restablecerConCodigo = async (req, res) => {
   try {
     const { email, codigo, password } = req.body;
 
-    const usuario = await User.findOne({
-      email,
-      resetPasswordToken: hashCodigo(codigo),
-      resetPasswordExpira: { $gt: Date.now() }
-    });
+    const candidato = await buscarPorEmail(email);
+
+    const usuario =
+      candidato &&
+      candidato.resetPasswordToken === hashCodigo(codigo) &&
+      candidato.resetPasswordExpira &&
+      candidato.resetPasswordExpira > Date.now()
+        ? candidato
+        : null;
 
     if (!usuario) {
       return res.status(400).json({

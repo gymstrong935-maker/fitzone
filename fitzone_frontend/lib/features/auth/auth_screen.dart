@@ -135,7 +135,7 @@ class _AuthScreenState extends State<AuthScreen>
     FocusManager.instance.primaryFocus?.unfocus();
 
     final AuthMode mode = _mode;
-    final String email = _emailCtrl.text.trim();
+    final String email = _emailCtrl.text.trim().toLowerCase();
     final String password = _passCtrl.text;
     final String name = _nameCtrl.text.trim();
 

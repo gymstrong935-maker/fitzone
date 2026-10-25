@@ -58,6 +58,15 @@ dns.setServers(['8.8.8.8', '8.8.4.4']);
 const app = express();
 app.disable('x-powered-by');
 
+// Detrás del proxy de Render/Heroku/Nginx la IP real viene en X-Forwarded-For.
+// Sin esto, el límite de intentos cuenta TODAS las peticiones como una sola IP
+// y termina bloqueando a todos los usuarios.
+app.set('trust proxy', 1);
+
+process.on('unhandledRejection', (motivo) => {
+  console.error('⚠️ Promesa rechazada sin manejar:', motivo);
+});
+
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 

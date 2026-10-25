@@ -129,6 +129,7 @@ class _AppFlowState extends State<AppFlow> {
   BackendPayment? _activePayment;
 
   String? _resetEmail;
+  String? _verifyNotice;
   String? _authNotice;
 
   Timer? _syncTimer;
@@ -323,7 +324,7 @@ class _AppFlowState extends State<AppFlow> {
     if (status != null && status != SubscriptionStatus.active) {
       if (status == SubscriptionStatus.pending) {
         // ¿Falta elegir cómo paga (y subir la factura)? Primero eso.
-        final BackendPayment? pay = await _services.payments.pendingSubscriptionPayment();
+        final BackendPayment? pay = await _loadPendingPayment();
         if (!mounted) return;
         if (pay != null && pay.needsMethod) {
           _activePayment = pay;
@@ -456,11 +457,53 @@ class _AppFlowState extends State<AppFlow> {
   }
 
   void _handleSelectPlan(PlanId plan) {
+    // Con cuenta (renovación / cambio de plan): se crea la solicitud en el
+    // servidor y luego se elige cómo pagar. Sin cuenta: pantalla de acceso.
+    if (_user != null) {
+      setState(() => _selectedPlan = plan);
+      unawaited(_startPlanChange());
+      return;
+    }
     setState(() {
       _selectedPlan = plan;
-      // Con cuenta: va directo a elegir cómo pagar. Sin cuenta: Auth.
-      _stage = _user != null ? AppStage.paymentMethod : AppStage.auth;
+      _stage = AppStage.auth;
     });
+  }
+
+  /// Crea la solicitud del plan elegido y abre la pantalla de pago.
+  Future<void> _startPlanChange() async {
+    final BackendUser? user = _user;
+    final String? planId = _currentPlan.backendId;
+    if (user == null) return;
+
+    if (planId == null) {
+      _showNotice(
+        'No se pudo cambiar el plan',
+        'No pudimos cargar los planes del servidor. Inténtalo de nuevo.',
+        Icons.error_outline_rounded,
+      );
+      return;
+    }
+
+    try {
+      await _services.subscriptions.changePlan(userId: user.id, planId: planId);
+      final BackendPayment? pay = await _loadPendingPayment();
+      if (!mounted) return;
+      _subscriptionStatus = SubscriptionStatus.pending;
+      _activePayment = pay;
+      _goTo(pay != null ? AppStage.paymentMethod : AppStage.paymentValidation);
+    } on ApiException catch (e) {
+      _showNotice('No se pudo cambiar el plan', e.message, Icons.error_outline_rounded);
+    }
+  }
+
+  /// Pago pendiente de la suscripción (null si no hay o no se pudo consultar).
+  Future<BackendPayment?> _loadPendingPayment() async {
+    try {
+      return await _services.payments.pendingSubscriptionPayment();
+    } on ApiException {
+      return null;
+    }
   }
 
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -495,11 +538,17 @@ class _AppFlowState extends State<AppFlow> {
       if (!unverified) rethrow;
 
       // La cuenta existe pero falta el código del correo.
-      _draft = _RegistrationDraft(name: '', email: email, password: password);
+      _draft = _RegistrationDraft(
+        name: '',
+        email: email.trim().toLowerCase(),
+        password: password,
+      );
+      _verifyNotice = null;
       try {
         await _services.auth.resendCode(email);
-      } on ApiException {
-        // Se puede reenviar desde la pantalla de verificación.
+      } on ApiException catch (err) {
+        _verifyNotice =
+            '${err.message} Pulsa "Reenviar código" para intentarlo otra vez.';
       }
       return () => _goTo(AppStage.emailVerification);
     }
@@ -546,12 +595,20 @@ class _AppFlowState extends State<AppFlow> {
       );
     }
 
-    _draft = _RegistrationDraft(name: name, email: email, password: password);
-    await _registerAccount();
+    _draft = _RegistrationDraft(
+      name: name,
+      email: email.trim().toLowerCase(),
+      password: password,
+    );
+    final bool emailSent = await _registerAccount();
+    _verifyNotice = emailSent
+        ? null
+        : 'Tu cuenta se creó, pero no pudimos enviar el correo con el código. '
+            'Espera unos segundos y pulsa "Reenviar código".';
     return () => _goTo(AppStage.emailVerification);
   }
 
-  Future<void> _registerAccount() async {
+  Future<bool> _registerAccount() async {
     final _RegistrationDraft? draft = _draft;
     if (draft == null) {
       throw const ApiException('Falta información del registro. Vuelve a empezar.');
@@ -569,7 +626,7 @@ class _AppFlowState extends State<AppFlow> {
       );
     }
 
-    await _services.auth.register(
+    return _services.auth.register(
       nombre: draft.name,
       email: draft.email,
       password: draft.password,
@@ -857,6 +914,7 @@ class _AppFlowState extends State<AppFlow> {
         return EmailVerificationScreen(
           key: key,
           email: _draft?.email ?? '',
+          notice: _verifyNotice,
           onVerify: _handleVerify,
           onResend: _handleResend,
           onBack: () => _goTo(AppStage.auth),

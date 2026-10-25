@@ -83,7 +83,7 @@ class ApiClient {
       );
     }
 
-    return _process(response);
+    return _process(response, path);
   }
 
   /// Envía un formulario con una imagen (PUT o POST multipart).
@@ -129,7 +129,7 @@ class ApiClient {
       );
     }
 
-    return _process(response);
+    return _process(response, path);
   }
 
   String _mimeFor(String filename) {
@@ -139,7 +139,17 @@ class ApiClient {
     return 'image/jpeg';
   }
 
-  dynamic _process(http.Response response) {
+  /// Rutas de acceso: un 401/403 aquí es "datos incorrectos", no una sesión vencida.
+  static bool _isAuthPath(String path) =>
+      path.startsWith('/api/users/login') ||
+      path.startsWith('/api/users/google') ||
+      path.startsWith('/api/users/register') ||
+      path.startsWith('/api/users/verificar-cuenta') ||
+      path.startsWith('/api/users/reenviar-codigo') ||
+      path.startsWith('/api/users/forgot-password') ||
+      path.startsWith('/api/users/reset-password');
+
+  dynamic _process(http.Response response, String path) {
     dynamic data;
     if (response.bodyBytes.isNotEmpty) {
       try {
@@ -160,6 +170,7 @@ class ApiClient {
     }
 
     final bool tokenRejected = _token != null &&
+        !_isAuthPath(path) &&
         (status == 401 ||
             (status == 403 && error.message.toLowerCase().contains('token')));
     if (tokenRejected) onSessionExpired?.call();

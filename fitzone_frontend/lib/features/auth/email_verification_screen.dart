@@ -21,7 +21,11 @@ class EmailVerificationScreen extends StatefulWidget {
     required this.onVerify,
     required this.onResend,
     required this.onBack,
+    this.notice,
   });
+
+  /// Aviso inicial (por ejemplo, si el correo no pudo enviarse).
+  final String? notice;
 
   final String email;
 
@@ -57,6 +61,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   @override
   void initState() {
     super.initState();
+    _error = widget.notice ?? '';
     _startCooldown();
   }
 

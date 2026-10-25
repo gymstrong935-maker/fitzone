@@ -15,7 +15,8 @@ class AuthService {
 
   /// Crea la cuenta. El backend envía un código de 6 dígitos al correo.
   /// El método de pago ya no se pide aquí: se elige cuando el equipo aprueba la cuenta.
-  Future<BackendUser> register({
+  /// Devuelve `false` si la cuenta se creó pero el correo con el código no pudo salir.
+  Future<bool> register({
     required String nombre,
     required String email,
     required String password,
@@ -30,9 +31,7 @@ class AuthService {
         'planId': planId,
       },
     );
-    return BackendUser.fromJson(
-      (data as Map<String, dynamic>)['usuario'] as Map<String, dynamic>,
-    );
+    return (data as Map<String, dynamic>)['correoEnviado'] != false;
   }
 
   /// Inicia sesión con correo y contraseña. Si se indica [planId], quien ya
