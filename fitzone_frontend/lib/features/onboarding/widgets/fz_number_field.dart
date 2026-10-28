@@ -21,6 +21,7 @@ class FzNumberField extends StatefulWidget {
     this.decimal = false,
     this.maxLength = 3,
     this.hint,
+    this.error = false,
   });
 
   final double value;
@@ -37,6 +38,9 @@ class FzNumberField extends StatefulWidget {
 
   /// Texto de ayuda cuando el campo está vacío.
   final String? hint;
+
+  /// Resalta el campo en rojo.
+  final bool error;
 
   @override
   State<FzNumberField> createState() => _FzNumberFieldState();
@@ -104,6 +108,7 @@ class _FzNumberFieldState extends State<FzNumberField> {
   Widget build(BuildContext context) {
     return FzFieldFrame(
       focused: _focus.hasFocus,
+      error: widget.error,
       height: 44,
       child: TextField(
         controller: _controller,

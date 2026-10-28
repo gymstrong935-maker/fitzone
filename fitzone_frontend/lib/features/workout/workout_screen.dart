@@ -40,6 +40,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   int _completedCount = 0;
   bool _showSummary = false;
   bool _soundOn = SoundService.instance.enabled;
+  bool _paused = false;
 
   /// Segundos que suma el botón "+15 s" del descanso.
   static const int _extraRestSeconds = 15;
@@ -59,6 +60,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     unawaited(SoundService.instance.play(FzSound.start));
   }
 
+  void _togglePause() {
+    unawaited(SoundService.instance.play(FzSound.tap));
+    setState(() => _paused = !_paused);
+  }
+
   Future<void> _toggleSound() async {
     final bool next = !_soundOn;
     setState(() => _soundOn = next);
@@ -75,7 +81,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   /// Un tic por segundo: avanza el cronómetro general (hasta el resumen) y la
   /// cuenta regresiva del descanso.
   void _tick(Timer timer) {
-    if (!mounted) return;
+    if (!mounted || _paused) return; // en pausa nada avanza
 
     FzSound? sound;
     setState(() {
@@ -181,6 +187,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         onExtend: _extendRest,
         soundOn: _soundOn,
         onToggleSound: () => unawaited(_toggleSound()),
+        onPause: _togglePause,
       );
     } else {
       body = ActiveExerciseView(
@@ -193,14 +200,93 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         onComplete: _completeExercise,
         soundOn: _soundOn,
         onToggleSound: () => unawaited(_toggleSound()),
+        onPause: _togglePause,
       );
     }
 
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: body,
+      body: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: body,
+            ),
+          ),
+          if (_paused)
+            Positioned.fill(child: _PauseOverlay(onResume: _togglePause)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Capa que tapa el entrenamiento mientras está en pausa.
+class _PauseOverlay extends StatelessWidget {
+  const _PauseOverlay({required this.onResume});
+
+  final VoidCallback onResume;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.bg.withValues(alpha: 0.94),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            Icons.pause_circle_outline_rounded,
+            size: 72,
+            color: AppColors.cyanText,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Entrenamiento en pausa',
+            textAlign: TextAlign.center,
+            style: AppText.display(
+              size: 22,
+              weight: FontWeight.w700,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'El cronómetro y el descanso están detenidos.',
+            textAlign: TextAlign.center,
+            style: AppText.body(
+              size: 14,
+              color: AppColors.whiteA(0.55),
+              height: 1.43,
+            ),
+          ),
+          const SizedBox(height: 28),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onResume,
+            child: Container(
+              width: 220,
+              height: 52,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(26),
+                gradient: const LinearGradient(
+                  colors: <Color>[AppColors.cyan, AppColors.teal],
+                ),
+              ),
+              child: Text(
+                'Reanudar',
+                style: AppText.body(
+                  size: 16,
+                  weight: FontWeight.w600,
+                  color: const Color(0xFF0A0A0A),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

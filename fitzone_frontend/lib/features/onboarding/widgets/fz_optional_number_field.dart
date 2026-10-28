@@ -12,7 +12,11 @@ class FzOptionalNumberField extends StatefulWidget {
     required this.value,
     required this.hint,
     required this.onChanged,
+    this.error = false,
   });
+
+  /// Resalta el campo en rojo.
+  final bool error;
 
   /// `null` = campo vacío.
   final double? value;
@@ -58,6 +62,7 @@ class _FzOptionalNumberFieldState extends State<FzOptionalNumberField> {
   Widget build(BuildContext context) {
     return FzFieldFrame(
       focused: _focus.hasFocus,
+      error: widget.error,
       height: 36,
       child: TextField(
         controller: _controller,

@@ -201,8 +201,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ..._draft.trainingHabits.missing,
       ];
 
+  /// `true` si intentó guardar con datos sin llenar: solo entonces se avisa.
+  bool _saveAttempted = false;
+
   Future<void> _saveData() async {
-    if (_missing.isNotEmpty) return;
+    if (_missing.isNotEmpty) {
+      setState(() => _saveAttempted = true);
+      return;
+    }
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _dataBusy = true;
@@ -406,6 +412,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           const _SectionTitle('Datos personales'),
           const SizedBox(height: 18),
           PersonalInfoStep(
+            showLaterNote: false,
+            showErrors: _saveAttempted,
             info: _draft.personalInfo,
             onChanged: (PersonalInfo v) => setState(() {
               _draft = _draft.copyWith(personalInfo: v);
@@ -414,6 +422,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
           const SizedBox(height: 28),
           MeasurementsStep(
+            showLaterNote: false,
+            showErrors: _saveAttempted,
             measurements: _draft.bodyMeasurements,
             onChanged: (BodyMeasurements v) => setState(() {
               _draft = _draft.copyWith(bodyMeasurements: v);
@@ -422,16 +432,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
           const SizedBox(height: 28),
           HabitsStep(
+            showLaterNote: false,
             habits: _draft.trainingHabits,
             onChanged: (TrainingHabits v) => setState(() {
               _draft = _draft.copyWith(trainingHabits: v);
               _dataMsg = '';
             }),
           ),
-          if (missing.isNotEmpty) ...<Widget>[
+          if (_saveAttempted && missing.isNotEmpty) ...<Widget>[
             const SizedBox(height: 16),
             Text(
-              'Para guardar completa: ${missing.join(', ')}',
+              'Antes de guardar completa: ${missing.join(', ')}',
               style: AppText.body(size: 12.5, color: AppColors.amber, height: 1.4),
             ),
           ],
@@ -443,7 +454,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _PrimaryButton(
             label: 'Guardar datos',
             busy: _dataBusy,
-            enabled: missing.isEmpty && changed,
+            enabled: changed,
             onTap: _saveData,
           ),
         ],

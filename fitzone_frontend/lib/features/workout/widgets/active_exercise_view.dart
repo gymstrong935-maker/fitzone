@@ -22,6 +22,7 @@ class ActiveExerciseView extends StatelessWidget {
     required this.onComplete,
     required this.soundOn,
     required this.onToggleSound,
+    required this.onPause,
   });
 
   final Exercise exercise;
@@ -34,6 +35,9 @@ class ActiveExerciseView extends StatelessWidget {
   /// `true` = los sonidos del entrenamiento están activados.
   final bool soundOn;
   final VoidCallback onToggleSound;
+
+  /// Pausa el entrenamiento (se toca el cronómetro).
+  final VoidCallback onPause;
 
   static Color get _cyan400 => AppColors.cyanLightText;
   static Color get _purple400 => AppColors.violet;
@@ -117,27 +121,46 @@ class ActiveExerciseView extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Text(
-                        'Ejercicio ${index + 1} de $total',
-                        style: AppText.body(
-                          size: 12,
-                          color: AppColors.whiteA(0.45),
-                          height: 1.333,
-                        ),
+                  Semantics(
+                    button: true,
+                    label: 'Pausar entrenamiento',
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onPause,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Text(
+                            'Ejercicio ${index + 1} de $total',
+                            style: AppText.body(
+                              size: 12,
+                              color: AppColors.whiteA(0.45),
+                              height: 1.333,
+                            ),
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Icon(
+                                Icons.pause_circle_outline_rounded,
+                                size: 15,
+                                color: _cyan400,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                formatWorkoutTime(workoutSeconds),
+                                style: AppText.display(
+                                  size: 14,
+                                  weight: FontWeight.w700,
+                                  color: _cyan400,
+                                  height: 1.43,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      Text(
-                        formatWorkoutTime(workoutSeconds),
-                        style: AppText.display(
-                          size: 14,
-                          weight: FontWeight.w700,
-                          color: _cyan400,
-                          height: 1.43,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                   Semantics(
                     button: true,

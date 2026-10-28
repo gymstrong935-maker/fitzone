@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
@@ -49,6 +52,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   int _step = 0;
   int _direction = 1;
   OnboardingData _data = const OnboardingData();
+
+  /// `true` cuando la persona pulsó "Siguiente" con datos sin llenar: solo
+  /// entonces se muestran los avisos y los campos en rojo.
+  bool _attempted = false;
 
   OnboardingStep get _current => _steps[_step];
   bool get _isLast => _step == _steps.length - 1;
@@ -102,8 +109,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _goNext() {
-    if (!_nextEnabled) return;
     FocusManager.instance.primaryFocus?.unfocus();
+
+    if (!_nextEnabled) {
+      // Intentó continuar sin completar: ahora sí se le avisa qué falta.
+      unawaited(HapticFeedback.mediumImpact());
+      setState(() => _attempted = true);
+      return;
+    }
 
     // Aplica los mínimos de Información Personal antes de avanzar.
     final OnboardingData data = _data.copyWith(
@@ -117,6 +130,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     setState(() {
       _data = data;
       _direction = 1;
+      _attempted = false;
       _step++;
     });
     _resetScroll();
@@ -130,6 +144,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     }
     setState(() {
       _direction = -1;
+      _attempted = false;
       _step--;
     });
     _resetScroll();
@@ -283,8 +298,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             child: OnboardingFooter(
               showBack: false,
               isLast: _isLast,
-              nextEnabled: _nextEnabled,
-              hint: _missing.isEmpty ? null : 'Para continuar completa: ${_missing.join(', ')}',
+              nextEnabled: true,
+              hint: _attempted && _missing.isNotEmpty
+                  ? 'Antes de continuar completa: ${_missing.join(', ')}'
+                  : null,
               onBack: _goBack,
               onNext: _goNext,
             ),
@@ -340,12 +357,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           key: key,
           info: _data.personalInfo,
           onChanged: _updatePersonalInfo,
+          showErrors: _attempted,
         );
       case OnboardingStep.measurements:
         return MeasurementsStep(
           key: key,
           measurements: _data.bodyMeasurements,
           onChanged: _updateMeasurements,
+          showErrors: _attempted,
         );
       case OnboardingStep.goals:
         return GoalsStep(

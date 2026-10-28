@@ -16,10 +16,18 @@ class PersonalInfoStep extends StatelessWidget {
     super.key,
     required this.info,
     required this.onChanged,
+    this.showErrors = false,
+    this.showLaterNote = true,
   });
 
   final PersonalInfo info;
   final ValueChanged<PersonalInfo> onChanged;
+
+  /// Resalta en rojo los números que faltan (la persona intentó continuar).
+  final bool showErrors;
+
+  /// Muestra "podrás modificarlos después" (solo durante el registro).
+  final bool showLaterNote;
 
   static const double _lbPerKg = 2.20462;
 
@@ -52,10 +60,12 @@ class PersonalInfoStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const StepHeader(
+        StepHeader(
           icon: Icons.person_outline_rounded,
           title: 'Información Personal',
-          subtitle: 'Todos los datos son obligatorios. Podrás modificarlos luego en Ajustes.',
+          subtitle: showLaterNote
+              ? 'Cuéntanos sobre ti. Podrás modificar estos datos después en Ajustes.'
+              : 'Cuéntanos sobre ti para personalizar tu plan.',
           teal: true,
         ),
         const SizedBox(height: 24),
@@ -86,6 +96,7 @@ class PersonalInfoStep extends StatelessWidget {
                 value: info.age.toDouble(),
                 min: 10,
                 hint: 'Ej. 25',
+                error: showErrors && info.age < 10,
                 onChanged: (double v) =>
                     onChanged(info.copyWith(age: v.round())),
               ),
@@ -138,6 +149,7 @@ class PersonalInfoStep extends StatelessWidget {
                 min: 20,
                 decimal: true,
                 hint: 'Ej. 70',
+                error: showErrors && info.weightKg < 20,
                 onChanged: (double v) => onChanged(info.copyWith(weight: v)),
               ),
             ),
@@ -183,6 +195,7 @@ class PersonalInfoStep extends StatelessWidget {
           value: info.height.toDouble(),
           min: 100,
           hint: 'Ej. 170',
+          error: showErrors && info.height < 100,
           onChanged: (double v) => onChanged(info.copyWith(height: v.round())),
         ),
       ],

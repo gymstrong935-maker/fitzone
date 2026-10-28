@@ -22,6 +22,7 @@ class RestTimerView extends StatelessWidget {
     required this.onExtend,
     required this.soundOn,
     required this.onToggleSound,
+    required this.onPause,
   });
 
   final int secondsLeft;
@@ -33,6 +34,9 @@ class RestTimerView extends StatelessWidget {
   final VoidCallback onExtend;
   final bool soundOn;
   final VoidCallback onToggleSound;
+
+  /// Pausa el entrenamiento.
+  final VoidCallback onPause;
 
   static Color get _cyan400 => AppColors.cyanLightText;
 
@@ -187,7 +191,14 @@ class RestTimerView extends StatelessWidget {
                           onTap: onExtend,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _RestButton(
+                          label: 'Pausa',
+                          onTap: onPause,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Expanded(
                         flex: 2,
                         child: _RestButton(

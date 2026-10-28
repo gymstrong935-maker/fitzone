@@ -21,7 +21,8 @@ class OnboardingFooter extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onNext;
 
-  /// Lo que falta por llenar (se muestra encima del botón mientras esté deshabilitado).
+  /// Aviso de lo que falta por llenar. Solo se pasa cuando la persona intentó
+  /// continuar sin completar los datos; si es `null` no se muestra nada.
   final String? hint;
 
   @override
@@ -50,21 +51,49 @@ class OnboardingFooter extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  if (hint != null && !nextEnabled) ...<Widget>[
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Text(
-                        hint!,
-                        textAlign: TextAlign.center,
-                        style: AppText.body(
-                          size: 12.5,
-                          weight: FontWeight.w500,
-                          color: AppColors.amber,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                    alignment: Alignment.bottomCenter,
+                    child: hint == null
+                        ? const SizedBox(width: double.infinity)
+                        : Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.amber.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: AppColors.amber.withValues(alpha: 0.30),
+                              ),
+                            ),
+                            child: Row(
+                              children: <Widget>[
+                                Icon(
+                                  Icons.info_outline_rounded,
+                                  size: 16,
+                                  color: AppColors.amber,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    hint!,
+                                    style: AppText.body(
+                                      size: 12.5,
+                                      weight: FontWeight.w500,
+                                      color: AppColors.amber,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                  ),
                   Row(
                 children: <Widget>[
                   if (showBack) ...<Widget>[

@@ -2,20 +2,33 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
+import '../data/measurement_guides.dart';
 import '../models/body_measurements.dart';
 import '../widgets/fz_optional_number_field.dart';
+import '../widgets/measure_guide_sheet.dart';
 import '../widgets/step_header.dart';
 
-/// Paso "Mediciones Corporales" (circunferencias obligatorias, plicometría opcional).
+/// Paso "Mediciones Corporales" (circunferencias y plicometría).
+///
+/// No muestra avisos de "obligatorio": solo resalta en rojo las circunferencias
+/// vacías cuando [showErrors] es `true` (la persona intentó continuar).
 class MeasurementsStep extends StatelessWidget {
   const MeasurementsStep({
     super.key,
     required this.measurements,
     required this.onChanged,
+    this.showErrors = false,
+    this.showLaterNote = true,
   });
 
   final BodyMeasurements measurements;
   final ValueChanged<BodyMeasurements> onChanged;
+
+  /// Resalta en rojo las circunferencias que faltan.
+  final bool showErrors;
+
+  /// Muestra el aviso "podrás modificarlos después" (solo en el registro).
+  final bool showLaterNote;
 
   static Color get _teal400 => AppColors.teal400;
 
@@ -24,17 +37,21 @@ class MeasurementsStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const StepHeader(
+        StepHeader(
           icon: Icons.straighten_rounded,
           title: 'Mediciones Corporales',
-          subtitle: 'Las circunferencias son obligatorias; la plicometría es opcional. Podrás modificarlas luego en Ajustes.',
+          subtitle: showLaterNote
+              ? 'Con estas medidas seguimos tu progreso. Toca el ? para ver cómo tomar cada una.'
+              : 'Toca el ? bajo cada medida para ver cómo tomarla.',
         ),
         const SizedBox(height: 24),
-        _buildInfoBox(),
-        const SizedBox(height: 20),
-        _buildSkinfolds(),
-        const SizedBox(height: 20),
+        if (showLaterNote) ...<Widget>[
+          _buildInfoBox(),
+          const SizedBox(height: 20),
+        ],
         _buildCircumferences(),
+        const SizedBox(height: 24),
+        _buildSkinfolds(),
       ],
     );
   }
@@ -50,7 +67,7 @@ class MeasurementsStep extends StatelessWidget {
         border: Border.all(color: AppColors.cyanA(0.18)),
       ),
       child: Text(
-        'Puedes omitir esto y completarlo más tarde en tu perfil',
+        'Podrás modificar estos datos más adelante desde Ajustes.',
         textAlign: TextAlign.center,
         style: AppText.body(
           size: 12,
@@ -68,13 +85,14 @@ class MeasurementsStep extends StatelessWidget {
         label: label,
         hint: 'mm',
         value: measurements.skinfolds[site],
+        guide: kSkinfoldGuides[site],
         onChanged: (double? v) => onChanged(measurements.withSkinfold(site, v)),
       );
     }
 
     return _Section(
       icon: Icons.monitor_heart_outlined,
-      title: 'Plicometría (mm)',
+      title: 'Plicometría (mm) · opcional',
       color: AppColors.cyanLight,
       cells: <Widget>[
         cell(SkinfoldSite.triceps, 'Tríceps'),
@@ -83,6 +101,7 @@ class MeasurementsStep extends StatelessWidget {
         cell(SkinfoldSite.abdominal, 'Abdominal'),
         cell(SkinfoldSite.thigh, 'Muslo'),
         cell(SkinfoldSite.suprailiac, 'Suprailíaco'),
+        cell(SkinfoldSite.midaxillary, 'Axilar medio'),
       ],
     );
   }
@@ -94,6 +113,8 @@ class MeasurementsStep extends StatelessWidget {
         label: label,
         hint: 'cm',
         value: measurements.circumferences[site],
+        guide: kCircumferenceGuides[site],
+        error: showErrors && (measurements.circumferences[site] ?? 0) <= 0,
         onChanged: (double? v) =>
             onChanged(measurements.withCircumference(site, v)),
       );
@@ -184,12 +205,18 @@ class _MeasureCell extends StatelessWidget {
     required this.hint,
     required this.value,
     required this.onChanged,
+    this.guide,
+    this.error = false,
   });
 
   final String label;
   final String hint;
   final double? value;
   final ValueChanged<double?> onChanged;
+
+  /// Instrucciones para tomar esta medida (botón "?").
+  final MeasureGuide? guide;
+  final bool error;
 
   @override
   Widget build(BuildContext context) {
@@ -206,7 +233,17 @@ class _MeasureCell extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        FzOptionalNumberField(value: value, hint: hint, onChanged: onChanged),
+        FzOptionalNumberField(
+          value: value,
+          hint: hint,
+          error: error,
+          onChanged: onChanged,
+        ),
+        if (guide != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: MeasureHelpButton(guide: guide!),
+          ),
       ],
     );
   }

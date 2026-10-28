@@ -11,6 +11,7 @@ class FzFieldFrame extends StatelessWidget {
     this.minHeight = 0,
     this.padding = const EdgeInsets.symmetric(horizontal: 12),
     this.alignment = Alignment.centerLeft,
+    this.error = false,
   });
 
   final bool focused;
@@ -19,6 +20,9 @@ class FzFieldFrame extends StatelessWidget {
   final double minHeight;
   final EdgeInsetsGeometry padding;
   final AlignmentGeometry alignment;
+
+  /// Resalta el campo en rojo (falta llenarlo al intentar continuar).
+  final bool error;
 
   static const double radius = 18;
 
@@ -56,7 +60,11 @@ class FzFieldFrame extends StatelessWidget {
             color: AppColors.whiteA(0.08),
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(
-              color: focused ? AppColors.cyan : AppColors.whiteA(0.15),
+              color: focused
+                  ? AppColors.cyan
+                  : error
+                      ? AppColors.red
+                      : AppColors.whiteA(0.15),
             ),
           ),
           child: child,

@@ -10,10 +10,18 @@ import '../widgets/step_header.dart';
 
 /// Paso "Hábitos de Entrenamiento" (último del onboarding).
 class HabitsStep extends StatelessWidget {
-  const HabitsStep({super.key, required this.habits, required this.onChanged});
+  const HabitsStep({
+    super.key,
+    required this.habits,
+    required this.onChanged,
+    this.showLaterNote = true,
+  });
 
   final TrainingHabits habits;
   final ValueChanged<TrainingHabits> onChanged;
+
+  /// Muestra "podrás modificarlos después" (solo durante el registro).
+  final bool showLaterNote;
 
   @override
   Widget build(BuildContext context) {
@@ -23,10 +31,12 @@ class HabitsStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const StepHeader(
+        StepHeader(
           icon: Icons.schedule_rounded,
           title: 'Hábitos de Entrenamiento',
-          subtitle: 'Todos los datos son obligatorios. Podrás modificarlos luego en Ajustes.',
+          subtitle: showLaterNote
+              ? 'Así ajustamos tu plan a tu rutina. Podrás modificar estos datos después en Ajustes.'
+              : 'Así ajustamos tu plan a tu rutina.',
           teal: true,
         ),
         const SizedBox(height: 24),
