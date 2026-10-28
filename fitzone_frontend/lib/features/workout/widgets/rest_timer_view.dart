@@ -6,7 +6,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../models/exercise.dart';
 
+/// Cuando quedan estos segundos (o menos), el descanso se pone en rojo.
+const int kRestWarningSeconds = 5;
+
 /// Pantalla de descanso: anillo con cuenta regresiva y el siguiente ejercicio.
+/// En los últimos [kRestWarningSeconds] segundos el contador, el anillo y el
+/// brillo cambian a rojo y el número "late" en cada segundo.
 class RestTimerView extends StatelessWidget {
   const RestTimerView({
     super.key,
@@ -14,6 +19,9 @@ class RestTimerView extends StatelessWidget {
     required this.totalSeconds,
     required this.nextExercise,
     required this.onSkip,
+    required this.onExtend,
+    required this.soundOn,
+    required this.onToggleSound,
   });
 
   final int secondsLeft;
@@ -21,12 +29,19 @@ class RestTimerView extends StatelessWidget {
   final Exercise nextExercise;
   final VoidCallback onSkip;
 
+  /// Suma unos segundos más al descanso.
+  final VoidCallback onExtend;
+  final bool soundOn;
+  final VoidCallback onToggleSound;
+
   static Color get _cyan400 => AppColors.cyanLightText;
 
   @override
   Widget build(BuildContext context) {
     final double fraction =
         totalSeconds <= 0 ? 0 : (secondsLeft / totalSeconds).clamp(0.0, 1.0).toDouble();
+    final bool urgent = secondsLeft > 0 && secondsLeft <= kRestWarningSeconds;
+    final Color numberColor = urgent ? AppColors.redStrong : _cyan400;
 
     return SafeArea(
       child: Center(
@@ -48,12 +63,41 @@ class RestTimerView extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Semantics(
+                      button: true,
+                      label: soundOn ? 'Silenciar sonidos' : 'Activar sonidos',
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onToggleSound,
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.whiteA(0.08),
+                          ),
+                          child: Icon(
+                            soundOn
+                                ? Icons.volume_up_rounded
+                                : Icons.volume_off_rounded,
+                            size: 18,
+                            color: AppColors.whiteA(soundOn ? 0.70 : 0.40),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   Text(
-                    'Descansa',
+                    urgent ? '¡Casi listo!' : 'Descansa',
                     textAlign: TextAlign.center,
                     style: AppText.body(
                       size: 14,
-                      color: AppColors.whiteA(0.50),
+                      weight: urgent ? FontWeight.w700 : FontWeight.w400,
+                      color: urgent ? AppColors.red : AppColors.whiteA(0.50),
                       height: 1.43,
                     ),
                   ),
@@ -72,9 +116,22 @@ class RestTimerView extends StatelessWidget {
 
                   // ── Anillo ──
                   Center(
-                    child: SizedBox(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
                       width: 176,
                       height: 176,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: urgent
+                            ? const <BoxShadow>[
+                                BoxShadow(
+                                  color: Color.fromRGBO(239, 68, 68, 0.38),
+                                  blurRadius: 40,
+                                  spreadRadius: 2,
+                                ),
+                              ]
+                            : const <BoxShadow>[],
+                      ),
                       child: Stack(
                         alignment: Alignment.center,
                         children: <Widget>[
@@ -88,28 +145,28 @@ class RestTimerView extends StatelessWidget {
                             ) {
                               return CustomPaint(
                                 size: const Size(176, 176),
-                                painter: _RestRingPainter(value),
+                                painter: _RestRingPainter(value, urgent),
                               );
                             },
                           ),
                           Column(
                             mainAxisSize: MainAxisSize.min,
                             children: <Widget>[
-                              Text(
-                                '$secondsLeft',
-                                style: AppText.display(
-                                  size: 48,
-                                  weight: FontWeight.w700,
-                                  color: _cyan400,
-                                  height: 1,
-                                ),
+                              _RestNumber(
+                                seconds: secondsLeft,
+                                color: numberColor,
+                                urgent: urgent,
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 'segundos',
                                 style: AppText.body(
                                   size: 12,
-                                  color: AppColors.whiteA(0.45),
+                                  weight:
+                                      urgent ? FontWeight.w700 : FontWeight.w400,
+                                  color: urgent
+                                      ? AppColors.red
+                                      : AppColors.whiteA(0.45),
                                   height: 1.333,
                                 ),
                               ),
@@ -121,28 +178,24 @@ class RestTimerView extends StatelessWidget {
                   ),
                   const SizedBox(height: 32),
 
-                  // ── Saltar descanso ──
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onSkip,
-                    child: Container(
-                      height: 44,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: AppColors.whiteA(0.08),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: AppColors.whiteA(0.15)),
-                      ),
-                      child: Text(
-                        'Saltar Descanso',
-                        style: AppText.body(
-                          size: 14,
-                          weight: FontWeight.w600,
-                          color: AppColors.ink,
-                          height: 1.43,
+                  // ── +15 s / Saltar descanso ──
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: _RestButton(
+                          label: '+15 s',
+                          onTap: onExtend,
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: _RestButton(
+                          label: 'Saltar Descanso',
+                          onTap: onSkip,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
 
@@ -197,10 +250,85 @@ class RestTimerView extends StatelessWidget {
   }
 }
 
+/// El número grande. En rojo "late": nace más grande y se encoge cada segundo.
+class _RestNumber extends StatelessWidget {
+  const _RestNumber({
+    required this.seconds,
+    required this.color,
+    required this.urgent,
+  });
+
+  final int seconds;
+  final Color color;
+  final bool urgent;
+
+  @override
+  Widget build(BuildContext context) {
+    final Text text = Text(
+      '$seconds',
+      style: AppText.display(
+        size: 48,
+        weight: FontWeight.w700,
+        color: color,
+        height: 1,
+      ),
+    );
+
+    if (!urgent) return text;
+
+    return TweenAnimationBuilder<double>(
+      key: ValueKey<int>(seconds),
+      tween: Tween<double>(begin: 1.35, end: 1),
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeOutBack,
+      builder: (BuildContext context, double scale, Widget? child) {
+        return Transform.scale(scale: scale, child: child);
+      },
+      child: text,
+    );
+  }
+}
+
+class _RestButton extends StatelessWidget {
+  const _RestButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.whiteA(0.08),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppColors.whiteA(0.15)),
+        ),
+        child: Text(
+          label,
+          style: AppText.body(
+            size: 14,
+            weight: FontWeight.w600,
+            color: AppColors.ink,
+            height: 1.43,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _RestRingPainter extends CustomPainter {
-  const _RestRingPainter(this.fraction);
+  const _RestRingPainter(this.fraction, this.urgent);
 
   final double fraction;
+
+  /// `true` en los últimos segundos: el anillo se dibuja en rojo.
+  final bool urgent;
 
   // El diseño usa un lienzo de 192 con radio 80 y trazo 8; aquí el anillo
   // mide 176, así que todo se escala por 176 / 192.
@@ -231,8 +359,10 @@ class _RestRingPainter extends CustomPainter {
       sweep,
       false,
       Paint()
-        ..shader = const LinearGradient(
-          colors: <Color>[AppColors.cyan, AppColors.teal],
+        ..shader = LinearGradient(
+          colors: urgent
+              ? const <Color>[Color(0xFFEF4444), Color(0xFFF97316)]
+              : const <Color>[AppColors.cyan, AppColors.teal],
         ).createShader(rect)
         ..style = PaintingStyle.stroke
         ..strokeWidth = stroke
@@ -242,6 +372,6 @@ class _RestRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RestRingPainter oldDelegate) {
-    return oldDelegate.fraction != fraction;
+    return oldDelegate.fraction != fraction || oldDelegate.urgent != urgent;
   }
 }

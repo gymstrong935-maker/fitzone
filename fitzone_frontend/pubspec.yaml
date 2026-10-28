@@ -41,6 +41,7 @@ dependencies:
   google_sign_in: ^7.2.0
   image_picker: ^1.1.2
   http_parser: ^4.1.2
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:
@@ -67,6 +68,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/sounds/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

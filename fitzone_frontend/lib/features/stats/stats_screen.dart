@@ -1,18 +1,52 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../core/api/api_exception.dart';
+import '../../core/services/measurements_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import '../../core/widgets/animated_progress_bar.dart';
+import '../../core/widgets/error_box.dart';
 import '../../core/widgets/fade_slide_in.dart';
+import '../history/workouts_controller.dart';
 import '../home/widgets/home_card.dart';
+import '../onboarding/models/onboarding_data.dart';
+import '../onboarding/models/personal_info.dart';
 import 'data/stats_data.dart';
+import 'stats_controller.dart';
 import 'widgets/stats_charts.dart';
 
 enum StatsTab { weight, activity, body }
 
 /// Pantalla "Estadísticas" (pestaña de la barra inferior).
+///
+/// Todo sale de datos reales:
+/// · Peso y Cuerpo: mediciones guardadas en el servidor (si todavía no hay,
+///   los datos del registro).
+/// · Actividad y racha: los entrenamientos terminados.
 class StatsScreen extends StatefulWidget {
-  const StatsScreen({super.key});
+  const StatsScreen({
+    super.key,
+    required this.stats,
+    required this.workouts,
+    required this.onboarding,
+    required this.weeklyGoal,
+    required this.onWeightLogged,
+  });
+
+  final StatsController stats;
+  final WorkoutsController workouts;
+
+  /// Datos del registro: respaldo y datos como edad, sexo o estatura.
+  final OnboardingData onboarding;
+
+  /// Entrenamientos por semana que la persona se propuso.
+  final int weeklyGoal;
+
+  /// Se llama (con los kg) cuando se registra un peso nuevo.
+  final ValueChanged<double> onWeightLogged;
 
   @override
   State<StatsScreen> createState() => _StatsScreenState();
@@ -23,44 +57,90 @@ class _StatsScreenState extends State<StatsScreen> {
   static Color get _teal400 => AppColors.teal400;
   static Color get _orange400 => AppColors.orange;
   static Color get _purple400 => AppColors.purple;
-  static Color get _emerald400 => AppColors.green;
 
   StatsTab _tab = StatsTab.weight;
+
+  @override
+  void initState() {
+    super.initState();
+    // Al abrir la pantalla se trae lo más reciente.
+    unawaited(widget.stats.load(silent: true));
+    unawaited(widget.workouts.refresh(silent: true));
+  }
+
+  Future<void> _refresh() async {
+    await Future.wait<void>(<Future<void>>[
+      widget.stats.load(),
+      widget.workouts.refresh(),
+    ]);
+  }
+
+  /// Mediciones reales; si el servidor aún no tiene ninguna, la que salió del
+  /// registro de la persona.
+  List<BodyRecord> _records() {
+    final List<BodyRecord> saved = widget.stats.records;
+    if (saved.isNotEmpty) return saved;
+    return <BodyRecord>[recordFromOnboarding(widget.onboarding, DateTime.now())];
+  }
 
   @override
   Widget build(BuildContext context) {
     final double top = 24 + MediaQuery.paddingOf(context).top;
     final double bottom = 96 + MediaQuery.paddingOf(context).bottom;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(top: top, bottom: bottom),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 512),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                _buildHeader(),
-                const SizedBox(height: 24),
-                _buildKpiGrid(),
-                const SizedBox(height: 16),
-                _buildTabs(),
-                const SizedBox(height: 16),
-                _buildPanel(),
-                const SizedBox(height: 16),
-                FadeSlideIn(
-                  delay: const Duration(milliseconds: 300),
-                  duration: const Duration(milliseconds: 400),
-                  offsetY: 10,
-                  child: _buildStreakBanner(),
+    return ListenableBuilder(
+      listenable: Listenable.merge(<Listenable>[widget.stats, widget.workouts]),
+      builder: (BuildContext context, Widget? _) {
+        final List<BodyRecord> records = _records();
+        final PersonalInfo info = widget.onboarding.personalInfo;
+        final List<StatKpi> kpis = buildKpis(
+          records,
+          age: info.age < 10 ? 25 : info.age,
+          gender: info.gender,
+        );
+
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.only(top: top, bottom: bottom),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 512),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      _buildHeader(),
+                      const SizedBox(height: 24),
+                      if (widget.stats.error != null &&
+                          widget.stats.records.isEmpty) ...<Widget>[
+                        ErrorBox(
+                          '${widget.stats.error} Mostramos los datos de tu registro.',
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      _buildKpiGrid(kpis),
+                      const SizedBox(height: 16),
+                      _buildTabs(),
+                      const SizedBox(height: 16),
+                      _buildPanel(records),
+                      const SizedBox(height: 16),
+                      FadeSlideIn(
+                        delay: const Duration(milliseconds: 300),
+                        duration: const Duration(milliseconds: 400),
+                        offsetY: 10,
+                        child: _buildStreakBanner(),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -93,18 +173,18 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   // ── Indicadores (2 columnas) ──────────────────────────────────────────────
-  Widget _buildKpiGrid() {
+  Widget _buildKpiGrid(List<StatKpi> kpis) {
     Widget cell(int i) {
       return FadeSlideIn(
         delay: Duration(milliseconds: i * 60),
         duration: const Duration(milliseconds: 400),
         offsetY: 12,
-        child: _KpiCard(kpi: kStatKpis[i]),
+        child: _KpiCard(kpi: kpis[i]),
       );
     }
 
     final List<Widget> rows = <Widget>[];
-    for (int i = 0; i < kStatKpis.length; i += 2) {
+    for (int i = 0; i < kpis.length; i += 2) {
       if (i > 0) rows.add(const SizedBox(height: 12));
       rows.add(
         Row(
@@ -113,7 +193,7 @@ class _StatsScreenState extends State<StatsScreen> {
             Expanded(child: cell(i)),
             const SizedBox(width: 12),
             Expanded(
-              child: i + 1 < kStatKpis.length ? cell(i + 1) : const SizedBox(),
+              child: i + 1 < kpis.length ? cell(i + 1) : const SizedBox(),
             ),
           ],
         ),
@@ -145,7 +225,7 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   // ── Panel que cambia según la pestaña ─────────────────────────────────────
-  Widget _buildPanel() {
+  Widget _buildPanel(List<BodyRecord> records) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       reverseDuration: Duration.zero,
@@ -171,9 +251,9 @@ class _StatsScreenState extends State<StatsScreen> {
         );
       },
       child: switch (_tab) {
-        StatsTab.weight => _buildWeightPanel(),
+        StatsTab.weight => _buildWeightPanel(records),
         StatsTab.activity => _buildActivityPanel(),
-        StatsTab.body => _buildBodyPanel(),
+        StatsTab.body => _buildBodyPanel(records),
       },
     );
   }
@@ -188,29 +268,32 @@ class _StatsScreenState extends State<StatsScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: <Widget>[
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              title,
-              style: AppText.display(
-                size: 16,
-                weight: FontWeight.w700,
-                height: 1.5,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                title,
+                style: AppText.display(
+                  size: 16,
+                  weight: FontWeight.w700,
+                  height: 1.5,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: AppText.body(
-                size: 12,
-                color: AppColors.whiteA(0.40),
-                height: 1.333,
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: AppText.body(
+                  size: 12,
+                  color: AppColors.whiteA(0.40),
+                  height: 1.333,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+        const SizedBox(width: 8),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -232,7 +315,22 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   // ── Pestaña: Peso ─────────────────────────────────────────────────────────
-  Widget _buildWeightPanel() {
+  Widget _buildWeightPanel(List<BodyRecord> records) {
+    final List<WeightPoint> points = buildWeightPoints(records);
+    final double change = weightChange(records);
+    final bool onlyFromSignup = widget.stats.records.isEmpty;
+
+    final IconData icon = change.abs() < 0.05
+        ? Icons.trending_flat_rounded
+        : change > 0
+            ? Icons.trending_up_rounded
+            : Icons.trending_down_rounded;
+    final String trailing =
+        change.abs() < 0.05 ? 'Sin cambios' : '${formatSigned(change)} kg';
+    final String subtitle = points.length <= 1
+        ? 'Última medición'
+        : 'Últimas ${points.length} mediciones';
+
     return HomeCard(
       key: const ValueKey<String>('panel-weight'),
       child: Column(
@@ -240,13 +338,26 @@ class _StatsScreenState extends State<StatsScreen> {
         children: <Widget>[
           _panelHeader(
             title: 'Peso Corporal',
-            subtitle: 'Últimas 6 semanas',
-            icon: Icons.trending_down_rounded,
-            trailing: '-2 kg',
+            subtitle: subtitle,
+            icon: icon,
+            trailing: trailing,
             color: _cyan400,
           ),
           const SizedBox(height: 16),
-          const WeightAreaChart(data: kWeightData),
+          WeightAreaChart(data: points),
+          if (onlyFromSignup) ...<Widget>[
+            const SizedBox(height: 12),
+            Text(
+              'Aún no hay mediciones guardadas: se muestra el peso de tu registro.',
+              style: AppText.body(
+                size: 12,
+                color: AppColors.whiteA(0.40),
+                height: 1.333,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          _AddWeightButton(onTap: () => _openWeightSheet(records.last)),
         ],
       ),
     );
@@ -254,6 +365,13 @@ class _StatsScreenState extends State<StatsScreen> {
 
   // ── Pestaña: Actividad ────────────────────────────────────────────────────
   Widget _buildActivityPanel() {
+    final WorkoutsController w = widget.workouts;
+    final List<ActivityPoint> data = buildActivity(w.minutesByWeekday);
+    final int sessions = w.sessionsThisWeek;
+    final int minutes = w.minutesThisWeek;
+    final int kcal = w.caloriesThisWeek;
+    final int compliance = compliancePercent(sessions, widget.weeklyGoal);
+
     return HomeCard(
       key: const ValueKey<String>('panel-activity'),
       child: Column(
@@ -263,11 +381,22 @@ class _StatsScreenState extends State<StatsScreen> {
             title: 'Tiempo de Entrenamiento',
             subtitle: 'Esta semana · minutos',
             icon: Icons.monitor_heart_outlined,
-            trailing: '240 min',
+            trailing: '$minutes min',
             color: _teal400,
           ),
           const SizedBox(height: 16),
-          const ActivityBarChart(data: kActivityData),
+          ActivityBarChart(data: data),
+          if (sessions == 0) ...<Widget>[
+            const SizedBox(height: 12),
+            Text(
+              'Todavía no has entrenado esta semana. Tu primer entrenamiento aparecerá aquí.',
+              style: AppText.body(
+                size: 12,
+                color: AppColors.whiteA(0.40),
+                height: 1.333,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.only(top: 16),
@@ -277,11 +406,11 @@ class _StatsScreenState extends State<StatsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                _SummaryChip(value: '5', label: 'sesiones', color: _cyan400),
-                _SummaryChip(value: '240', label: 'minutos', color: _teal400),
-                _SummaryChip(value: '1920', label: 'kcal', color: _orange400),
+                _SummaryChip(value: '$sessions', label: 'sesiones', color: _cyan400),
+                _SummaryChip(value: '$minutes', label: 'minutos', color: _teal400),
+                _SummaryChip(value: '$kcal', label: 'kcal', color: _orange400),
                 _SummaryChip(
-                  value: '71%',
+                  value: '$compliance%',
                   label: 'cumplimiento',
                   color: _purple400,
                 ),
@@ -294,7 +423,9 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   // ── Pestaña: Cuerpo ───────────────────────────────────────────────────────
-  Widget _buildBodyPanel() {
+  Widget _buildBodyPanel(List<BodyRecord> records) {
+    final List<CircumferenceStat> stats = buildCircumferences(records);
+
     return HomeCard(
       key: const ValueKey<String>('panel-body'),
       child: Column(
@@ -310,7 +441,7 @@ class _StatsScreenState extends State<StatsScreen> {
           ),
           const SizedBox(height: 2),
           Text(
-            'vs. medición anterior',
+            records.length > 1 ? 'vs. medición anterior' : 'Primera medición',
             style: AppText.body(
               size: 12,
               color: AppColors.whiteA(0.40),
@@ -318,10 +449,20 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          for (int i = 0; i < kCircumferences.length; i++) ...<Widget>[
-            if (i > 0) const SizedBox(height: 12),
-            _CircumferenceRow(stat: kCircumferences[i], index: i),
-          ],
+          if (stats.isEmpty)
+            Text(
+              'Aún no hay medidas guardadas. Puedes agregarlas desde Ajustes → Datos personales.',
+              style: AppText.body(
+                size: 14,
+                color: AppColors.whiteA(0.55),
+                height: 1.43,
+              ),
+            )
+          else
+            for (int i = 0; i < stats.length; i++) ...<Widget>[
+              if (i > 0) const SizedBox(height: 12),
+              _CircumferenceRow(stat: stats[i], index: i),
+            ],
         ],
       ),
     );
@@ -329,6 +470,16 @@ class _StatsScreenState extends State<StatsScreen> {
 
   // ── Banner de racha ───────────────────────────────────────────────────────
   Widget _buildStreakBanner() {
+    final int streak = widget.workouts.currentStreak;
+    final String title = streak == 0
+        ? 'Empieza tu racha'
+        : 'Racha de $streak ${streak == 1 ? 'día' : 'días'}';
+    final String message = streak == 0
+        ? 'Completa un entrenamiento hoy para iniciarla.'
+        : streak == 1
+            ? 'Entrenaste hoy. ¡Mañana suma el segundo día!'
+            : 'Llevas $streak días seguidos entrenando. ¡Increíble!';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -353,7 +504,7 @@ class _StatsScreenState extends State<StatsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 Text(
-                  'Racha de 7 días',
+                  title,
                   style: AppText.body(
                     size: 16,
                     weight: FontWeight.w700,
@@ -363,7 +514,7 @@ class _StatsScreenState extends State<StatsScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Llevas 7 días seguidos entrenando. ¡Increíble!',
+                  message,
                   style: AppText.body(
                     size: 12,
                     color: AppColors.whiteA(0.50),
@@ -375,7 +526,7 @@ class _StatsScreenState extends State<StatsScreen> {
           ),
           const SizedBox(width: 16),
           Text(
-            '7',
+            '$streak',
             style: AppText.display(
               size: 24,
               weight: FontWeight.w700,
@@ -384,6 +535,276 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ── Registrar peso ────────────────────────────────────────────────────────
+  Future<void> _openWeightSheet(BodyRecord latest) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+    final double? saved = await showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0xBF000000),
+      constraints: const BoxConstraints(maxWidth: 512),
+      builder: (BuildContext ctx) => _WeightSheet(
+        latest: latest,
+        onSave: (double kg) => widget.stats.logWeight(kg, base: latest),
+      ),
+    );
+
+    if (saved == null || !mounted) return;
+    widget.onWeightLogged(saved);
+    messenger.showSnackBar(
+      SnackBar(content: Text('Peso guardado: ${formatStat(saved)} kg')),
+    );
+  }
+}
+
+/// Botón "Registrar peso" bajo la gráfica.
+class _AddWeightButton extends StatelessWidget {
+  const _AddWeightButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Registrar peso',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.cyanA(0.12),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.cyanA(0.30)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(Icons.add_rounded, size: 18, color: AppColors.cyanText),
+              const SizedBox(width: 6),
+              Text(
+                'Registrar peso de hoy',
+                style: AppText.body(
+                  size: 14,
+                  weight: FontWeight.w600,
+                  color: AppColors.cyanText,
+                  height: 1.43,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Hoja inferior para escribir el peso de hoy.
+class _WeightSheet extends StatefulWidget {
+  const _WeightSheet({required this.latest, required this.onSave});
+
+  final BodyRecord latest;
+
+  /// Guarda el peso (en kg). Lanza `ApiException` si falla.
+  final Future<BodyRecord> Function(double kg) onSave;
+
+  @override
+  State<_WeightSheet> createState() => _WeightSheetState();
+}
+
+class _WeightSheetState extends State<_WeightSheet> {
+  static const double _lbPerKg = 2.20462;
+
+  late final TextEditingController _controller;
+  bool _saving = false;
+  String? _error;
+
+  bool get _pounds => widget.latest.usesPounds;
+  String get _unit => _pounds ? 'lb' : 'kg';
+
+  @override
+  void initState() {
+    super.initState();
+    final double shown =
+        _pounds ? widget.latest.kg * _lbPerKg : widget.latest.kg;
+    _controller = TextEditingController(text: formatStat(shown));
+    _controller.selection =
+        TextSelection(baseOffset: 0, extentOffset: _controller.text.length);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final double? typed =
+        double.tryParse(_controller.text.trim().replaceAll(',', '.'));
+    if (typed == null) {
+      setState(() => _error = 'Escribe tu peso en números.');
+      return;
+    }
+
+    final double kg = _pounds ? typed / _lbPerKg : typed;
+    if (kg < 20 || kg > 300) {
+      setState(() => _error = 'Escribe un peso entre 20 y 300 kg.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      final double rounded = double.parse(kg.toStringAsFixed(1));
+      await widget.onSave(rounded);
+      if (!mounted) return;
+      Navigator.of(context).pop(rounded);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = e.message;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double keyboard = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboard),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(color: AppColors.whiteA(0.10)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.whiteA(0.20),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Registrar peso',
+              style: AppText.display(
+                size: 20,
+                weight: FontWeight.w700,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Se guarda con la fecha de hoy y actualiza tus estadísticas.',
+              style: AppText.body(
+                size: 14,
+                color: AppColors.whiteA(0.55),
+                height: 1.43,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              enabled: !_saving,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                LengthLimitingTextInputFormatter(6),
+              ],
+              onSubmitted: (_) => _save(),
+              style: AppText.display(
+                size: 24,
+                weight: FontWeight.w700,
+                height: 1.333,
+              ),
+              decoration: InputDecoration(
+                suffixText: _unit,
+                suffixStyle: AppText.body(
+                  size: 16,
+                  color: AppColors.whiteA(0.55),
+                  height: 1.5,
+                ),
+                filled: true,
+                fillColor: AppColors.whiteA(0.06),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: AppColors.whiteA(0.12)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: AppColors.whiteA(0.12)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: AppColors.cyanA(0.60)),
+                ),
+              ),
+            ),
+            if (_error != null) ...<Widget>[
+              const SizedBox(height: 12),
+              ErrorBox(_error!),
+            ],
+            const SizedBox(height: 16),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _saving ? null : _save,
+              child: Container(
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  gradient: const LinearGradient(
+                    colors: <Color>[AppColors.cyan, AppColors.teal],
+                  ),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
+                      )
+                    : Text(
+                        'Guardar',
+                        style: AppText.body(
+                          size: 16,
+                          weight: FontWeight.w600,
+                          color: Colors.black,
+                          height: 1.5,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -583,9 +1004,16 @@ class _CircumferenceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double diff = stat.diff;
-    final String diffText =
-        '${diff > 0 ? '+' : ''}${diff.toStringAsFixed(1)} ${stat.unit}';
+    final String diffText = !stat.hasPrev
+        ? 'Primera medición'
+        : stat.isNeutral
+            ? 'Sin cambios'
+            : '${formatSigned(stat.diff)} ${stat.unit}';
+    final Color diffColor = stat.isNeutral
+        ? AppColors.whiteA(0.50)
+        : stat.isGood
+            ? _emerald400
+            : _red400;
 
     final Duration delay = Duration(milliseconds: index * 70);
     final Duration total = delay + const Duration(milliseconds: 300);
@@ -627,7 +1055,7 @@ class _CircumferenceRow extends StatelessWidget {
                     style: AppText.body(
                       size: 12,
                       weight: FontWeight.w600,
-                      color: stat.isGood ? _emerald400 : _red400,
+                      color: diffColor,
                       height: 1.333,
                     ),
                   ),

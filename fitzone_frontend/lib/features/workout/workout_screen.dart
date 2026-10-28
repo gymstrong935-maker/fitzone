@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/services/sound_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import 'models/exercise.dart';
@@ -37,11 +39,31 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   int _workoutSeconds = 0;
   int _completedCount = 0;
   bool _showSummary = false;
+  bool _soundOn = SoundService.instance.enabled;
+
+  /// Segundos que suma el botón "+15 s" del descanso.
+  static const int _extraRestSeconds = 15;
 
   @override
   void initState() {
     super.initState();
     _timer = Timer.periodic(const Duration(seconds: 1), _tick);
+    unawaited(_initSound());
+  }
+
+  /// Lee si el usuario había silenciado los sonidos y avisa que empieza.
+  Future<void> _initSound() async {
+    await SoundService.instance.load();
+    if (!mounted) return;
+    setState(() => _soundOn = SoundService.instance.enabled);
+    unawaited(SoundService.instance.play(FzSound.start));
+  }
+
+  Future<void> _toggleSound() async {
+    final bool next = !_soundOn;
+    setState(() => _soundOn = next);
+    await SoundService.instance.setEnabled(next);
+    if (next) unawaited(SoundService.instance.play(FzSound.tap));
   }
 
   @override
@@ -54,6 +76,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   /// cuenta regresiva del descanso.
   void _tick(Timer timer) {
     if (!mounted) return;
+
+    FzSound? sound;
     setState(() {
       if (!_showSummary) _workoutSeconds++;
       if (_resting) {
@@ -61,9 +85,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         if (_restLeft <= 0) {
           _restLeft = 0;
           _resting = false;
+          sound = FzSound.go; // se acabó el descanso: a trabajar
+        } else if (_restLeft <= kRestWarningSeconds) {
+          sound = FzSound.tick; // cuenta regresiva en rojo
         }
       }
     });
+
+    final FzSound? toPlay = sound;
+    if (toPlay != null) unawaited(SoundService.instance.play(toPlay));
   }
 
   void _completeExercise() {
@@ -71,6 +101,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     _completedCount++;
 
     if (_index < widget.exercises.length - 1) {
+      unawaited(SoundService.instance.play(FzSound.complete));
       setState(() {
         _restTotal = current.rest;
         _restLeft = current.rest;
@@ -78,14 +109,24 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         _index++;
       });
     } else {
+      unawaited(SoundService.instance.play(FzSound.finish));
       setState(() => _showSummary = true);
     }
   }
 
   void _skipRest() {
+    unawaited(SoundService.instance.play(FzSound.tap));
     setState(() {
       _resting = false;
       _restLeft = 0;
+    });
+  }
+
+  void _extendRest() {
+    unawaited(SoundService.instance.play(FzSound.tap));
+    setState(() {
+      _restTotal += _extraRestSeconds;
+      _restLeft += _extraRestSeconds;
     });
   }
 
@@ -108,7 +149,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       WorkoutLog(
         workoutId: 'workout-${now.millisecondsSinceEpoch}',
         date: now,
-        duration: _workoutSeconds ~/ 60,
+        // Minutos reales, redondeados (y al menos 1 si hubo entrenamiento).
+        duration: math.max(1, (_workoutSeconds / 60).round()),
+        calories: (_workoutSeconds / 60 * 8).round(),
         restingHeartRate: restingHeartRate,
         fatigue: fatigue,
         soreness: soreness,
@@ -135,6 +178,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         totalSeconds: _restTotal,
         nextExercise: widget.exercises[_index],
         onSkip: _skipRest,
+        onExtend: _extendRest,
+        soundOn: _soundOn,
+        onToggleSound: () => unawaited(_toggleSound()),
       );
     } else {
       body = ActiveExerciseView(
@@ -145,6 +191,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         workoutSeconds: _workoutSeconds,
         onCancel: _confirmExit,
         onComplete: _completeExercise,
+        soundOn: _soundOn,
+        onToggleSound: () => unawaited(_toggleSound()),
       );
     }
 

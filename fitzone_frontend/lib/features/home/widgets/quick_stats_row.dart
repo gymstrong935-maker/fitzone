@@ -10,11 +10,19 @@ class QuickStatsRow extends StatelessWidget {
     required this.sessions,
     required this.minutes,
     required this.energy,
+    this.minutesSub = 'por sesión',
+    this.energySub = 'hoy',
   });
 
   final int sessions;
   final int minutes;
   final int energy;
+
+  /// Texto bajo "Minutos" (p. ej. "por sesión" o "planificados").
+  final String minutesSub;
+
+  /// Texto bajo "Energía" (p. ej. "hoy" o "hoy (est.)").
+  final String energySub;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +45,7 @@ class QuickStatsRow extends StatelessWidget {
             color: AppColors.teal,
             value: '$minutes',
             label: 'Minutos',
-            sub: 'por sesión',
+            sub: minutesSub,
           ),
         ),
         const SizedBox(width: 12),
@@ -47,7 +55,7 @@ class QuickStatsRow extends StatelessWidget {
             color: AppColors.orangeStrong,
             value: '$energy/10',
             label: 'Energía',
-            sub: 'hoy',
+            sub: energySub,
           ),
         ),
       ],

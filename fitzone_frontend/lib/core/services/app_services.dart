@@ -6,6 +6,7 @@ import 'auth_service.dart';
 import 'chat_service.dart';
 import 'coaches_service.dart';
 import 'google_auth_service.dart';
+import 'measurements_service.dart';
 import 'notifications_service.dart';
 import 'nutrition_service.dart';
 import 'onboarding_sync_service.dart';
@@ -29,6 +30,7 @@ class AppServices {
     appointments = AppointmentsService(api);
     chat = ChatService(api);
     workouts = WorkoutsService(api);
+    measurements = MeasurementsService(api);
     nutrition = NutritionService(api);
     admin = AdminService(api);
     support = SupportService(api);
@@ -51,6 +53,7 @@ class AppServices {
   late final AppointmentsService appointments;
   late final ChatService chat;
   late final WorkoutsService workouts;
+  late final MeasurementsService measurements;
   late final NutritionService nutrition;
   late final AdminService admin;
   late final SupportService support;

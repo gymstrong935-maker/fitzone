@@ -14,6 +14,7 @@ class WorkoutDayCard extends StatelessWidget {
     required this.isExpanded,
     required this.onToggle,
     required this.onStart,
+    required this.onView,
   });
 
   final WeekWorkout workout;
@@ -21,6 +22,9 @@ class WorkoutDayCard extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback onToggle;
   final VoidCallback onStart;
+
+  /// Abre la tarjeta con los ejercicios del día (botón "Ver").
+  final VoidCallback onView;
 
   static Color get _cyan400 => AppColors.cyanLightText;
   static const Color _ink = Colors.black;
@@ -196,9 +200,7 @@ class WorkoutDayCard extends StatelessWidget {
             Expanded(child: _StartButton(onTap: onStart)),
             const SizedBox(width: 8),
           ],
-          // "Ver": el diseño aún no define ninguna acción. El onTap vacío
-          // evita que el toque contraiga la tarjeta.
-          _ViewButton(onTap: () {}),
+          _ViewButton(onTap: onView),
         ],
       ),
     );

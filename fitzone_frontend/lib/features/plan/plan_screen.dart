@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../core/services/workouts_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import '../../core/widgets/fade_slide_in.dart';
 import '../home/widgets/home_card.dart';
+import '../workout/models/exercise.dart';
 import 'data/plan_data.dart';
+import 'widgets/day_detail_sheet.dart';
 import 'widgets/day_strip.dart';
 import 'widgets/mesocycle_card.dart';
 import 'widgets/month_calendar.dart';
@@ -22,6 +25,8 @@ class PlanScreen extends StatefulWidget {
     required this.onStartWorkout,
     required this.week,
     required this.mesocycle,
+    required this.dayExercises,
+    required this.sessions,
   });
 
   /// 7 valores (lunes a domingo): `true` = día con entrenamiento completado.
@@ -30,6 +35,12 @@ class PlanScreen extends StatefulWidget {
   /// Los 7 días del plan generado.
   final List<WeekWorkout> week;
   final Mesocycle mesocycle;
+
+  /// Ejercicios planificados de cada día (lunes a domingo; `null` = descanso).
+  final List<List<Exercise>?> dayExercises;
+
+  /// Entrenamientos reales guardados (de cualquier fecha).
+  final List<SavedWorkout> sessions;
 
   @override
   State<PlanScreen> createState() => _PlanScreenState();
@@ -60,6 +71,36 @@ class _PlanScreenState extends State<PlanScreen> {
   void _toggleDay(int i) {
     setState(() => _expandedDay = _expandedDay == i ? null : i);
   }
+
+  /// Fecha del día `i` (0 = lunes) de la semana actual.
+  DateTime _dateOfDay(int i) {
+    final DateTime now = DateTime.now();
+    return DateTime(now.year, now.month, now.day - (now.weekday - 1) + i);
+  }
+
+  /// Botón "Ver": ejercicios realizados ese día (o los planificados si aún
+  /// no se entrenó), con sus animaciones en miniatura.
+  void _viewDay(int i) {
+    final DateTime date = _dateOfDay(i);
+    final List<SavedWorkout> done = <SavedWorkout>[
+      for (final SavedWorkout w in widget.sessions)
+        if (_sameDay(w.date.toLocal(), date)) w,
+    ];
+    final List<Exercise> planned = i < widget.dayExercises.length
+        ? (widget.dayExercises[i] ?? const <Exercise>[])
+        : const <Exercise>[];
+
+    showDayDetailSheet(
+      context,
+      workout: _workouts[i],
+      date: date,
+      planned: planned,
+      done: done,
+    );
+  }
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   @override
   Widget build(BuildContext context) {
@@ -208,6 +249,7 @@ class _PlanScreenState extends State<PlanScreen> {
               isExpanded: _expandedDay == i,
               onToggle: () => _toggleDay(i),
               onStart: widget.onStartWorkout,
+              onView: () => _viewDay(i),
             ),
           ),
         ],

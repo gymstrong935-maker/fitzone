@@ -20,6 +20,8 @@ class ActiveExerciseView extends StatelessWidget {
     required this.workoutSeconds,
     required this.onCancel,
     required this.onComplete,
+    required this.soundOn,
+    required this.onToggleSound,
   });
 
   final Exercise exercise;
@@ -28,6 +30,10 @@ class ActiveExerciseView extends StatelessWidget {
   final int workoutSeconds;
   final VoidCallback onCancel;
   final VoidCallback onComplete;
+
+  /// `true` = los sonidos del entrenamiento están activados.
+  final bool soundOn;
+  final VoidCallback onToggleSound;
 
   static Color get _cyan400 => AppColors.cyanLightText;
   static Color get _purple400 => AppColors.violet;
@@ -133,7 +139,30 @@ class ActiveExerciseView extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(width: 36),
+                  Semantics(
+                    button: true,
+                    label: soundOn ? 'Silenciar sonidos' : 'Activar sonidos',
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onToggleSound,
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.whiteA(0.08),
+                        ),
+                        child: Icon(
+                          soundOn
+                              ? Icons.volume_up_rounded
+                              : Icons.volume_off_rounded,
+                          size: 16,
+                          color: AppColors.whiteA(soundOn ? 0.70 : 0.40),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),

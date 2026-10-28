@@ -25,6 +25,7 @@ import '../nutrition/nutrition_screen.dart';
 import '../plan/data/plan_generator.dart';
 import '../plan/plan_screen.dart';
 import '../settings/settings_screen.dart';
+import '../stats/stats_controller.dart';
 import '../stats/stats_screen.dart';
 import '../support/widgets/support_fab.dart';
 import '../workout/models/exercise.dart';
@@ -33,6 +34,7 @@ import '../workout/workout_screen.dart';
 import 'widgets/fz_bottom_nav.dart';
 import '../../core/theme/app_colors.dart';
 import '../onboarding/models/onboarding_data.dart';
+import '../onboarding/models/personal_info.dart';
 
 /// Pestañas con barra de navegación inferior.
 const List<String> kMainTabs = <String>['home', 'stats', 'plan', 'settings'];
@@ -111,6 +113,11 @@ class _MainShellState extends State<MainShell> {
     userId: widget.userProfile.id,
   );
 
+  late final StatsController _stats = StatsController(
+    service: AppServices.instance.measurements,
+    userId: widget.userProfile.id,
+  );
+
   late final NutritionController _nutrition = NutritionController(
     service: AppServices.instance.nutrition,
     userId: widget.userProfile.id,
@@ -130,6 +137,7 @@ class _MainShellState extends State<MainShell> {
     ThemeController.instance.addListener(_onThemeChanged);
     _notifications.start();
     unawaited(_workouts.start());
+    unawaited(_stats.load(silent: true));
     unawaited(_nutrition.load(silent: true));
   }
 
@@ -138,6 +146,7 @@ class _MainShellState extends State<MainShell> {
     ThemeController.instance.removeListener(_onThemeChanged);
     _notifications.dispose();
     _workouts.dispose();
+    _stats.dispose();
     _nutrition.dispose();
     _assistant.dispose();
     super.dispose();
@@ -177,7 +186,7 @@ class _MainShellState extends State<MainShell> {
           'w${log.date.millisecondsSinceEpoch}${math.Random().nextInt(9000) + 1000}',
       date: log.date,
       durationMinutes: log.duration,
-      calories: log.duration * 8,
+      calories: log.calories,
       exercises: <SavedExercise>[
         for (final Exercise exercise in _workoutExercises)
           SavedExercise(
@@ -198,6 +207,24 @@ class _MainShellState extends State<MainShell> {
       _workoutActive = false;
       _prev = _active;
       _active = 'home';
+    });
+  }
+
+  /// Se registró un peso nuevo en Estadísticas: se refleja en el perfil para
+  /// que nutrición y demás cálculos usen el peso actual.
+  void _onWeightLogged(double kg) {
+    final OnboardingData data = _profile.onboardingData;
+    final PersonalInfo info = data.personalInfo;
+    final double shown = info.weightUnit == WeightUnit.kg
+        ? kg
+        : double.parse((kg * 2.20462).toStringAsFixed(1));
+
+    setState(() {
+      _profile = _profile.copyWith(
+        onboardingData: data.copyWith(
+          personalInfo: info.copyWith(weight: shown),
+        ),
+      );
     });
   }
 
@@ -309,13 +336,22 @@ class _MainShellState extends State<MainShell> {
 
     switch (_active) {
       case 'stats':
-        return StatsScreen(key: key);
+        return StatsScreen(
+          key: key,
+          stats: _stats,
+          workouts: _workouts,
+          onboarding: _profile.onboardingData,
+          weeklyGoal: _profile.onboardingData.trainingHabits.frequency,
+          onWeightLogged: _onWeightLogged,
+        );
       case 'plan':
         return PlanScreen(
           key: key,
           weekProgress: weekProgress,
           week: _plan.week,
           mesocycle: _plan.mesocycle,
+          dayExercises: _plan.days,
+          sessions: _workouts.sessions,
           onStartWorkout: _startWorkout,
         );
       case 'settings':
@@ -373,6 +409,9 @@ class _MainShellState extends State<MainShell> {
           userProfile: _profile,
           plan: _plan,
           weekProgress: weekProgress,
+          sessionsThisWeek: _workouts.sessionsThisWeek,
+          averageMinutes: _workouts.averageMinutesPerSession,
+          energyToday: _workouts.energyToday,
           notifications: _notifications,
           onNavigate: _navigate,
           onStartWorkout: _startWorkout,

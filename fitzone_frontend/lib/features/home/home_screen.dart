@@ -33,6 +33,9 @@ class HomeScreen extends StatefulWidget {
     required this.onOpenAssistant,
     required this.onOpenAppointments,
     required this.plan,
+    required this.sessionsThisWeek,
+    required this.averageMinutes,
+    required this.energyToday,
   });
 
   final UserProfile userProfile;
@@ -51,6 +54,15 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onOpenAppointments;
   /// Plan semanal generado con los datos del usuario.
   final TrainingPlan plan;
+
+  /// Entrenamientos reales de esta semana.
+  final int sessionsThisWeek;
+
+  /// Minutos promedio por sesión real (`null` si todavía no hay ninguna).
+  final int? averageMinutes;
+
+  /// Energía de hoy según la última sesión de hoy (`null` si no se entrenó).
+  final int? energyToday;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -76,10 +88,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final OnboardingData data = widget.userProfile.onboardingData;
     final habits = data.trainingHabits;
-    final int energy = data.personalInfo.psychologicalCondition.energy;
     final trainer = data.trainer;
 
-    final int workoutsThisWeek = widget.weekProgress.where((bool d) => d).length;
+    // Indicadores en tiempo real: salen de los entrenamientos guardados. Solo
+    // si aún no hay datos reales se usa lo que la persona declaró al inicio.
+    final int workoutsThisWeek = widget.sessionsThisWeek;
+    final int? realMinutes = widget.averageMinutes;
+    final int? realEnergy = widget.energyToday;
+    final int minutes = realMinutes ?? habits.duration;
+    final int energy =
+        realEnergy ?? data.personalInfo.psychologicalCondition.energy;
+    final String minutesSub = realMinutes != null ? 'por sesión' : 'planificados';
+    final String energySub = realEnergy != null ? 'hoy' : 'hoy (est.)';
     final int weeklyGoal = habits.frequency;
     final TodayWorkout workout = widget.plan.todayWorkout(DateTime.now());
     final double bottomPadding = 96 + MediaQuery.paddingOf(context).bottom;
@@ -110,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               StatPill(
                 icon: Icons.monitor_heart_outlined,
-                value: '${habits.duration} min/sesión',
+                value: '$minutes min/sesión',
                 color: AppColors.cyanLight,
               ),
               StatPill(
@@ -160,8 +180,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       offsetY: 14,
                       child: QuickStatsRow(
                         sessions: workoutsThisWeek,
-                        minutes: habits.duration,
+                        minutes: minutes,
                         energy: energy,
+                        minutesSub: minutesSub,
+                        energySub: energySub,
                       ),
                     ),
                     const SizedBox(height: 16),

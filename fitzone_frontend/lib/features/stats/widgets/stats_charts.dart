@@ -56,22 +56,63 @@ Path monotonePath(List<Offset> p) {
 // Gráfica de área: peso corporal
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// Escala vertical de la gráfica de peso: se ajusta a los datos y siempre
+/// tiene 4 divisiones (5 marcas) en números enteros.
+class WeightScale {
+  const WeightScale(this.min, this.max, this.ticks);
+
+  final double min;
+  final double max;
+  final List<double> ticks;
+
+  factory WeightScale.of(List<WeightPoint> data) {
+    if (data.isEmpty) {
+      return const WeightScale(0, 4, <double>[0, 1, 2, 3, 4]);
+    }
+
+    double lo = data.first.kg;
+    double hi = data.first.kg;
+    for (final WeightPoint d in data) {
+      lo = math.min(lo, d.kg);
+      hi = math.max(hi, d.kg);
+    }
+
+    // Un margen para que la línea no toque los bordes.
+    if (hi - lo < 2) {
+      final double mid = (hi + lo) / 2;
+      lo = mid - 1.5;
+      hi = mid + 1.5;
+    } else {
+      lo -= 0.5;
+      hi += 0.5;
+    }
+
+    final double yMin = lo.floorToDouble();
+    final int step = math.max(1, ((hi - yMin) / 4).ceil());
+    final double yMax = yMin + step * 4;
+
+    return WeightScale(
+      yMin,
+      yMax,
+      <double>[for (int i = 0; i <= 4; i++) yMin + i * step],
+    );
+  }
+}
+
 class WeightAreaChart extends StatelessWidget {
   const WeightAreaChart({super.key, required this.data});
 
   final List<WeightPoint> data;
 
-  static const double _yMin = 72;
-  static const double _yMax = 76;
-
   static List<Offset> _points(List<WeightPoint> data, Size size) {
     final Rect r = ChartPlot(size).rect;
     final int n = data.length;
+    final WeightScale scale = WeightScale.of(data);
     return <Offset>[
       for (int i = 0; i < n; i++)
         Offset(
-          r.left + (n == 1 ? 0 : i / (n - 1) * r.width),
-          r.bottom - (data[i].kg - _yMin) / (_yMax - _yMin) * r.height,
+          r.left + (n == 1 ? r.width / 2 : i / (n - 1) * r.width),
+          r.bottom - (data[i].kg - scale.min) / (scale.max - scale.min) * r.height,
         ),
     ];
   }
@@ -84,6 +125,7 @@ class WeightAreaChart extends StatelessWidget {
         final Rect r = ChartPlot(size).rect;
         if (!r.contains(position)) return null;
         final int n = data.length;
+        if (n <= 1) return 0;
         final double t = (position.dx - r.left) / r.width;
         return (t * (n - 1)).round().clamp(0, n - 1);
       },
@@ -109,13 +151,15 @@ class _WeightPainter extends CustomPainter {
     final ChartPlot plot = ChartPlot(size);
     final Rect r = plot.rect;
     final List<Offset> pts = WeightAreaChart._points(data, size);
+    if (pts.isEmpty) return;
+    final WeightScale scale = WeightScale.of(data);
 
     paintChartAxes(
       canvas,
       plot,
-      yTicks: const <double>[72, 73, 74, 75, 76],
-      yMin: WeightAreaChart._yMin,
-      yMax: WeightAreaChart._yMax,
+      yTicks: scale.ticks,
+      yMin: scale.min,
+      yMax: scale.max,
       xLabels: <String>[for (final WeightPoint d in data) d.week],
       xCenters: <double>[for (final Offset o in pts) o.dx],
     );
