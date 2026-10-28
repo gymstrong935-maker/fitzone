@@ -35,3 +35,7 @@ build/
 .pub/
 .packages
 pubspec.lock
+# Archivos generados por Flutter/Dart
+**/.dart_tool/
+**/build/
+**/flutter_build/
