@@ -20,7 +20,7 @@ class GoogleAuthConfig {
   static const String serverClientId = String.fromEnvironment(
     'GOOGLE_SERVER_CLIENT_ID',
     defaultValue:
-        '5614844232-2oar3j6s58ipj1krfql51mbg3tck45pc.apps.googleusercontent.com',
+        '5614844232-ar4n9p64skv3s48ilufdibmk7srj25h7.apps.googleusercontent.com',
   );
   static const String iosClientId =
       String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
