@@ -11,17 +11,36 @@ import { crearSuscripcionParaPlan, planBloqueante } from '../helpers/suscripcion
 import { borrarImagenCloudinary } from '../utils/cloudinary.js';
 import { enviarCorreoSeguro } from '../utils/enviarCorreoSeguro.js';
 import notificarAdmin from '../helpers/notificarAdmin.js';
-import {MINUTOS_CODIGO, correoVerificacion, correoRecuperacion, escapeHtml} from '../utils/emailTemplates.js';
+import { MINUTOS_CODIGO, correoVerificacion, correoRecuperacion, escapeHtml } from '../utils/emailTemplates.js';
 import RevokedAccount from '../models/RevokedAccount.js';
 
 const googleClient = new OAuth2Client();
 
-// Códigos de 6 dígitos (criptográficamente aleatorios) que vencen en 15 minutos
+// Códigos de 6 dígitos (criptográficamente aleatorios) que vencen en MINUTOS_CODIGO
 const crearCodigo = () => crypto.randomInt(100000, 1000000).toString();
+
+// Se guarda solo el hash (SHA-256) del código
+const hashCodigo = (codigo) =>
+  crypto.createHash('sha256').update(String(codigo)).digest('hex');
+
 const MSG_REVOCADA =
   'Tu cuenta fue revocada por el equipo de FitZone. Si crees que es un error, escríbenos por los canales oficiales.';
 const vencimientoCodigo = () => Date.now() + MINUTOS_CODIGO * 60 * 1000;
 
+// Espera máxima (ms) para enviar un correo antes de responder igual a la app
+const ESPERA_MAXIMA_CORREO = 8000;
+
+// Envía un correo sin dejar colgada la respuesta: devuelve true/false
+const enviarSinBloquear = (datos) =>
+  Promise.race([
+    enviarCorreoSeguro(datos)
+      .then((ok) => !!ok)
+      .catch((err) => {
+        console.error('⚠️ Falló el envío del correo:', err.message);
+        return false;
+      }),
+    new Promise((resolve) => setTimeout(() => resolve(false), ESPERA_MAXIMA_CORREO))
+  ]);
 
 // Busca por correo sin distinguir mayúsculas: así también entran las cuentas
 // creadas antes de que los correos se guardaran en minúsculas.
@@ -50,19 +69,33 @@ export const registrarUsuario = async (req, res) => {
       metodoPago
     } = req.body;
 
-    const revocada = await RevokedAccount.findOne({ email: String(email).toLowerCase().trim() });
+    const emailLimpio = String(email || '').toLowerCase().trim();
+
+    if (!nombre || !emailLimpio || !password) {
+      return res.status(400).json({
+        mensaje: 'Nombre, correo y contraseña son obligatorios'
+      });
+    }
+
+    // Cuentas revocadas por el equipo no pueden volver a registrarse
+    const revocada = await RevokedAccount.findOne({ email: emailLimpio });
     if (revocada) {
       return res.status(403).json({ mensaje: MSG_REVOCADA, codigo: 'CUENTA_REVOCADA' });
     }
 
-    const existe = await buscarPorEmail(email);
-    if (existe) {
+    // Si el correo ya existe y está verificado, no se puede repetir.
+    // Si quedó a medias (nunca verificó), se descarta y se registra de nuevo.
+    const existe = await buscarPorEmail(emailLimpio);
+
+    if (existe && existe.cuentaVerificada !== false) {
       return res.status(400).json({
         mensaje: 'El correo ya está registrado'
       });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    if (existe) {
+      await User.deleteOne({ _id: existe._id });
+    }
 
     const plan = planId
       ? await Plan.findById(planId)
@@ -74,11 +107,12 @@ export const registrarUsuario = async (req, res) => {
       });
     }
 
+    const passwordHash = await bcrypt.hash(password, 10);
     const codigoVerificacion = crearCodigo();
 
     const nuevoUsuario = await User.create({
       nombre,
-      email,
+      email: emailLimpio,
       passwordHash,
       telefono,
       planActual: plan._id,
@@ -88,11 +122,7 @@ export const registrarUsuario = async (req, res) => {
       codigoVerificacionExpira: vencimientoCodigo()
     });
 
-    await crearSuscripcionParaPlan(
-      nuevoUsuario,
-      plan,
-      metodoPago
-    );
+    await crearSuscripcionParaPlan(nuevoUsuario, plan, metodoPago);
 
     if (process.env.NODE_ENV !== 'production') {
       console.log(`🔐 [DEV] Código de verificación de ${nuevoUsuario.email}: ${codigoVerificacion}`);
@@ -103,7 +133,7 @@ export const registrarUsuario = async (req, res) => {
       codigo: codigoVerificacion
     });
 
-    const correoEnviado = await enviarCorreoSeguro({
+    const correoEnviado = await enviarSinBloquear({
       from: process.env.EMAIL_USER,
       to: nuevoUsuario.email,
       subject: correo.asunto,
@@ -236,7 +266,7 @@ export const reenviarCodigo = async (req, res) => {
       reenvio: true
     });
 
-    const enviado = await enviarCorreoSeguro({
+    const enviado = await enviarSinBloquear({
       from: process.env.EMAIL_USER,
       to: usuario.email,
       subject: correo.asunto,
@@ -265,10 +295,6 @@ export const reenviarCodigo = async (req, res) => {
 
 
 // ======================================================
-// LOGIN
-// ======================================================
-
-// ======================================================
 // REGLA DE PLAN: quien se registró con un plan solo entra con ese plan mientras su
 // inscripción siga vigente (o pendiente). Los admins no tienen esta regla.
 // Devuelve el cuerpo del error 409 o null si puede entrar.
@@ -295,6 +321,11 @@ const conflictoDePlan = async (usuario, planElegidoId) => {
 
   return null;
 };
+
+
+// ======================================================
+// LOGIN
+// ======================================================
 
 export const iniciarSesion = async (req, res) => {
   try {
@@ -406,6 +437,23 @@ const clientIdsGoogle = () =>
     .map((id) => id.trim())
     .filter(Boolean);
 
+// Avisa al equipo que hay una cuenta (verificada por Google) por aprobar
+const notificarNuevaCuentaGoogle = async (usuario) => {
+  try {
+    await notificarAdmin({
+      mensaje: `Nueva cuenta por aprobar: ${usuario.nombre} (${usuario.email}).`,
+      asuntoCorreo: 'Nueva cuenta por aprobar',
+      htmlCorreo: `
+        <p>Se registró con Google <strong>${escapeHtml(usuario.nombre)}</strong> (${escapeHtml(usuario.email)}).</p>
+        <p>Entra al panel administrativo, sección <strong>Usuarios</strong>, para aprobar o rechazar la cuenta.</p>
+      `
+    });
+  } catch (error) {
+    // Que falle el aviso no debe impedir el inicio de sesión
+    console.error('⚠️ No se pudo notificar al admin:', error.message);
+  }
+};
+
 export const iniciarSesionGoogle = async (req, res) => {
   try {
     const { idToken, planId } = req.body || {};
@@ -427,7 +475,6 @@ export const iniciarSesionGoogle = async (req, res) => {
     }
 
     // 1) Validar el token con Google (firma, vigencia y audiencia).
-    //    Solo aquí un fallo significa "token inválido" (401).
     let payload;
 
     try {
@@ -438,7 +485,6 @@ export const iniciarSesionGoogle = async (req, res) => {
 
       payload = ticket.getPayload();
     } catch (error) {
-      // El motivo exacto (audiencia distinta, token vencido...) queda en el log del servidor
       console.error(
         '❌ Token de Google rechazado:', error.message,
         '| audiencias aceptadas:', audiencias.length
@@ -577,8 +623,7 @@ export const iniciarSesionGoogle = async (req, res) => {
       await notificarNuevaCuentaGoogle(usuario);
     }
 
-    // 5) Suspendidas o inactivas no entran. Las pendientes o rechazadas sí
-    //    reciben sesión para ver su estado (authMiddleware bloquea el resto).
+    // 5) Suspendidas o inactivas no entran.
     if (['inactivo', 'suspendido'].includes(usuario.estadoCuenta)) {
       return res.status(403).json({
         mensaje: 'Tu cuenta está suspendida. Contacta al equipo de FitZone.',
@@ -609,23 +654,6 @@ export const iniciarSesionGoogle = async (req, res) => {
     return res.status(500).json({
       mensaje: 'Error al iniciar sesión con Google. Inténtalo de nuevo.'
     });
-  }
-};
-
-// Avisa al equipo que hay una cuenta (verificada por Google) por aprobar
-const notificarNuevaCuentaGoogle = async (usuario) => {
-  try {
-    await notificarAdmin({
-      mensaje: `Nueva cuenta por aprobar: ${usuario.nombre} (${usuario.email}).`,
-      asuntoCorreo: 'Nueva cuenta por aprobar',
-      htmlCorreo: `
-        <p>Se registró con Google <strong>${escapeHtml(usuario.nombre)}</strong> (${escapeHtml(usuario.email)}).</p>
-        <p>Entra al panel administrativo, sección <strong>Usuarios</strong>, para aprobar o rechazar la cuenta.</p>
-      `
-    });
-  } catch (error) {
-    // Que falle el aviso no debe impedir el inicio de sesión
-    console.error('⚠️ No se pudo notificar al admin:', error.message);
   }
 };
 
@@ -756,14 +784,11 @@ export const actualizarUsuario = async (req, res) => {
       }
 
       if (req.body.estadoCuenta !== undefined) {
-        datosActualizar.estadoCuenta =
-          req.body.estadoCuenta;
+        datosActualizar.estadoCuenta = req.body.estadoCuenta;
       }
     }
 
-    const usuarioActual = await User.findById(
-      req.params.id
-    );
+    const usuarioActual = await User.findById(req.params.id);
 
     if (!usuarioActual) {
       return res.status(404).json({
@@ -775,24 +800,17 @@ export const actualizarUsuario = async (req, res) => {
     if (req.file) {
 
       if (usuarioActual.fotoPerfilId) {
-        await borrarImagenCloudinary(
-          usuarioActual.fotoPerfilId
-        );
+        await borrarImagenCloudinary(usuarioActual.fotoPerfilId);
       }
 
-      datosActualizar.fotoPerfil =
-        req.file.secure_url;
-
-      datosActualizar.fotoPerfilId =
-        req.file.public_id;
+      datosActualizar.fotoPerfil = req.file.secure_url;
+      datosActualizar.fotoPerfilId = req.file.public_id;
     }
 
     const usuario = await User.findByIdAndUpdate(
       req.params.id,
       datosActualizar,
-      {
-        new: true
-      }
+      { new: true }
     );
 
     return res.json(usuario);
@@ -894,11 +912,7 @@ export const cambiarRolUsuario = async (req, res) => {
       });
     }
 
-    const rolesPermitidos = [
-      'cliente',
-      'entrenador',
-      'admin'
-    ];
+    const rolesPermitidos = ['cliente', 'entrenador', 'admin'];
 
     if (!rolesPermitidos.includes(rol)) {
       return res.status(400).json({
@@ -930,10 +944,7 @@ export const cambiarRolUsuario = async (req, res) => {
     });
 
   } catch (error) {
-    console.error(
-      '❌ Error al cambiar rol:',
-      error
-    );
+    console.error('❌ Error al cambiar rol:', error);
 
     return res.status(500).json({
       mensaje: 'Error al cambiar el rol del usuario',
@@ -946,10 +957,6 @@ export const cambiarRolUsuario = async (req, res) => {
 // ======================================================
 // SOLICITAR RECUPERACIÓN DE CONTRASEÑA
 // ======================================================
-
-// Código de recuperación: se guarda solo su hash (SHA-256)
-const hashCodigo = (codigo) =>
-  crypto.createHash('sha256').update(String(codigo)).digest('hex');
 
 export const solicitarRecuperacion = async (req, res) => {
   try {
@@ -981,7 +988,7 @@ export const solicitarRecuperacion = async (req, res) => {
 
     const correo = correoRecuperacion({ nombre: usuario.nombre, codigo });
 
-    await enviarCorreoSeguro({
+    await enviarSinBloquear({
       from: process.env.EMAIL_USER,
       to: usuario.email,
       subject: correo.asunto,
@@ -1072,8 +1079,7 @@ export const restablecerPassword = async (req, res) => {
       });
     }
 
-    usuario.passwordHash =
-      await bcrypt.hash(password, 10);
+    usuario.passwordHash = await bcrypt.hash(password, 10);
 
     usuario.resetPasswordToken = undefined;
     usuario.resetPasswordExpira = undefined;
@@ -1081,15 +1087,11 @@ export const restablecerPassword = async (req, res) => {
     await usuario.save();
 
     return res.json({
-      mensaje:
-        'Contraseña actualizada correctamente'
+      mensaje: 'Contraseña actualizada correctamente'
     });
 
   } catch (error) {
-    console.error(
-      '❌ Error al restablecer contraseña:',
-      error
-    );
+    console.error('❌ Error al restablecer contraseña:', error);
 
     return res.status(500).json({
       error: error.message
