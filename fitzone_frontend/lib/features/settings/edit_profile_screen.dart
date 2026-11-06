@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
+ 
 import '../../core/api/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
@@ -13,9 +13,9 @@ import '../onboarding/models/training_habits.dart';
 import '../onboarding/steps/habits_step.dart';
 import '../onboarding/steps/measurements_step.dart';
 import '../onboarding/steps/personal_info_step.dart';
-
+ 
 final RegExp _emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$');
-
+ 
 /// Reglas de la contraseña nueva. Devuelve el error o `null` si es válida.
 String? validateNewPassword(String value, String confirmation) {
   if (value.length < 8) return 'Debe tener al menos 8 caracteres';
@@ -28,7 +28,7 @@ String? validateNewPassword(String value, String confirmation) {
   if (value != confirmation) return 'La confirmación no coincide';
   return null;
 }
-
+ 
 /// Editar perfil: cuenta (nombre y correo), contraseña con confirmación y todos
 /// los datos de personalización que se pidieron al registrarse.
 class EditProfileScreen extends StatefulWidget {
@@ -42,38 +42,38 @@ class EditProfileScreen extends StatefulWidget {
     required this.onSaveData,
     required this.onBack,
   });
-
+ 
   final String name;
   final String email;
   final OnboardingData data;
-
+ 
   /// Guarda nombre y correo en el servidor. Lanza [ApiException] si falla.
   final Future<void> Function(String name, String email) onSaveAccount;
-
+ 
   /// Cambia la contraseña. Lanza [ApiException] si falla.
   final Future<void> Function(String? current, String next, String confirmation)
       onChangePassword;
-
+ 
   /// Guarda los datos personales. Lanza [ApiException] si falla.
   final Future<void> Function(OnboardingData data) onSaveData;
   final VoidCallback onBack;
-
+ 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
 }
-
+ 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _name = TextEditingController(text: widget.name);
   late final TextEditingController _email = TextEditingController(text: widget.email);
   final TextEditingController _current = TextEditingController();
   final TextEditingController _new = TextEditingController();
   final TextEditingController _confirm = TextEditingController();
-
+ 
   late OnboardingData _draft = widget.data;
   late String _savedName = widget.name;
   late String _savedEmail = widget.email;
   OnboardingData? _savedData;
-
+ 
   bool _showPasswords = false;
   String _accountMsg = '';
   bool _accountOk = false;
@@ -84,7 +84,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String _dataMsg = '';
   bool _dataOk = false;
   bool _dataBusy = false;
-
+ 
   @override
   void dispose() {
     _name.dispose();
@@ -94,7 +94,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _confirm.dispose();
     super.dispose();
   }
-
+ 
   // ── Cuenta ────────────────────────────────────────────────────────────────
   String? get _accountError {
     final String name = _name.text.trim();
@@ -104,10 +104,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!_emailRegex.hasMatch(email)) return 'Escribe un correo válido';
     return null;
   }
-
+ 
   bool get _accountChanged =>
       _name.text.trim() != _savedName || _email.text.trim().toLowerCase() != _savedEmail;
-
+ 
   Future<void> _saveAccount() async {
     final String? error = _accountError;
     if (error != null) {
@@ -148,7 +148,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) setState(() => _accountBusy = false);
     }
   }
-
+ 
   // ── Contraseña ────────────────────────────────────────────────────────────
   Future<void> _savePassword() async {
     final String? error = validateNewPassword(_new.text, _confirm.text);
@@ -193,17 +193,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) setState(() => _passBusy = false);
     }
   }
-
+ 
   // ── Datos personales ──────────────────────────────────────────────────────
   List<String> get _missing => <String>[
         ..._draft.personalInfo.missing,
-        ..._draft.bodyMeasurements.missing.map((String s) => 'circunferencia: $s'),
+        ..._draft.bodyMeasurements.missing.map(
+          (String s) => s.startsWith('pliegue') ? s : 'circunferencia: $s',
+        ),
         ..._draft.trainingHabits.missing,
       ];
-
+ 
   /// `true` si intentó guardar con datos sin llenar: solo entonces se avisa.
   bool _saveAttempted = false;
-
+ 
   Future<void> _saveData() async {
     if (_missing.isNotEmpty) {
       setState(() => _saveAttempted = true);
@@ -241,13 +243,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) setState(() => _dataBusy = false);
     }
   }
-
+ 
   // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final OnboardingData base = _savedData ?? widget.data;
     final bool dataChanged = !identical(_draft, base) && _draft != base;
-
+ 
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SubScreenFrame(
@@ -272,7 +274,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
     );
   }
-
+ 
   Widget _buildAccount() {
     return HomeCard(
       child: Column(
@@ -310,7 +312,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
     );
   }
-
+ 
   Widget _buildPassword() {
     final String newPass = _new.text;
     final bool lenOk = newPass.length >= 8;
@@ -318,7 +320,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         RegExp(r'[a-z]').hasMatch(newPass) && RegExp(r'[A-Z]').hasMatch(newPass);
     final bool numOk = RegExp(r'[0-9]').hasMatch(newPass);
     final bool matchOk = newPass.isNotEmpty && newPass == _confirm.text;
-
+ 
     return HomeCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -400,10 +402,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
     );
   }
-
+ 
   Widget _buildData(bool changed) {
     final List<String> missing = _missing;
-
+ 
     return HomeCard(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
       child: Column(
@@ -462,16 +464,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 }
-
+ 
 // ═══════════════════════════════════════════════════════════════════════════
 // Piezas privadas
 // ═══════════════════════════════════════════════════════════════════════════
-
+ 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
-
+ 
   final String text;
-
+ 
   @override
   Widget build(BuildContext context) {
     return Text(
@@ -485,7 +487,7 @@ class _SectionTitle extends StatelessWidget {
     );
   }
 }
-
+ 
 class _Field extends StatelessWidget {
   const _Field({
     required this.label,
@@ -496,7 +498,7 @@ class _Field extends StatelessWidget {
     this.maxLength,
     this.onChanged,
   });
-
+ 
   final String label;
   final TextEditingController controller;
   final IconData icon;
@@ -504,7 +506,7 @@ class _Field extends StatelessWidget {
   final TextInputType? keyboardType;
   final int? maxLength;
   final ValueChanged<String>? onChanged;
-
+ 
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -554,13 +556,13 @@ class _Field extends StatelessWidget {
     );
   }
 }
-
+ 
 class _Rule extends StatelessWidget {
   const _Rule(this.text, this.ok);
-
+ 
   final String text;
   final bool ok;
-
+ 
   @override
   Widget build(BuildContext context) {
     final Color color = ok ? AppColors.green : AppColors.whiteA(0.38);
@@ -574,13 +576,13 @@ class _Rule extends StatelessWidget {
     );
   }
 }
-
+ 
 class _Message extends StatelessWidget {
   const _Message(this.text, {required this.ok});
-
+ 
   final String text;
   final bool ok;
-
+ 
   @override
   Widget build(BuildContext context) {
     final Color color = ok ? AppColors.green : AppColors.red;
@@ -605,7 +607,7 @@ class _Message extends StatelessWidget {
     );
   }
 }
-
+ 
 class _PrimaryButton extends StatelessWidget {
   const _PrimaryButton({
     required this.label,
@@ -613,12 +615,12 @@ class _PrimaryButton extends StatelessWidget {
     required this.enabled,
     required this.onTap,
   });
-
+ 
   final String label;
   final bool busy;
   final bool enabled;
   final VoidCallback onTap;
-
+ 
   @override
   Widget build(BuildContext context) {
     final bool active = enabled && !busy;
@@ -654,3 +656,4 @@ class _PrimaryButton extends StatelessWidget {
     );
   }
 }
+ 

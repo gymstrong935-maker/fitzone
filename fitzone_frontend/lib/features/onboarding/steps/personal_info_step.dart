@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-import '../../../core/theme/app_colors.dart';
+ 
 import '../../../core/theme/app_text.dart';
 import '../models/personal_info.dart';
 import '../widgets/fz_label.dart';
@@ -9,7 +8,7 @@ import '../widgets/fz_select.dart';
 import '../widgets/fz_slider.dart';
 import '../widgets/fz_text_area.dart';
 import '../widgets/step_header.dart';
-
+ 
 /// Paso "Información Personal".
 class PersonalInfoStep extends StatelessWidget {
   const PersonalInfoStep({
@@ -19,20 +18,20 @@ class PersonalInfoStep extends StatelessWidget {
     this.showErrors = false,
     this.showLaterNote = true,
   });
-
+ 
   final PersonalInfo info;
   final ValueChanged<PersonalInfo> onChanged;
-
+ 
   /// Resalta en rojo los números que faltan (la persona intentó continuar).
   final bool showErrors;
-
+ 
   /// Muestra "podrás modificarlos después" (solo durante el registro).
   final bool showLaterNote;
-
+ 
   static const double _lbPerKg = 2.20462;
-
+ 
   // ── Peso ──────────────────────────────────────────────────────────────────
-
+ 
   void _changeUnit(WeightUnit unit) {
     double weight = info.weight;
     if (info.weightUnit == WeightUnit.kg && unit == WeightUnit.lb) {
@@ -43,7 +42,7 @@ class PersonalInfoStep extends StatelessWidget {
     weight = (weight * 10).round() / 10;
     onChanged(info.copyWith(weight: weight, weightUnit: unit));
   }
-
+ 
   String get _approxWeight {
     if (info.weightUnit == WeightUnit.kg) {
       final double lb = (info.weight * _lbPerKg * 10).round() / 10;
@@ -52,9 +51,9 @@ class PersonalInfoStep extends StatelessWidget {
     final double kg = (info.weight / _lbPerKg * 10).round() / 10;
     return '≈ ${formatNumber(kg)} kg';
   }
-
+ 
   // ── Build ─────────────────────────────────────────────────────────────────
-
+ 
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -81,7 +80,7 @@ class PersonalInfoStep extends StatelessWidget {
       ],
     );
   }
-
+ 
   Widget _buildAgeAndGender() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,7 +95,7 @@ class PersonalInfoStep extends StatelessWidget {
                 value: info.age.toDouble(),
                 min: 10,
                 hint: 'Ej. 25',
-                error: showErrors && info.age < 10,
+                error: (showErrors && info.age < 10) || info.age > PersonalInfo.maxAge,
                 onChanged: (double v) =>
                     onChanged(info.copyWith(age: v.round())),
               ),
@@ -134,7 +133,7 @@ class PersonalInfoStep extends StatelessWidget {
       ],
     );
   }
-
+ 
   Widget _buildWeight() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -149,7 +148,8 @@ class PersonalInfoStep extends StatelessWidget {
                 min: 20,
                 decimal: true,
                 hint: 'Ej. 70',
-                error: showErrors && info.weightKg < 20,
+                error: (showErrors && info.weightKg < 20) ||
+                    info.weightKg > PersonalInfo.maxWeightKg,
                 onChanged: (double v) => onChanged(info.copyWith(weight: v)),
               ),
             ),
@@ -184,7 +184,7 @@ class PersonalInfoStep extends StatelessWidget {
       ],
     );
   }
-
+ 
   Widget _buildHeight() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -195,16 +195,17 @@ class PersonalInfoStep extends StatelessWidget {
           value: info.height.toDouble(),
           min: 100,
           hint: 'Ej. 170',
-          error: showErrors && info.height < 100,
+          error: (showErrors && info.height < 100) ||
+              info.height > PersonalInfo.maxHeight,
           onChanged: (double v) => onChanged(info.copyWith(height: v.round())),
         ),
       ],
     );
   }
-
+ 
   Widget _buildSliders() {
     final PsychologicalCondition psy = info.psychologicalCondition;
-
+ 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -253,7 +254,7 @@ class PersonalInfoStep extends StatelessWidget {
       ],
     );
   }
-
+ 
   Widget _buildMedical() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

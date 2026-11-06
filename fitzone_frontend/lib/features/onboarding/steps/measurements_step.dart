@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+ 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../data/measurement_guides.dart';
@@ -7,7 +7,7 @@ import '../models/body_measurements.dart';
 import '../widgets/fz_optional_number_field.dart';
 import '../widgets/measure_guide_sheet.dart';
 import '../widgets/step_header.dart';
-
+ 
 /// Paso "Mediciones Corporales" (circunferencias y plicometría).
 ///
 /// No muestra avisos de "obligatorio": solo resalta en rojo las circunferencias
@@ -20,18 +20,21 @@ class MeasurementsStep extends StatelessWidget {
     this.showErrors = false,
     this.showLaterNote = true,
   });
-
+ 
   final BodyMeasurements measurements;
   final ValueChanged<BodyMeasurements> onChanged;
-
+ 
   /// Resalta en rojo las circunferencias que faltan.
   final bool showErrors;
-
+ 
   /// Muestra el aviso "podrás modificarlos después" (solo en el registro).
   final bool showLaterNote;
-
+ 
   static Color get _teal400 => AppColors.teal400;
-
+ 
+  static String _rangeLabel((double, double) r, String unit) =>
+      'Entre ${r.$1.toInt()} y ${r.$2.toInt()} $unit';
+ 
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -55,7 +58,7 @@ class MeasurementsStep extends StatelessWidget {
       ],
     );
   }
-
+ 
   // ── Aviso superior ────────────────────────────────────────────────────────
   Widget _buildInfoBox() {
     return Container(
@@ -77,7 +80,7 @@ class MeasurementsStep extends StatelessWidget {
       ),
     );
   }
-
+ 
   // ── Plicometría ───────────────────────────────────────────────────────────
   Widget _buildSkinfolds() {
     Widget cell(SkinfoldSite site, String label) {
@@ -86,10 +89,15 @@ class MeasurementsStep extends StatelessWidget {
         hint: 'mm',
         value: measurements.skinfolds[site],
         guide: kSkinfoldGuides[site],
+        // Opcional, pero si se escribe debe ser un valor posible.
+        error: measurements.skinfoldOutOfRange(site),
+        rangeText: measurements.skinfoldOutOfRange(site)
+            ? _rangeLabel(BodyMeasurements.skinfoldRanges[site]!, 'mm')
+            : null,
         onChanged: (double? v) => onChanged(measurements.withSkinfold(site, v)),
       );
     }
-
+ 
     return _Section(
       icon: Icons.monitor_heart_outlined,
       title: 'Plicometría (mm) · opcional',
@@ -105,7 +113,7 @@ class MeasurementsStep extends StatelessWidget {
       ],
     );
   }
-
+ 
   // ── Circunferencias ───────────────────────────────────────────────────────
   Widget _buildCircumferences() {
     Widget cell(CircumferenceSite site, String label) {
@@ -114,12 +122,16 @@ class MeasurementsStep extends StatelessWidget {
         hint: 'cm',
         value: measurements.circumferences[site],
         guide: kCircumferenceGuides[site],
-        error: showErrors && (measurements.circumferences[site] ?? 0) <= 0,
+        error: (showErrors && (measurements.circumferences[site] ?? 0) <= 0) ||
+            measurements.circumferenceOutOfRange(site),
+        rangeText: measurements.circumferenceOutOfRange(site)
+            ? _rangeLabel(BodyMeasurements.circumferenceRanges[site]!, 'cm')
+            : null,
         onChanged: (double? v) =>
             onChanged(measurements.withCircumference(site, v)),
       );
     }
-
+ 
     return _Section(
       icon: Icons.straighten_rounded,
       title: 'Circunferencias (cm)',
@@ -135,11 +147,11 @@ class MeasurementsStep extends StatelessWidget {
     );
   }
 }
-
+ 
 // ═══════════════════════════════════════════════════════════════════════════
 // Piezas privadas
 // ═══════════════════════════════════════════════════════════════════════════
-
+ 
 /// Título con ícono + cuadrícula de 2 columnas.
 class _Section extends StatelessWidget {
   const _Section({
@@ -148,12 +160,12 @@ class _Section extends StatelessWidget {
     required this.color,
     required this.cells,
   });
-
+ 
   final IconData icon;
   final String title;
   final Color color;
   final List<Widget> cells;
-
+ 
   @override
   Widget build(BuildContext context) {
     final List<Widget> rows = <Widget>[];
@@ -172,7 +184,7 @@ class _Section extends StatelessWidget {
         ),
       );
     }
-
+ 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -197,7 +209,7 @@ class _Section extends StatelessWidget {
     );
   }
 }
-
+ 
 /// Etiqueta pequeña + campo numérico opcional.
 class _MeasureCell extends StatelessWidget {
   const _MeasureCell({
@@ -207,17 +219,21 @@ class _MeasureCell extends StatelessWidget {
     required this.onChanged,
     this.guide,
     this.error = false,
+    this.rangeText,
   });
-
+ 
+  /// Mensaje bajo el campo cuando el valor está fuera de rango.
+  final String? rangeText;
+ 
   final String label;
   final String hint;
   final double? value;
   final ValueChanged<double?> onChanged;
-
+ 
   /// Instrucciones para tomar esta medida (botón "?").
   final MeasureGuide? guide;
   final bool error;
-
+ 
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -239,6 +255,19 @@ class _MeasureCell extends StatelessWidget {
           error: error,
           onChanged: onChanged,
         ),
+        if (rangeText != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 4),
+            child: Text(
+              rangeText!,
+              style: AppText.body(
+                size: 11,
+                weight: FontWeight.w500,
+                color: AppColors.red,
+                height: 1.3,
+              ),
+            ),
+          ),
         if (guide != null)
           Align(
             alignment: Alignment.centerLeft,

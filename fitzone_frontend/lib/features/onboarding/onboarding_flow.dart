@@ -1,8 +1,8 @@
 import 'dart:async';
-
+ 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
+ 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import '../../core/widgets/ellipse_glow.dart';
@@ -25,7 +25,7 @@ import 'steps/trainer_step.dart';
 import 'widgets/onboarding_footer.dart';
 import 'widgets/onboarding_progress_bar.dart';
 import 'widgets/step_dots.dart';
-
+ 
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({
     super.key,
@@ -33,34 +33,39 @@ class OnboardingFlow extends StatefulWidget {
     required this.onComplete,
     this.onExit,
   });
-
+ 
   final PlanId planType;
   final ValueChanged<OnboardingData> onComplete;
-
+ 
   /// Qué hacer al pulsar "atrás" en el primer paso (p. ej. volver a elegir plan).
   /// Si es `null`, el botón no aparece en el primer paso.
   final VoidCallback? onExit;
-
+ 
   @override
   State<OnboardingFlow> createState() => _OnboardingFlowState();
 }
-
+ 
 class _OnboardingFlowState extends State<OnboardingFlow> {
   late final List<OnboardingStep> _steps = stepsForPlan(widget.planType);
   final ScrollController _scroll = ScrollController();
-
+ 
+  /// Para medir la altura real de la barra inferior (el aviso la agranda) y
+  /// dejar ese espacio libre al final del scroll.
+  final GlobalKey _footerKey = GlobalKey();
+  double? _footerHeight;
+ 
   int _step = 0;
   int _direction = 1;
   OnboardingData _data = const OnboardingData();
-
+ 
   /// `true` cuando la persona pulsó "Siguiente" con datos sin llenar: solo
   /// entonces se muestran los avisos y los campos en rojo.
   bool _attempted = false;
-
+ 
   OnboardingStep get _current => _steps[_step];
   bool get _isLast => _step == _steps.length - 1;
   bool get _canGoBack => _step > 0 || widget.onExit != null;
-
+ 
   bool get _nextEnabled {
     switch (_current) {
       case OnboardingStep.trainer:
@@ -77,7 +82,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return _data.trainingHabits.isComplete;
     }
   }
-
+ 
   /// Qué falta por llenar en el paso actual (vacío si no falta nada).
   List<String> get _missing {
     switch (_current) {
@@ -97,32 +102,48 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         return _data.trainingHabits.missing;
     }
   }
-
+ 
   @override
   void dispose() {
     _scroll.dispose();
     super.dispose();
   }
-
+ 
   void _resetScroll() {
     if (_scroll.hasClients) _scroll.jumpTo(0);
   }
-
+ 
   void _goNext() {
     FocusManager.instance.primaryFocus?.unfocus();
-
+ 
     if (!_nextEnabled) {
       // Intentó continuar sin completar: ahora sí se le avisa qué falta.
       unawaited(HapticFeedback.mediumImpact());
+      final bool atBottom = _scroll.hasClients &&
+          _scroll.offset >= _scroll.position.maxScrollExtent - 160;
       setState(() => _attempted = true);
+      if (atBottom) {
+        // El aviso agranda la barra inferior: baja el scroll para que el
+        // último campo siga a la vista.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || !_scroll.hasClients) return;
+            unawaited(_scroll.animateTo(
+              _scroll.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+            ));
+          });
+        });
+      }
       return;
     }
-
+ 
     // Aplica los mínimos de Información Personal antes de avanzar.
     final OnboardingData data = _data.copyWith(
       personalInfo: _data.personalInfo.sanitized(),
     );
-
+ 
     if (_isLast) {
       widget.onComplete(data);
       return;
@@ -135,7 +156,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     });
     _resetScroll();
   }
-
+ 
   void _goBack() {
     FocusManager.instance.primaryFocus?.unfocus();
     if (_step == 0) {
@@ -149,37 +170,53 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     });
     _resetScroll();
   }
-
+ 
   void _selectTrainer(Trainer trainer) {
     setState(() => _data = _data.copyWith(trainer: trainer));
   }
-
+ 
   void _updatePersonalInfo(PersonalInfo info) {
     setState(() => _data = _data.copyWith(personalInfo: info));
   }
-
+ 
   void _updateMeasurements(BodyMeasurements measurements) {
     setState(() => _data = _data.copyWith(bodyMeasurements: measurements));
   }
-
+ 
   void _selectGoal(Goal goal) {
     setState(() => _data = _data.copyWith(goal: goal));
   }
-
+ 
   void _selectExperience(ExperienceLevel level) {
     setState(() => _data = _data.copyWith(experienceLevel: level));
   }
-
+ 
   void _updateHabits(TrainingHabits habits) {
     setState(() => _data = _data.copyWith(trainingHabits: habits));
   }
-
+ 
   // ── Build ─────────────────────────────────────────────────────────────────
-
+ 
+  void _measureFooter() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final double? h =
+          (_footerKey.currentContext?.findRenderObject() as RenderBox?)
+              ?.size
+              .height;
+      if (h != null && h != _footerHeight) {
+        setState(() => _footerHeight = h);
+      }
+    });
+  }
+ 
   @override
   Widget build(BuildContext context) {
     final double bottomInset = MediaQuery.paddingOf(context).bottom;
-
+    // Espacio que ocupa la barra inferior (con aviso incluido) + un respiro.
+    final double bottomSpace = (_footerHeight ?? 112 + bottomInset) + 16;
+    _measureFooter();
+ 
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Stack(
@@ -205,14 +242,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               fadeStop: 0.6,
             ),
           ),
-
+ 
           // ── Contenido del paso ──
           SafeArea(
             bottom: false,
             child: SingleChildScrollView(
               controller: _scroll,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(24, 70, 24, 112 + bottomInset),
+              padding: EdgeInsets.fromLTRB(24, 70, 24, bottomSpace),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 512),
@@ -228,7 +265,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               ),
             ),
           ),
-
+ 
           // ── Barra de progreso (arriba) ──
           Positioned(
             top: 0,
@@ -238,7 +275,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               progress: (_step + 1) / _steps.length,
             ),
           ),
-
+ 
           // ── Botón atrás (arriba a la izquierda) y contador de pasos ──
           Positioned(
             top: 0,
@@ -289,13 +326,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               ),
             ),
           ),
-
+ 
           // ── Navegación (abajo) ──
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: OnboardingFooter(
+              key: _footerKey,
               showBack: false,
               isLast: _isLast,
               nextEnabled: true,
@@ -310,7 +348,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       ),
     );
   }
-
+ 
   Widget _buildAnimatedStep() {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
@@ -341,10 +379,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       child: _buildStep(),
     );
   }
-
+ 
   Widget _buildStep() {
     final ValueKey<OnboardingStep> key = ValueKey<OnboardingStep>(_current);
-
+ 
     switch (_current) {
       case OnboardingStep.trainer:
         return TrainerStep(
@@ -387,13 +425,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     }
   }
 }
-
+ 
 /// Botón circular de retroceso (arriba a la izquierda).
 class _BackButton extends StatelessWidget {
   const _BackButton({super.key, required this.onTap});
-
+ 
   final VoidCallback onTap;
-
+ 
   @override
   Widget build(BuildContext context) {
     return Semantics(
