@@ -1,7 +1,7 @@
 import 'dart:async';
-
+ 
 import 'package:flutter/material.dart';
-
+ 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import '../../core/widgets/ellipse_glow.dart';
@@ -12,7 +12,7 @@ import 'models/plan.dart';
 import 'widgets/continuing_indicator.dart';
 import 'widgets/fz_logo.dart';
 import 'widgets/plan_card.dart';
-
+ 
 class PlanSelectionScreen extends StatefulWidget {
   const PlanSelectionScreen({
     super.key,
@@ -23,40 +23,44 @@ class PlanSelectionScreen extends StatefulWidget {
     this.allowFree = true,
     this.onLogout,
     this.onHaveAccount,
+    this.onBack,
   });
-
+ 
   final ValueChanged<PlanId> onSelectPlan;
-
+ 
   /// Planes a mostrar (por defecto, los del diseño).
   final List<Plan> plans;
-
+ 
   /// Si no se pudieron cargar los planes del servidor.
   final String? errorMessage;
   final VoidCallback? onRetry;
-
+ 
   /// `false` oculta el plan gratuito (usuarios que ya tienen cuenta).
   final bool allowFree;
-
+ 
   /// Si se da, muestra "Cerrar sesión" abajo.
   final VoidCallback? onLogout;
-
+ 
   /// Si se da, muestra "Ya tengo cuenta": entra con Google sin elegir plan.
   final VoidCallback? onHaveAccount;
-
+ 
+  /// Si se da, muestra una flecha para volver (p. ej. al cambiar de plan desde Ajustes).
+  final VoidCallback? onBack;
+ 
   @override
   State<PlanSelectionScreen> createState() => _PlanSelectionScreenState();
 }
-
+ 
 class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
   PlanId? _selected;
   Timer? _navTimer;
-
+ 
   @override
   void dispose() {
     _navTimer?.cancel();
     super.dispose();
   }
-
+ 
   void _handleSelect(PlanId id) {
     _navTimer?.cancel(); // evita navegar dos veces si tocan rápido
     setState(() => _selected = id);
@@ -64,13 +68,13 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       if (mounted) widget.onSelectPlan(id);
     });
   }
-
+ 
   List<Plan> get _visiblePlans {
     return widget.plans
         .where((Plan p) => widget.allowFree || p.id != PlanId.free)
         .toList();
   }
-
+ 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,7 +102,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
               fadeStop: 0.6,
             ),
           ),
-
+ 
           // ── Contenido ──
           SafeArea(
             child: LayoutBuilder(
@@ -138,7 +142,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
               },
             ),
           ),
-
+ 
           // ── Barra brillante superior ──
           const Positioned(
             top: 0,
@@ -146,11 +150,46 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
             right: 0,
             child: ShimmerTopBar(),
           ),
+ 
+          // ── Volver (solo al cambiar de plan desde Ajustes) ──
+          if (widget.onBack != null)
+            Positioned(
+              top: 0,
+              left: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 0, 0),
+                  child: Semantics(
+                    button: true,
+                    label: 'Volver',
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: widget.onBack,
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.whiteA(0.08),
+                          border: Border.all(color: AppColors.whiteA(0.14)),
+                        ),
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 20,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
-
+ 
   // ── Aviso de error al cargar los planes ───────────────────────────────────
   Widget _buildErrorBanner() {
     return Container(
@@ -196,7 +235,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       ),
     );
   }
-
+ 
   // ── Encabezado ────────────────────────────────────────────────────────────
   Widget _buildHeader() {
     return FadeSlideIn(
@@ -236,11 +275,11 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       ),
     );
   }
-
+ 
   // ── Tarjetas de planes ────────────────────────────────────────────────────
   Widget _buildPlans() {
     final List<Plan> plans = _visiblePlans;
-
+ 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -258,7 +297,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       ],
     );
   }
-
+ 
   // ── Parte inferior ────────────────────────────────────────────────────────
   Widget _buildBottom() {
     if (_selected != null) {
@@ -267,7 +306,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
         child: ContinuingIndicator(),
       );
     }
-
+ 
     return Padding(
       padding: const EdgeInsets.only(top: 20),
       child: Column(

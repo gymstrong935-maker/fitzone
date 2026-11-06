@@ -1,7 +1,7 @@
 import 'dart:ui' show PointerDeviceKind;
-
+ 
 import 'package:flutter/material.dart';
-
+ 
 import '../../core/api/api_exception.dart';
 import '../../core/services/app_services.dart';
 import '../../core/services/appointments_service.dart';
@@ -13,12 +13,12 @@ import '../../core/widgets/pulsing_dots.dart';
 import '../../core/widgets/sub_screen_frame.dart';
 import '../onboarding/data/trainers_repository.dart';
 import '../onboarding/models/trainer.dart';
-
+ 
 const List<String> _weekdayShort = <String>['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const List<String> _monthShort = <String>[
   'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic',
 ];
-
+ 
 /// Pantalla "Citas": agenda una hora con tu entrenador y revisa tus citas.
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({
@@ -28,23 +28,23 @@ class AppointmentsScreen extends StatefulWidget {
     required this.onBack,
     this.onChanged,
   });
-
+ 
   final String userId;
   final Trainer? trainer;
   final VoidCallback onBack;
-
+ 
   /// Se llama al agendar o cancelar (para refrescar las notificaciones).
   final VoidCallback? onChanged;
-
+ 
   @override
   State<AppointmentsScreen> createState() => _AppointmentsScreenState();
 }
-
+ 
 class _AppointmentsScreenState extends State<AppointmentsScreen> {
   static Color get _cyan400 => AppColors.cyanLightText;
-
+ 
   final AppointmentsService _service = AppServices.instance.appointments;
-
+ 
   late final List<DateTime> _days = <DateTime>[
     for (int i = 0; i < 14; i++)
       DateTime(
@@ -53,49 +53,66 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         DateTime.now().day + i,
       ),
   ];
-
+ 
   Set<String> _booked = <String>{};
   List<Appointment> _mine = <Appointment>[];
   DateTime? _selectedDay;
   String? _selectedTime;
-
+ 
   bool _loading = true;
   bool _booking = false;
   String? _cancellingId;
   String _error = '';
-
-  Trainer? get _trainer => widget.trainer;
-
+ 
+  /// Entrenador recién traído del servidor (con sus horarios al día). Hasta que
+  /// llega se usa el que ya estaba guardado en el perfil.
+  Trainer? _freshTrainer;
+ 
+  Trainer? get _trainer => _freshTrainer ?? widget.trainer;
+ 
   bool get _hasRemoteTrainer {
     final Trainer? t = _trainer;
     return t != null && TrainersRepository.isRemote(t.id);
   }
-
+ 
   @override
   void initState() {
     super.initState();
     _load();
   }
-
+ 
   // ── Datos ─────────────────────────────────────────────────────────────────
-
+ 
   Future<void> _load() async {
     final Trainer? trainer = _trainer;
     if (!_hasRemoteTrainer || trainer == null) {
       setState(() => _loading = false);
       return;
     }
-
+ 
     setState(() {
       _loading = true;
       _error = '';
     });
-
+ 
     try {
       final List<Appointment> mine = await _service.mine(widget.userId);
       final Set<String> booked = await _service.bookedSlots(trainer.id);
+ 
+      // Los horarios del entrenador pueden haber cambiado desde que se abrió la
+      // app: se vuelven a pedir para no mostrar horarios viejos.
+      Trainer? fresh;
+      try {
+        final List<Trainer> all = await AppServices.instance.coaches.fetch();
+        for (final Trainer t in all) {
+          if (t.id == trainer.id) fresh = t;
+        }
+      } on ApiException {
+        // Sin conexión con la lista: se queda con los horarios que ya tenía.
+      }
       if (!mounted) return;
       setState(() {
+        if (fresh != null) _freshTrainer = fresh;
         _mine = mine.where((Appointment a) => a.isUpcoming).toList()
           ..sort((Appointment a, Appointment b) =>
               '${a.date} ${a.time}'.compareTo('${b.date} ${b.time}'));
@@ -114,22 +131,30 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       });
     }
   }
-
+ 
   /// Horas libres de un día: dentro del horario del entrenador, sin citas
   /// ya reservadas y que todavía no hayan pasado.
   List<String> _freeTimes(DateTime day) {
     final Trainer? trainer = _trainer;
     if (trainer == null) return const <String>[];
-
+ 
     final DateTime now = DateTime.now();
     final String key = dateKey(day);
-
+ 
     return <String>[
       for (final String time in availableTimesFor(trainer.availability, day.weekday))
         if (!_booked.contains('$key $time') && _isFuture(day, time, now)) time,
     ];
   }
-
+ 
+  /// `true` si al menos uno de los horarios del entrenador se puede leer.
+  bool _hasValidSchedule(Trainer trainer) {
+    for (int weekday = 1; weekday <= 7; weekday++) {
+      if (availableTimesFor(trainer.availability, weekday).isNotEmpty) return true;
+    }
+    return false;
+  }
+ 
   bool _isFuture(DateTime day, String time, DateTime now) {
     final List<String> p = time.split(':');
     final DateTime start = DateTime(
@@ -141,9 +166,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     );
     return start.isAfter(now);
   }
-
+ 
   // ── Acciones ──────────────────────────────────────────────────────────────
-
+ 
   void _toast(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -161,18 +186,18 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         ),
       );
   }
-
+ 
   Future<void> _book() async {
     final Trainer? trainer = _trainer;
     final DateTime? day = _selectedDay;
     final String? time = _selectedTime;
     if (trainer == null || day == null || time == null || _booking) return;
-
+ 
     setState(() {
       _booking = true;
       _error = '';
     });
-
+ 
     try {
       await _service.create(
         userId: widget.userId,
@@ -190,11 +215,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     } finally {
       if (mounted) setState(() => _booking = false);
     }
-
+ 
     // Recarga las citas y los horarios ocupados.
     await _load();
   }
-
+ 
   Future<void> _cancel(Appointment appointment) async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
@@ -208,7 +233,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       ),
     );
     if (confirmed != true) return;
-
+ 
     setState(() => _cancellingId = appointment.id);
     try {
       await _service.cancel(appointment.id);
@@ -221,12 +246,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     } finally {
       if (mounted) setState(() => _cancellingId = null);
     }
-
+ 
     await _load();
   }
-
+ 
   // ── Build ─────────────────────────────────────────────────────────────────
-
+ 
   @override
   Widget build(BuildContext context) {
     return SubScreenFrame(
@@ -236,7 +261,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       child: _buildBody(),
     );
   }
-
+ 
   Widget _buildBody() {
     if (!_hasRemoteTrainer) {
       return _InfoCard(
@@ -249,16 +274,16 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                 'Vuelve a elegirlo en Ajustes → Cambiar Entrenador.',
       );
     }
-
+ 
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.only(top: 80),
         child: Center(child: PulsingDots(dotSize: 6, gap: 6)),
       );
     }
-
+ 
     final Trainer trainer = _trainer!;
-
+ 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -273,6 +298,20 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             icon: Icons.event_busy_outlined,
             title: 'Sin horarios publicados',
             message: 'Tu entrenador todavía no tiene horarios de atención disponibles.',
+          )
+        else if (!_hasValidSchedule(trainer))
+          const _InfoCard(
+            icon: Icons.event_busy_outlined,
+            title: 'Horarios no válidos',
+            message:
+                'Los horarios de tu entrenador no se pudieron leer. Avisa al equipo de FitZone para que los corrija.',
+          )
+        else if (!_days.any((DateTime d) => _freeTimes(d).isNotEmpty))
+          const _InfoCard(
+            icon: Icons.event_busy_outlined,
+            title: 'Sin horarios libres',
+            message:
+                'Tu entrenador no tiene horas libres en los próximos 14 días. Vuelve a revisar más tarde.',
           )
         else ...<Widget>[
           _sectionTitle('Elige un día'),
@@ -292,14 +331,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       ],
     );
   }
-
+ 
   Widget _sectionTitle(String text) {
     return Text(
       text,
       style: AppText.display(size: 16, weight: FontWeight.w700, height: 1.5),
     );
   }
-
+ 
   Widget _buildCoachCard(Trainer trainer) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -333,7 +372,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       ),
     );
   }
-
+ 
   Widget _buildDays() {
     final ScrollBehavior behavior = ScrollConfiguration.of(context).copyWith(
       scrollbars: false,
@@ -344,7 +383,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         PointerDeviceKind.trackpad,
       },
     );
-
+ 
     return SizedBox(
       height: 78,
       child: ScrollConfiguration(
@@ -359,7 +398,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             final bool hasSlots = _freeTimes(day).isNotEmpty;
             final bool selected = _selectedDay != null &&
                 dateKey(_selectedDay!) == dateKey(day);
-
+ 
             return _DayChip(
               day: day,
               selected: selected,
@@ -374,18 +413,18 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       ),
     );
   }
-
+ 
   Widget _buildTimes() {
     final DateTime? day = _selectedDay;
     final List<String> times = day == null ? const <String>[] : _freeTimes(day);
-
+ 
     if (times.isEmpty) {
       return Text(
         'No hay horarios libres este día. Prueba con otro.',
         style: AppText.body(size: 13, color: AppColors.whiteA(0.45), height: 1.5),
       );
     }
-
+ 
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -399,18 +438,18 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       ],
     );
   }
-
+ 
   Widget _buildConfirmButton() {
     final DateTime? day = _selectedDay;
     final String? time = _selectedTime;
     final bool ready = day != null && time != null && !_booking;
-
+ 
     final String label = _booking
         ? 'Reservando...'
         : (day != null && time != null)
             ? 'Confirmar · ${_weekdayShort[day.weekday - 1]} ${day.day} ${_monthShort[day.month - 1]} · $time'
             : 'Elige día y hora';
-
+ 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: ready ? _book : null,
@@ -438,7 +477,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       ),
     );
   }
-
+ 
   Widget _buildMine() {
     if (_mine.isEmpty) {
       return Text(
@@ -446,7 +485,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         style: AppText.body(size: 13, color: AppColors.whiteA(0.45), height: 1.5),
       );
     }
-
+ 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -462,17 +501,17 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     );
   }
 }
-
+ 
 // ═══════════════════════════════════════════════════════════════════════════
 // Piezas privadas
 // ═══════════════════════════════════════════════════════════════════════════
-
+ 
 class _CoachPhoto extends StatelessWidget {
   const _CoachPhoto({required this.url, required this.size});
-
+ 
   final String url;
   final double size;
-
+ 
   @override
   Widget build(BuildContext context) {
     final Widget fallback = ColoredBox(
@@ -483,7 +522,7 @@ class _CoachPhoto extends StatelessWidget {
         color: AppColors.whiteA(0.4),
       ),
     );
-
+ 
     return ClipRRect(
       borderRadius: BorderRadius.circular(size * 0.3),
       child: SizedBox(
@@ -500,7 +539,7 @@ class _CoachPhoto extends StatelessWidget {
     );
   }
 }
-
+ 
 class _DayChip extends StatelessWidget {
   const _DayChip({
     required this.day,
@@ -508,18 +547,18 @@ class _DayChip extends StatelessWidget {
     required this.enabled,
     required this.onTap,
   });
-
+ 
   final DateTime day;
   final bool selected;
   final bool enabled;
   final VoidCallback onTap;
-
+ 
   @override
   Widget build(BuildContext context) {
     final Color textColor = selected
         ? const Color(0xFF0A0A0A)
         : (enabled ? AppColors.ink : AppColors.whiteA(0.25));
-
+ 
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
       child: GestureDetector(
@@ -570,18 +609,18 @@ class _DayChip extends StatelessWidget {
     );
   }
 }
-
+ 
 class _TimeChip extends StatelessWidget {
   const _TimeChip({
     required this.time,
     required this.selected,
     required this.onTap,
   });
-
+ 
   final String time;
   final bool selected;
   final VoidCallback onTap;
-
+ 
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
@@ -612,25 +651,25 @@ class _TimeChip extends StatelessWidget {
     );
   }
 }
-
+ 
 class _AppointmentCard extends StatelessWidget {
   const _AppointmentCard({
     required this.appointment,
     required this.cancelling,
     required this.onCancel,
   });
-
+ 
   final Appointment appointment;
   final bool cancelling;
   final VoidCallback onCancel;
-
+ 
   @override
   Widget build(BuildContext context) {
     final DateTime? start = appointment.startsAt;
     final String when = start == null
         ? '${appointment.date} · ${appointment.time}'
         : '${_weekdayShort[start.weekday - 1]} ${start.day} ${_monthShort[start.month - 1]} · ${appointment.time}';
-
+ 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -694,18 +733,18 @@ class _AppointmentCard extends StatelessWidget {
     );
   }
 }
-
+ 
 class _InfoCard extends StatelessWidget {
   const _InfoCard({
     required this.icon,
     required this.title,
     required this.message,
   });
-
+ 
   final IconData icon;
   final String title;
   final String message;
-
+ 
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -735,7 +774,7 @@ class _InfoCard extends StatelessWidget {
     );
   }
 }
-
+ 
 class _ConfirmDialog extends StatelessWidget {
   const _ConfirmDialog({
     required this.title,
@@ -743,12 +782,12 @@ class _ConfirmDialog extends StatelessWidget {
     required this.confirmLabel,
     required this.cancelLabel,
   });
-
+ 
   final String title;
   final String message;
   final String confirmLabel;
   final String cancelLabel;
-
+ 
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -810,7 +849,7 @@ class _ConfirmDialog extends StatelessWidget {
     );
   }
 }
-
+ 
 class _DialogButton extends StatelessWidget {
   const _DialogButton({
     required this.label,
@@ -819,13 +858,13 @@ class _DialogButton extends StatelessWidget {
     required this.textColor,
     required this.onTap,
   });
-
+ 
   final String label;
   final Color background;
   final Color border;
   final Color textColor;
   final VoidCallback onTap;
-
+ 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(

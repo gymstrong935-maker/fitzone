@@ -1,7 +1,7 @@
 import 'dart:typed_data';
-
+ 
 import 'package:flutter/material.dart';
-
+ 
 import '../../core/api/api_exception.dart';
 import '../../core/models/user_profile.dart';
 import '../../core/services/app_services.dart';
@@ -25,7 +25,7 @@ import '../payment_method/payment_method_screen.dart';
 import 'edit_profile_screen.dart';
 import 'widgets/fz_switch.dart';
 import 'widgets/settings_sheets.dart';
-
+ 
 const List<String> _months = <String>[
   'enero',
   'febrero',
@@ -40,7 +40,7 @@ const List<String> _months = <String>[
   'noviembre',
   'diciembre',
 ];
-
+ 
 String _goalLabel(Goal? goal) {
   if (goal == null) return '—';
   for (final GoalOption option in kGoals) {
@@ -48,7 +48,7 @@ String _goalLabel(Goal? goal) {
   }
   return goal.apiValue;
 }
-
+ 
 String _levelLabel(ExperienceLevel? level) {
   if (level == null) return '—';
   for (final ExperienceOption option in kExperienceLevels) {
@@ -56,12 +56,12 @@ String _levelLabel(ExperienceLevel? level) {
   }
   return level.apiValue;
 }
-
+ 
 /// "3 de octubre de 2026"
 String _formatMemberSince(DateTime d) {
   return '${d.day} de ${_months[d.month - 1]} de ${d.year}';
 }
-
+ 
 /// Pantalla "Ajustes" (pestaña de la barra inferior; en el diseño se titula
 /// "Configuración").
 class SettingsScreen extends StatefulWidget {
@@ -78,47 +78,51 @@ class SettingsScreen extends StatefulWidget {
     required this.onSaveAccount,
     required this.onChangePassword,
     required this.onSaveData,
+    this.onChangePlan,
   });
-
+ 
   final UserProfile userProfile;
-
+ 
+  /// Abre la selección de plan y el pago (si es `null`, la opción no se muestra).
+  final VoidCallback? onChangePlan;
+ 
   /// `true` = tema claro activo.
   final bool isLight;
   final VoidCallback onThemeToggle;
   final VoidCallback onBack;
-
+ 
   /// Cambios locales (objetivo o entrenador).
   final ValueChanged<UserProfile> onProfileChanged;
-
+ 
   /// Guarda el nombre en el servidor. Lanza [ApiException] si falla.
   final Future<void> Function(String name) onRename;
   final VoidCallback onOpenNotifications;
   final VoidCallback onLogout;
-
+ 
   /// Guarda nombre y correo en el servidor.
   final Future<void> Function(String name, String email) onSaveAccount;
-
+ 
   /// Cambia la contraseña (con confirmación). Lanza [ApiException] si falla.
   final Future<void> Function(String? current, String next, String confirmation)
       onChangePassword;
-
+ 
   /// Guarda los datos personales editados (también en el servidor).
   final Future<void> Function(OnboardingData data) onSaveData;
-
+ 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
-
+ 
 class _SettingsScreenState extends State<SettingsScreen> {
   CoachChange? _change;
   bool _changeLoaded = false;
-
+ 
   @override
   void initState() {
     super.initState();
     _loadChange();
   }
-
+ 
   /// Última solicitud de cambio de entrenador (y, si ya la aprobaron, se
   /// refleja el nuevo entrenador en el perfil local).
   Future<void> _loadChange() async {
@@ -129,7 +133,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _change = change;
         _changeLoaded = true;
       });
-
+ 
       if (change != null &&
           change.estado == 'aprobada' &&
           change.newId.isNotEmpty &&
@@ -145,14 +149,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) setState(() => _changeLoaded = true);
     }
   }
-
+ 
   static Color get _cyan400 => AppColors.cyanLightText;
   static Color get _yellow400 => AppColors.yellow;
-
+ 
   OnboardingData get _data => widget.userProfile.onboardingData;
-
+ 
   // ── Acciones ──────────────────────────────────────────────────────────────
-
+ 
   void _toast(ScaffoldMessengerState messenger, String message) {
     messenger
       ..hideCurrentSnackBar()
@@ -173,7 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
   }
-
+ 
   /// Editar perfil: cuenta, contraseña y datos personales en una pantalla completa.
   Future<void> _editProfile(BuildContext context) async {
     await Navigator.of(context).push<void>(
@@ -191,7 +195,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (mounted) setState(() {});
   }
-
+ 
   Future<void> _changeGoal(BuildContext context) async {
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     final Goal? goal = await showGoalSheet(context, current: _data.goal);
@@ -201,34 +205,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     _toast(messenger, 'Objetivo actualizado');
   }
-
+ 
   // ── Cambio de entrenador (lo valida el equipo) ────────────────────────────
-
+ 
   Future<void> _changeTrainer(BuildContext context) async {
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-
+ 
     if (_change?.isOpen ?? false) {
       _toast(messenger, 'Ya tienes una solicitud de cambio en curso.');
       return;
     }
-
+ 
     final Trainer? trainer =
         await showTrainerSheet(context, current: _data.trainer);
     if (trainer == null || trainer.id == _data.trainer?.id) return;
     if (!context.mounted) return;
-
+ 
     final int currentPrice = _data.trainer?.price ?? 0;
     final int diff = trainer.price > currentPrice ? trainer.price - currentPrice : 0;
-
+ 
     final bool? ok = await _confirmChange(context, trainer, diff);
     if (ok != true) return;
-
+ 
     try {
       final CoachChange change =
           await AppServices.instance.coaches.requestChange(trainer.id);
       if (!mounted) return;
       setState(() => _change = change);
-
+ 
       if (change.needsPayment && change.payment != null && context.mounted) {
         await _payDifference(context, change);
       } else {
@@ -240,7 +244,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _toast(messenger, 'No se pudo enviar la solicitud');
     }
   }
-
+ 
   Future<bool?> _confirmChange(BuildContext context, Trainer trainer, int diff) {
     return showDialog<bool>(
       context: context,
@@ -307,15 +311,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
   }
-
+ 
   /// Abre la pantalla de pago para la diferencia del cambio de entrenador.
   Future<void> _payDifference(BuildContext context, CoachChange change) async {
     final BackendPayment? payment = change.payment;
     if (payment == null) return;
-
+ 
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     bool paid = false;
-
+ 
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (BuildContext ctx) => PaymentMethodScreen(
@@ -339,7 +343,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
-
+ 
     if (paid) {
       _toast(messenger, 'Pago enviado. El equipo confirmará tu cambio.');
     } else if (change.isOpen) {
@@ -347,7 +351,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     await _loadChange();
   }
-
+ 
   Future<void> _cancelChange() async {
     final CoachChange? change = _change;
     if (change == null) return;
@@ -360,17 +364,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     await _loadChange();
   }
-
+ 
   Widget _buildChangeCard(BuildContext context) {
     final CoachChange? change = _change;
     if (!_changeLoaded || change == null) return const SizedBox.shrink();
     if (change.estado == 'aprobada' || change.estado == 'cancelada') {
       return const SizedBox.shrink();
     }
-
+ 
     final bool rejected = change.estado == 'rechazada';
     final Color accent = rejected ? AppColors.red : AppColors.amber;
-
+ 
     final String title = rejected
         ? 'Cambio de entrenador rechazado'
         : change.needsPayment
@@ -383,7 +387,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ? 'Para pasar a ${change.newName} debes pagar ${formatCop(change.difference)}.'
             : 'Pediste pasar a ${change.newName}. Estamos validando'
                 '${change.difference > 0 ? ' tu pago y' : ''} el cambio; te avisaremos.';
-
+ 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Container(
@@ -442,18 +446,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
+ 
   Future<void> _logout(BuildContext context) async {
     final bool? confirmed = await showLogoutDialog(context);
     if (confirmed == true) widget.onLogout();
   }
-
+ 
   // ── Build ─────────────────────────────────────────────────────────────────
-
+ 
   @override
   Widget build(BuildContext context) {
     final Trainer? trainer = _data.trainer;
-
+ 
     return SubScreenFrame(
       title: 'Configuración',
       onBack: widget.onBack,
@@ -472,7 +476,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
+ 
   Widget _animated(int delayMs, Widget child) {
     return FadeSlideIn(
       delay: Duration(milliseconds: delayMs),
@@ -481,14 +485,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: child,
     );
   }
-
+ 
   // ── Perfil ────────────────────────────────────────────────────────────────
   Widget _buildProfileCard(BuildContext context) {
     final String trimmed = widget.userProfile.name.trim();
     final String initial = trimmed.isEmpty
         ? '?'
         : String.fromCharCode(trimmed.runes.first).toUpperCase();
-
+ 
     return HomeCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -590,7 +594,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
+ 
   // ── Preferencias ──────────────────────────────────────────────────────────
   Widget _buildPreferencesCard(BuildContext context, Trainer? trainer) {
     return HomeCard(
@@ -614,6 +618,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             label: 'Cambiar Objetivo',
             onTap: () => _changeGoal(context),
           ),
+          if (widget.onChangePlan != null)
+            _SettingRow(
+              icon: Icons.workspace_premium_outlined,
+              iconColor: _cyan400,
+              label: 'Cambiar Plan',
+              onTap: widget.onChangePlan,
+            ),
           if (trainer != null)
             _SettingRow(
               icon: Icons.settings_outlined,
@@ -631,7 +642,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
+ 
   // ── Información ───────────────────────────────────────────────────────────
   Widget _buildInfoCard(Trainer? trainer) {
     final List<(String, String)> rows = <(String, String)>[
@@ -640,7 +651,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (trainer != null) ('Entrenador', trainer.name),
       ('Miembro desde', _formatMemberSince(widget.userProfile.createdAt)),
     ];
-
+ 
     return HomeCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -680,7 +691,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
+ 
   // ── Cerrar sesión ─────────────────────────────────────────────────────────
   Widget _buildLogoutButton(BuildContext context) {
     return MouseRegion(
@@ -709,7 +720,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
+ 
   Widget _sectionTitle(String text) {
     return Text(
       text.toUpperCase(),
@@ -723,7 +734,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
-
+ 
 /// Fila de preferencias: ícono + texto a la izquierda y, a la derecha, un
 /// control o una flecha. Lleva una línea tenue debajo.
 class _SettingRow extends StatelessWidget {
@@ -734,15 +745,15 @@ class _SettingRow extends StatelessWidget {
     this.trailing,
     this.onTap,
   });
-
+ 
   final IconData icon;
   final Color iconColor;
   final String label;
-
+ 
   /// Control de la derecha; si es `null` se muestra una flecha.
   final Widget? trailing;
   final VoidCallback? onTap;
-
+ 
   @override
   Widget build(BuildContext context) {
     final Widget row = Container(
@@ -774,9 +785,9 @@ class _SettingRow extends StatelessWidget {
         ],
       ),
     );
-
+ 
     if (onTap == null) return row;
-
+ 
     return Semantics(
       button: true,
       label: label,
@@ -791,14 +802,14 @@ class _SettingRow extends StatelessWidget {
     );
   }
 }
-
+ 
 class _ChangeButton extends StatelessWidget {
   const _ChangeButton({required this.label, required this.onTap, this.primary = false});
-
+ 
   final String label;
   final VoidCallback onTap;
   final bool primary;
-
+ 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -828,3 +839,4 @@ class _ChangeButton extends StatelessWidget {
     );
   }
 }
+ 
