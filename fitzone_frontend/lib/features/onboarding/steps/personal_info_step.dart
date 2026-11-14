@@ -1,0 +1,277 @@
+import 'package:flutter/material.dart';
+ 
+import '../../../core/theme/app_text.dart';
+import '../models/personal_info.dart';
+import '../widgets/fz_label.dart';
+import '../widgets/fz_number_field.dart';
+import '../widgets/fz_select.dart';
+import '../widgets/fz_slider.dart';
+import '../widgets/fz_text_area.dart';
+import '../widgets/step_header.dart';
+ 
+/// Paso "Información Personal".
+class PersonalInfoStep extends StatelessWidget {
+  const PersonalInfoStep({
+    super.key,
+    required this.info,
+    required this.onChanged,
+    this.showErrors = false,
+    this.showLaterNote = true,
+  });
+ 
+  final PersonalInfo info;
+  final ValueChanged<PersonalInfo> onChanged;
+ 
+  /// Resalta en rojo los números que faltan (la persona intentó continuar).
+  final bool showErrors;
+ 
+  /// Muestra "podrás modificarlos después" (solo durante el registro).
+  final bool showLaterNote;
+ 
+  static const double _lbPerKg = 2.20462;
+ 
+  // ── Peso ──────────────────────────────────────────────────────────────────
+ 
+  void _changeUnit(WeightUnit unit) {
+    double weight = info.weight;
+    if (info.weightUnit == WeightUnit.kg && unit == WeightUnit.lb) {
+      weight = weight * _lbPerKg;
+    } else if (info.weightUnit == WeightUnit.lb && unit == WeightUnit.kg) {
+      weight = weight / _lbPerKg;
+    }
+    weight = (weight * 10).round() / 10;
+    onChanged(info.copyWith(weight: weight, weightUnit: unit));
+  }
+ 
+  String get _approxWeight {
+    if (info.weightUnit == WeightUnit.kg) {
+      final double lb = (info.weight * _lbPerKg * 10).round() / 10;
+      return '≈ ${formatNumber(lb)} lb';
+    }
+    final double kg = (info.weight / _lbPerKg * 10).round() / 10;
+    return '≈ ${formatNumber(kg)} kg';
+  }
+ 
+  // ── Build ─────────────────────────────────────────────────────────────────
+ 
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        StepHeader(
+          icon: Icons.person_outline_rounded,
+          title: 'Información Personal',
+          subtitle: showLaterNote
+              ? 'Cuéntanos sobre ti. Podrás modificar estos datos después en Ajustes.'
+              : 'Cuéntanos sobre ti para personalizar tu plan.',
+          teal: true,
+        ),
+        const SizedBox(height: 24),
+        _buildAgeAndGender(),
+        const SizedBox(height: 16),
+        _buildWeight(),
+        const SizedBox(height: 16),
+        _buildHeight(),
+        const SizedBox(height: 24),
+        _buildSliders(),
+        const SizedBox(height: 12),
+        _buildMedical(),
+      ],
+    );
+  }
+ 
+  Widget _buildAgeAndGender() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              const FzLabel('Edad'),
+              const SizedBox(height: 6),
+              FzNumberField(
+                value: info.age.toDouble(),
+                min: 10,
+                hint: 'Ej. 25',
+                error: (showErrors && info.age < 10) || info.age > PersonalInfo.maxAge,
+                onChanged: (double v) =>
+                    onChanged(info.copyWith(age: v.round())),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              const FzLabel('Género'),
+              const SizedBox(height: 6),
+              FzSelect<Gender>(
+                value: info.gender,
+                placeholder:
+                    info.touched.contains(PersonalInfo.kGender) ? null : 'Selecciona',
+                options: const <FzSelectOption<Gender>>[
+                  FzSelectOption<Gender>(
+                    value: Gender.male,
+                    label: 'Masculino',
+                  ),
+                  FzSelectOption<Gender>(
+                    value: Gender.female,
+                    label: 'Femenino',
+                  ),
+                  FzSelectOption<Gender>(value: Gender.other, label: 'Otro'),
+                ],
+                onChanged: (Gender g) =>
+                    onChanged(info.copyWith(gender: g).withTouched(PersonalInfo.kGender)),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+ 
+  Widget _buildWeight() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const FzLabel('Peso'),
+        const SizedBox(height: 6),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: FzNumberField(
+                value: info.weight,
+                min: 20,
+                decimal: true,
+                hint: 'Ej. 70',
+                error: (showErrors && info.weightKg < 20) ||
+                    info.weightKg > PersonalInfo.maxWeightKg,
+                onChanged: (double v) => onChanged(info.copyWith(weight: v)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FzSelect<WeightUnit>(
+                value: info.weightUnit,
+                options: const <FzSelectOption<WeightUnit>>[
+                  FzSelectOption<WeightUnit>(
+                    value: WeightUnit.kg,
+                    label: 'kg',
+                  ),
+                  FzSelectOption<WeightUnit>(
+                    value: WeightUnit.lb,
+                    label: 'lb',
+                  ),
+                ],
+                onChanged: _changeUnit,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _approxWeight,
+          style: AppText.body(
+            size: 12,
+            color: const Color.fromRGBO(34, 211, 238, 0.7),
+            height: 1.333,
+          ),
+        ),
+      ],
+    );
+  }
+ 
+  Widget _buildHeight() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const FzLabel('Estatura (cm)'),
+        const SizedBox(height: 6),
+        FzNumberField(
+          value: info.height.toDouble(),
+          min: 100,
+          hint: 'Ej. 170',
+          error: (showErrors && info.height < 100) ||
+              info.height > PersonalInfo.maxHeight,
+          onChanged: (double v) => onChanged(info.copyWith(height: v.round())),
+        ),
+      ],
+    );
+  }
+ 
+  Widget _buildSliders() {
+    final PsychologicalCondition psy = info.psychologicalCondition;
+ 
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        FzSliderField(
+          label: 'Condición Física',
+          value: info.physicalCondition,
+          gap: 12,
+          touched: info.touched.contains(PersonalInfo.kPhysical),
+          onChanged: (int v) => onChanged(
+            info.copyWith(physicalCondition: v).withTouched(PersonalInfo.kPhysical),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FzSliderField(
+          label: 'Motivación',
+          value: psy.motivation,
+          touched: info.touched.contains(PersonalInfo.kMotivation),
+          onChanged: (int v) => onChanged(
+            info
+                .copyWith(psychologicalCondition: psy.copyWith(motivation: v))
+                .withTouched(PersonalInfo.kMotivation),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FzSliderField(
+          label: 'Nivel de Estrés',
+          value: psy.stress,
+          touched: info.touched.contains(PersonalInfo.kStress),
+          onChanged: (int v) => onChanged(
+            info
+                .copyWith(psychologicalCondition: psy.copyWith(stress: v))
+                .withTouched(PersonalInfo.kStress),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FzSliderField(
+          label: 'Energía',
+          value: psy.energy,
+          touched: info.touched.contains(PersonalInfo.kEnergy),
+          onChanged: (int v) => onChanged(
+            info
+                .copyWith(psychologicalCondition: psy.copyWith(energy: v))
+                .withTouched(PersonalInfo.kEnergy),
+          ),
+        ),
+      ],
+    );
+  }
+ 
+  Widget _buildMedical() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const FzLabel('Condiciones Médicas'),
+        const SizedBox(height: 6),
+        FzTextArea(
+          initialText: info.medicalConditions.physical,
+          hint: 'Lesiones, condiciones crónicas, alergias... (escribe «Ninguna» si no tienes)',
+          onChanged: (String text) => onChanged(
+            info.copyWith(
+              medicalConditions:
+                  info.medicalConditions.copyWith(physical: text),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
