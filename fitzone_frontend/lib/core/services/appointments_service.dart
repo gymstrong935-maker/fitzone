@@ -7,46 +7,137 @@ String dateKey(DateTime d) {
   return '${d.year}-$m-$day';
 }
  
-const Map<String, int> _dayNames = <String, int>{
-  'lunes': 1,
-  'martes': 2,
-  'miércoles': 3,
-  'miercoles': 3,
-  'jueves': 4,
-  'viernes': 5,
-  'sábado': 6,
-  'sabado': 6,
-  'domingo': 7,
+const List<String> _dayPrefixes = <String>['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'];
+const Set<String> _rangeWords = <String>{'a', 'al', 'hasta', '-'};
+const Set<String> _everyDayWords = <String>{'todos', 'diario', 'diarios', 'diaria', 'siempre'};
+
+const Map<String, String> _accents = <String, String>{
+  'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ü': 'u', 'ñ': 'n',
 };
- 
-final RegExp _availabilityPattern = RegExp(
-  r'^\s*([^\s\d]+)\s+(\d{1,2}):(\d{2})\s*(?:-|–|—|a|al|to)\s*(\d{1,2}):(\d{2})\s*$',
+
+String _plain(String text) {
+  final StringBuffer out = StringBuffer();
+  for (final String ch in text.toLowerCase().split('')) {
+    out.write(_accents[ch] ?? ch);
+  }
+  return out.toString();
+}
+
+class ScheduleEntry {
+  const ScheduleEntry({required this.days, required this.start, required this.end});
+
+  final List<int> days;
+  final int start;
+  final int end;
+}
+
+const String _timePattern = r'(\d{1,2})(?:\s*(?:[:.h]\s*(\d{2})?))?\s*(am|pm)?';
+final RegExp _rangePattern = RegExp(
+  '^$_timePattern\\s*(?:-|a|al|hasta|to)\\s*$_timePattern\$',
 );
- 
-/// Horas de inicio ("06:00", "07:00"...) disponibles en un día de la semana
-/// (lunes = 1 ... domingo = 7), a partir de horarios como "lunes 06:00-12:00".
-/// Cada cita dura 1 hora.
+
+int? _toMinutes(String hour, String? minutes, String? meridiem) {
+  int h = int.parse(hour);
+  final int m = (minutes == null || minutes.isEmpty) ? 0 : int.parse(minutes);
+  if (m > 59) return null;
+  if (meridiem == 'pm' && h < 12) h += 12;
+  if (meridiem == 'am' && h == 12) h = 0;
+  if (h > 24 || (h == 24 && m > 0)) return null;
+  return h * 60 + m;
+}
+
+List<int> _readDays(String text) {
+  final Set<int> days = <int>{};
+  int? previous;
+  bool range = false;
+
+  for (final RegExpMatch match in RegExp(r'[a-z]+|[-,/&]').allMatches(text)) {
+    final String word = match.group(0)!;
+
+    if (_rangeWords.contains(word)) {
+      if (previous != null) range = true;
+      continue;
+    }
+    if (_everyDayWords.contains(word)) {
+      days.addAll(<int>[1, 2, 3, 4, 5, 6, 7]);
+      previous = null;
+      continue;
+    }
+
+    final int index =
+        word.length >= 3 ? _dayPrefixes.indexWhere((String p) => word.startsWith(p)) : -1;
+    if (index == -1) continue;
+
+    final int day = index + 1;
+    if (range && previous != null) {
+      int d = previous;
+      while (true) {
+        days.add(d);
+        if (d == day) break;
+        d = (d % 7) + 1;
+      }
+    } else {
+      days.add(day);
+    }
+    previous = day;
+    range = false;
+  }
+
+  return days.toList()..sort();
+}
+
+ScheduleEntry? parseAvailabilityEntry(String raw) {
+  final String text = _plain(raw)
+      .replaceAllMapped(RegExp(r'\b([ap])\s*\.\s*m\b\.?'), (Match m) => '${m.group(1)}m')
+      .replaceAll(RegExp('[–—]'), '-')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  final int cut = text.indexOf(RegExp(r'\d'));
+  if (cut == -1) return null;
+
+  final List<int> days = _readDays(text.substring(0, cut));
+  if (days.isEmpty) return null;
+
+  final RegExpMatch? m = _rangePattern.firstMatch(text.substring(cut).trim());
+  if (m == null) return null;
+
+  final int? end = _toMinutes(m.group(4)!, m.group(5), m.group(6));
+  int? start = _toMinutes(m.group(1)!, m.group(2), m.group(3));
+
+  if (m.group(3) == null && m.group(6) != null && end != null) {
+    final int? inherited = _toMinutes(m.group(1)!, m.group(2), m.group(6));
+    if (inherited != null && inherited < end) start = inherited;
+  }
+
+  if (start == null || end == null || end < start + 60) return null;
+  return ScheduleEntry(days: days, start: start, end: end);
+}
+
 List<String> availableTimesFor(List<String> availability, int weekday) {
   final Set<String> times = <String>{};
- 
+
   for (final String entry in availability) {
-    final RegExpMatch? m = _availabilityPattern.firstMatch(entry.toLowerCase());
-    if (m == null) continue;
-    if (_dayNames[m.group(1)] != weekday) continue;
- 
-    final int start = int.parse(m.group(2)!) * 60 + int.parse(m.group(3)!);
-    final int end = int.parse(m.group(4)!) * 60 + int.parse(m.group(5)!);
- 
-    for (int t = start; t + 60 <= end; t += 60) {
+    final ScheduleEntry? parsed = parseAvailabilityEntry(entry);
+    if (parsed == null || !parsed.days.contains(weekday)) continue;
+
+    for (int t = parsed.start; t + 60 <= parsed.end; t += 60) {
       final String h = (t ~/ 60).toString().padLeft(2, '0');
       final String min = (t % 60).toString().padLeft(2, '0');
       times.add('$h:$min');
     }
   }
- 
+
   final List<String> sorted = times.toList()..sort();
   return sorted;
 }
+
+ 
+final RegExp _availabilityPattern = RegExp(
+  r'^\s*([^\s\d]+)\s+(\d{1,2}):(\d{2})\s*(?:-|–|—|a|al|to)\s*(\d{1,2}):(\d{2})\s*$',
+);
+ 
+
  
 class Appointment {
   const Appointment({
