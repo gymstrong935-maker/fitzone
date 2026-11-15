@@ -55,7 +55,6 @@ Render — Alojamiento del backend.
 Git y GitHub — Control de versiones y trabajo colaborativo.
 Visual Studio Code — Editor de código.
 Android Studio — Desarrollo, emulación y herramientas para Android.
-Postman — Pruebas y validación de la API REST.
 ✨ Características del proyecto
 Gestión de usuarios
 Registro e inicio de sesión (correo y Google).
