@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
  
 import '../../core/api/api_exception.dart';
+import '../../core/services/app_services.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import '../../core/widgets/error_box.dart';
@@ -46,6 +49,7 @@ class EditProfileScreen extends StatefulWidget {
     required this.onBack,
   });
  
+  final String userId;
   final String name;
   final String email;
   final OnboardingData data;
@@ -882,4 +886,3 @@ class _PrimaryButton extends StatelessWidget {
     );
   }
 }
- 
