@@ -11,7 +11,14 @@ import { crearSuscripcionParaPlan, planBloqueante } from '../helpers/suscripcion
 import { borrarImagenCloudinary } from '../utils/cloudinary.js';
 import { enviarCorreoSeguro } from '../utils/enviarCorreoSeguro.js';
 import notificarAdmin from '../helpers/notificarAdmin.js';
-import { MINUTOS_CODIGO, correoVerificacion, correoRecuperacion, escapeHtml } from '../utils/emailTemplates.js';
+import {
+  MINUTOS_CODIGO,
+  correoVerificacion,
+  correoRecuperacion,
+  correoCambioEmail,
+  correoEmailCambiado,
+  escapeHtml
+} from '../utils/emailTemplates.js';
 import RevokedAccount from '../models/RevokedAccount.js';
 
 const googleClient = new OAuth2Client();
@@ -717,7 +724,9 @@ export const actualizarUsuario = async (req, res) => {
       datosActualizar.telefono = telefono;
     }
 
-    // Correo electrónico (único y con formato válido)
+    // Correo electrónico. Quien cambia SU PROPIO correo debe verificarlo primero con el
+    // código que llega al correo nuevo (POST /:id/cambio-correo y /:id/cambio-correo/confirmar).
+    // Solo un administrador puede cambiarlo directamente.
     if (req.body.email !== undefined) {
       const email = String(req.body.email).toLowerCase().trim();
 
@@ -727,26 +736,37 @@ export const actualizarUsuario = async (req, res) => {
         });
       }
 
-      const enUso = await User.findOne({
-        email,
-        _id: { $ne: req.params.id }
-      }).select('_id');
+      const actual = await User.findById(req.params.id).select('email');
 
-      if (enUso) {
-        return res.status(409).json({
-          mensaje: 'Ese correo ya está registrado en otra cuenta'
-        });
+      if (actual && actual.email !== email) {
+        if (req.usuario?.rol !== 'admin') {
+          return res.status(400).json({
+            mensaje: 'Para cambiar tu correo primero debes verificarlo con el código que te enviamos.',
+            codigo: 'VERIFICACION_CORREO_REQUERIDA'
+          });
+        }
+
+        const enUso = await User.findOne({
+          email,
+          _id: { $ne: req.params.id }
+        }).select('_id');
+
+        if (enUso) {
+          return res.status(409).json({
+            mensaje: 'Ese correo ya está registrado en otra cuenta'
+          });
+        }
+
+        const revocado = await RevokedAccount.findOne({ email }).select('_id');
+
+        if (revocado) {
+          return res.status(403).json({
+            mensaje: 'Ese correo no puede usarse en FitZone'
+          });
+        }
+
+        datosActualizar.email = email;
       }
-
-      const revocado = await RevokedAccount.findOne({ email }).select('_id');
-
-      if (revocado) {
-        return res.status(403).json({
-          mensaje: 'Ese correo no puede usarse en FitZone'
-        });
-      }
-
-      datosActualizar.email = email;
     }
 
     // Edad (entero de 10 a 120)
@@ -820,6 +840,180 @@ export const actualizarUsuario = async (req, res) => {
 
     return res.status(500).json({
       error: error.message
+    });
+  }
+};
+
+
+// ======================================================
+// CAMBIO DE CORREO CON VERIFICACIÓN
+// 1) El usuario escribe su correo nuevo → se envía un código de 6 dígitos a ESE correo.
+// 2) Escribe el código → recién ahí el correo de la cuenta cambia.
+// ======================================================
+
+const SEGUNDOS_ENTRE_ENVIOS = 30;
+const MAX_INTENTOS_CODIGO = 5;
+
+export const solicitarCambioEmail = async (req, res) => {
+  try {
+    const nuevoEmail = String(req.body.email || '').toLowerCase().trim();
+    const usuario = await User.findById(req.params.id);
+
+    if (!usuario) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    if (nuevoEmail === usuario.email) {
+      return res.status(400).json({ mensaje: 'Ese ya es el correo de tu cuenta' });
+    }
+
+    const enUso = await User.findOne({ email: nuevoEmail, _id: { $ne: usuario._id } }).select('_id');
+    if (enUso) {
+      return res.status(409).json({ mensaje: 'Ese correo ya está registrado en otra cuenta' });
+    }
+
+    const revocado = await RevokedAccount.findOne({ email: nuevoEmail }).select('_id');
+    if (revocado) {
+      return res.status(403).json({ mensaje: 'Ese correo no puede usarse en FitZone' });
+    }
+
+    // Evita disparar correos sin parar
+    const ultimoEnvio = usuario.codigoCambioEmailEnviado?.getTime() || 0;
+    const espera = Math.ceil((ultimoEnvio + SEGUNDOS_ENTRE_ENVIOS * 1000 - Date.now()) / 1000);
+
+    if (espera > 0 && usuario.emailPendiente === nuevoEmail) {
+      return res.status(429).json({
+        mensaje: `Espera ${espera} segundos para pedir otro código.`
+      });
+    }
+
+    const codigo = crearCodigo();
+
+    usuario.emailPendiente = nuevoEmail;
+    usuario.codigoCambioEmail = hashCodigo(codigo);
+    usuario.codigoCambioEmailExpira = vencimientoCodigo();
+    usuario.codigoCambioEmailEnviado = new Date();
+    usuario.intentosCambioEmail = 0;
+
+    await usuario.save();
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`🔐 [DEV] Código para cambiar a ${nuevoEmail}: ${codigo}`);
+    }
+
+    const correo = correoCambioEmail({ nombre: usuario.nombre, codigo });
+
+    const enviado = await enviarSinBloquear({
+      from: process.env.EMAIL_USER,
+      to: nuevoEmail,
+      subject: correo.asunto,
+      html: correo.html
+    });
+
+    if (!enviado) {
+      return res.status(502).json({
+        mensaje: 'No pudimos enviar el correo en este momento. Revisa que esté bien escrito e inténtalo de nuevo.',
+        codigo: 'CORREO_NO_ENVIADO'
+      });
+    }
+
+    return res.json({
+      mensaje: 'Te enviamos un código al correo nuevo',
+      emailPendiente: nuevoEmail,
+      minutosCodigo: MINUTOS_CODIGO
+    });
+
+  } catch (error) {
+    console.error('❌ Error al pedir el cambio de correo:', error);
+
+    return res.status(500).json({
+      mensaje: 'No se pudo iniciar el cambio de correo. Inténtalo de nuevo.'
+    });
+  }
+};
+
+export const confirmarCambioEmail = async (req, res) => {
+  try {
+    const { codigo } = req.body;
+    const usuario = await User.findById(req.params.id);
+
+    if (!usuario) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    if (!usuario.emailPendiente || !usuario.codigoCambioEmail) {
+      return res.status(400).json({
+        mensaje: 'No hay un cambio de correo pendiente. Vuelve a pedir el código.',
+        codigo: 'SIN_CAMBIO_PENDIENTE'
+      });
+    }
+
+    const limpiar = () => {
+      usuario.emailPendiente = undefined;
+      usuario.codigoCambioEmail = undefined;
+      usuario.codigoCambioEmailExpira = undefined;
+      usuario.codigoCambioEmailEnviado = undefined;
+      usuario.intentosCambioEmail = 0;
+    };
+
+    if (!usuario.codigoCambioEmailExpira || usuario.codigoCambioEmailExpira < Date.now()) {
+      limpiar();
+      await usuario.save();
+      return res.status(400).json({
+        mensaje: 'El código venció. Pide uno nuevo.',
+        codigo: 'CODIGO_VENCIDO'
+      });
+    }
+
+    if ((usuario.intentosCambioEmail || 0) >= MAX_INTENTOS_CODIGO) {
+      limpiar();
+      await usuario.save();
+      return res.status(429).json({
+        mensaje: 'Demasiados intentos. Pide un código nuevo.',
+        codigo: 'DEMASIADOS_INTENTOS'
+      });
+    }
+
+    if (hashCodigo(codigo) !== usuario.codigoCambioEmail) {
+      usuario.intentosCambioEmail = (usuario.intentosCambioEmail || 0) + 1;
+      await usuario.save();
+      return res.status(400).json({ mensaje: 'Código incorrecto. Revísalo e inténtalo de nuevo.' });
+    }
+
+    // Alguien pudo registrar ese correo mientras tanto
+    const enUso = await User.findOne({ email: usuario.emailPendiente, _id: { $ne: usuario._id } }).select('_id');
+    if (enUso) {
+      limpiar();
+      await usuario.save();
+      return res.status(409).json({ mensaje: 'Ese correo ya fue registrado por otra cuenta' });
+    }
+
+    const emailAnterior = usuario.email;
+
+    usuario.email = usuario.emailPendiente;
+    usuario.cuentaVerificada = true;
+    limpiar();
+
+    await usuario.save();
+
+    // Aviso de seguridad al correo anterior (no bloquea la respuesta)
+    if (emailAnterior && emailAnterior !== usuario.email) {
+      const aviso = correoEmailCambiado({ nombre: usuario.nombre, emailNuevo: usuario.email });
+      enviarCorreoSeguro({
+        from: process.env.EMAIL_USER,
+        to: emailAnterior,
+        subject: aviso.asunto,
+        html: aviso.html
+      });
+    }
+
+    return res.json(usuario);
+
+  } catch (error) {
+    console.error('❌ Error al confirmar el cambio de correo:', error);
+
+    return res.status(500).json({
+      mensaje: 'No se pudo confirmar el correo. Inténtalo de nuevo.'
     });
   }
 };

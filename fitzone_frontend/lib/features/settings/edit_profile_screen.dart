@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text.dart';
+import '../../core/widgets/error_box.dart';
 import '../../core/widgets/sub_screen_frame.dart';
+import '../admin/widgets/admin_widgets.dart';
 import '../home/widgets/home_card.dart';
 import '../onboarding/models/body_measurements.dart';
 import '../onboarding/models/onboarding_data.dart';
@@ -34,6 +36,7 @@ String? validateNewPassword(String value, String confirmation) {
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({
     super.key,
+    required this.userId,
     required this.name,
     required this.email,
     required this.data,
@@ -117,6 +120,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       });
       return;
     }
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _accountBusy = true;
       _accountMsg = '';
@@ -124,6 +128,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       final String name = _name.text.trim();
       final String email = _email.text.trim().toLowerCase();
+
+      // Un correo nuevo SIEMPRE se verifica: llega un código a ese correo y solo
+      // cuando se escribe bien el correo de la cuenta cambia.
+      if (email != _savedEmail) {
+        await AppServices.instance.users.requestEmailChange(
+          userId: widget.userId,
+          email: email,
+        );
+        if (!mounted) return;
+
+        final bool? verified = await showAdminSheet<bool>(
+          context,
+          (BuildContext ctx) => _EmailCodeSheet(userId: widget.userId, email: email),
+        );
+        if (!mounted) return;
+
+        if (verified != true) {
+          setState(() {
+            _accountOk = false;
+            _accountMsg =
+                'Tu correo no cambió: falta confirmar el código que enviamos a $email.';
+          });
+          return;
+        }
+      }
+
+      // Guarda el nombre y deja la app con el correo ya verificado.
       await widget.onSaveAccount(name, email);
       if (!mounted) return;
       setState(() {
@@ -148,7 +179,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) setState(() => _accountBusy = false);
     }
   }
- 
+
   // ── Contraseña ────────────────────────────────────────────────────────────
   Future<void> _savePassword() async {
     final String? error = validateNewPassword(_new.text, _confirm.text);
@@ -302,8 +333,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             _Message(_accountMsg, ok: _accountOk),
           ],
           const SizedBox(height: 14),
+          if (_email.text.trim().toLowerCase() != _savedEmail &&
+              _emailRegex.hasMatch(_email.text.trim())) ...<Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Icon(Icons.mark_email_read_outlined, size: 15, color: AppColors.cyanText),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Te enviaremos un código de 6 dígitos al correo nuevo para confirmar que es tuyo.',
+                    style: AppText.body(size: 12.5, color: AppColors.whiteA(0.55), height: 1.45),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
           _PrimaryButton(
-            label: 'Guardar cuenta',
+            label: _email.text.trim().toLowerCase() != _savedEmail
+                ? 'Verificar correo y guardar'
+                : 'Guardar cuenta',
             busy: _accountBusy,
             enabled: _accountChanged,
             onTap: _saveAccount,
@@ -465,6 +515,182 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 }
  
+// ═══════════════════════════════════════════════════════════════════════════
+// Hoja: código de verificación del correo nuevo
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _EmailCodeSheet extends StatefulWidget {
+  const _EmailCodeSheet({required this.userId, required this.email});
+
+  final String userId;
+  final String email;
+
+  @override
+  State<_EmailCodeSheet> createState() => _EmailCodeSheetState();
+}
+
+class _EmailCodeSheetState extends State<_EmailCodeSheet> {
+  static const int _cooldownSeconds = 30;
+
+  final TextEditingController _code = TextEditingController();
+  Timer? _timer;
+
+  int _cooldown = _cooldownSeconds;
+  bool _verifying = false;
+  bool _resending = false;
+  String _error = '';
+  String _info = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _startCooldown();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _code.dispose();
+    super.dispose();
+  }
+
+  void _startCooldown() {
+    _timer?.cancel();
+    setState(() => _cooldown = _cooldownSeconds);
+    _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
+      if (!mounted) return;
+      setState(() => _cooldown--);
+      if (_cooldown <= 0) t.cancel();
+    });
+  }
+
+  Future<void> _verify() async {
+    if (_verifying) return;
+    final String code = _code.text.trim();
+    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
+      setState(() {
+        _info = '';
+        _error = 'Escribe el código de 6 dígitos';
+      });
+      return;
+    }
+
+    setState(() {
+      _verifying = true;
+      _error = '';
+      _info = '';
+    });
+
+    try {
+      await AppServices.instance.users.confirmEmailChange(
+        userId: widget.userId,
+        code: code,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _verifying = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _verifying = false;
+        _error = 'No se pudo verificar el código. Inténtalo de nuevo.';
+      });
+    }
+  }
+
+  Future<void> _resend() async {
+    if (_resending || _cooldown > 0 || _verifying) return;
+    setState(() {
+      _resending = true;
+      _error = '';
+      _info = '';
+    });
+    try {
+      await AppServices.instance.users.requestEmailChange(
+        userId: widget.userId,
+        email: widget.email,
+      );
+      if (!mounted) return;
+      setState(() => _info = 'Te enviamos un código nuevo a ${widget.email}');
+      _startCooldown();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _resending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool canResend = _cooldown <= 0 && !_resending && !_verifying;
+
+    return AdminSheet(
+      title: 'Verifica tu correo nuevo',
+      subtitle: 'Enviamos un código de 6 dígitos a ${widget.email}. Vence en 15 minutos.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          AdminTextField(
+            controller: _code,
+            label: 'Código de verificación',
+            hint: '000000',
+            digitsOnly: true,
+            maxLength: 6,
+            keyboardType: TextInputType.number,
+          ),
+          if (_error.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 12),
+            ErrorBox(_error),
+          ],
+          if (_info.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 12),
+            Text(
+              _info,
+              textAlign: TextAlign.center,
+              style: AppText.body(size: 12.5, color: AppColors.green, height: 1.4),
+            ),
+          ],
+          const SizedBox(height: 18),
+          AdminButton(
+            label: 'Confirmar correo',
+            icon: Icons.verified_outlined,
+            kind: AdminButtonKind.primary,
+            loading: _verifying,
+            onTap: _verify,
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: canResend ? _resend : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                child: Text(
+                  _resending
+                      ? 'Enviando...'
+                      : _cooldown > 0
+                          ? 'Reenviar código en ${_cooldown}s'
+                          : 'Reenviar código',
+                  style: AppText.body(
+                    size: 13,
+                    color: canResend ? AppColors.cyanText : AppColors.whiteA(0.35),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Piezas privadas
 // ═══════════════════════════════════════════════════════════════════════════

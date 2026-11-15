@@ -68,6 +68,12 @@ process.on('unhandledRejection', (motivo) => {
   console.error('⚠️ Promesa rechazada sin manejar:', motivo);
 });
 
+// Un error inesperado dentro de un callback (por ejemplo al subir una imagen) no debe
+// tumbar el servidor entero: se registra y el servidor sigue atendiendo a los demás.
+process.on('uncaughtException', (error) => {
+  console.error('⚠️ Error no capturado (el servidor sigue activo):', error?.stack || error);
+});
+
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
@@ -134,6 +140,14 @@ app.use((err, req, res, next) => {
 
   if (res.headersSent) {
     return next(err);
+  }
+
+  // Errores al subir imágenes (foto de perfil, factura...)
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ mensaje: 'La imagen es muy pesada. El máximo es 5 MB.' });
+  }
+  if (err.message === 'Solo se permiten archivos de imagen') {
+    return res.status(400).json({ mensaje: err.message });
   }
 
   res.status(500).json({

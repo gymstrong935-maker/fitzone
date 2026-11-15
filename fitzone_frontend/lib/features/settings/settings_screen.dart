@@ -183,6 +183,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (BuildContext ctx) => EditProfileScreen(
+          userId: widget.userProfile.id,
           name: widget.userProfile.name,
           email: widget.userProfile.email,
           data: _data,

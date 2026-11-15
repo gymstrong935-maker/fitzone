@@ -5,7 +5,11 @@ import '../utils/cloudinary.js'; // ejecuta cloudinary.config(...) antes de usar
 
 const crearUploadMiddleware = (carpeta, { maxLado = 800 } = {}) => {
   const storage = new CloudinaryStorage({
-    cloudinary, // ahora sí es el objeto v2 correcto, no el paquete completo
+    // multer-storage-cloudinary 2.x llama a `cloudinary.v2.uploader...`, así que necesita un
+    // objeto con la propiedad `v2` (el paquete completo), NO el objeto v2 directamente.
+    // Pasar `cloudinary` (v2) a secas hace que el servidor se caiga con
+    // "Cannot read properties of undefined (reading 'uploader')" al subir cualquier imagen.
+    cloudinary: { v2: cloudinary },
     params: {
       folder: `fitzone/${carpeta}`,
       allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],

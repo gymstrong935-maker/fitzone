@@ -12,7 +12,9 @@ import {
   cambiarPassword,
   verificarCuenta,
   reenviarCodigo,
-  cambiarRolUsuario
+  cambiarRolUsuario,
+  solicitarCambioEmail,
+  confirmarCambioEmail
 } from '../controllers/userController.js';
 
 import verificarToken, {
@@ -35,7 +37,9 @@ import {
   resetPasswordSchema,
   resetConCodigoSchema,
   verificarCuentaSchema,
-  reenviarCodigoSchema
+  reenviarCodigoSchema,
+  cambioCorreoSchema,
+  confirmarCambioCorreoSchema
 } from '../validators/userValidator.js';
 
 import crearUploadMiddleware from '../middleware/uploadMiddleware.js';
@@ -187,6 +191,29 @@ router.put(
   verificarToken,
   verificarDueño,
   cambiarPassword
+);
+
+
+// ======================================================
+// CAMBIAR CORREO (con código de verificación al correo nuevo)
+// ======================================================
+
+router.post(
+  '/:id/cambio-correo',
+  verificarToken,
+  verificarDueño,
+  limitarRecuperacion,
+  validar(cambioCorreoSchema),
+  solicitarCambioEmail
+);
+
+router.post(
+  '/:id/cambio-correo/confirmar',
+  verificarToken,
+  verificarDueño,
+  limitarLogin,
+  validar(confirmarCambioCorreoSchema),
+  confirmarCambioEmail
 );
 
 

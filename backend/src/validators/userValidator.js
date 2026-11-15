@@ -46,3 +46,12 @@ export const verificarCuentaSchema = z.object({
 export const reenviarCodigoSchema = z.object({
   email: correo
 });
+
+// Cambio de correo desde Ajustes
+export const cambioCorreoSchema = z.object({
+  email: correo
+});
+
+export const confirmarCambioCorreoSchema = z.object({
+  codigo: z.string().trim().regex(/^\d{6}$/, 'El código debe tener 6 dígitos')
+});

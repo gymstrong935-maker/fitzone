@@ -1,11 +1,15 @@
 import mongoose from 'mongoose';
 import SupportTicket from '../models/SupportTicket.js';
+import { rechazarSiInapropiado } from '../utils/moderacion.js';
 
 const MAX_ABIERTOS = 5;
 
 export const crearTicket = async (req, res) => {
   try {
     const { usuarioId, asunto, mensaje, transcripcion } = req.body;
+
+    // El equipo de soporte no recibe groserías, insultos, odio ni amenazas
+    if (rechazarSiInapropiado(res, asunto, mensaje)) return;
 
     const abiertos = await SupportTicket.countDocuments({ usuarioId, estado: { $ne: 'cerrado' } });
     if (abiertos >= MAX_ABIERTOS) {
@@ -40,6 +44,8 @@ export const agregarMensaje = async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({ mensaje: 'Solicitud no válida' });
     }
+
+    if (rechazarSiInapropiado(res, req.body.mensaje)) return;
 
     const ticket = await SupportTicket.findOne({ _id: req.params.id, usuarioId: req.usuario.id });
     if (!ticket) return res.status(404).json({ mensaje: 'Solicitud no encontrada' });

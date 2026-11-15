@@ -3,6 +3,7 @@ import Post from '../models/Post.js';
 import User from '../models/User.js';
 import WorkoutSession from '../models/WorkoutSession.js';
 import Notification from '../models/Notification.js';
+import { rechazarSiInapropiado, contieneEnlace } from '../utils/moderacion.js';
 
 const MAX_COMENTARIOS_POR_POST = 500;
 const LIMITE_POR_DEFECTO = 15;
@@ -102,6 +103,12 @@ export const crearPost = async (req, res) => {
   try {
     const yo = req.usuario.id;
     const { texto, entrenamientoId } = req.body;
+
+    // Sin groserías, insultos, odio, amenazas ni enlaces (spam)
+    if (rechazarSiInapropiado(res, texto)) return;
+    if (contieneEnlace(texto)) {
+      return res.status(422).json({ mensaje: 'No se permiten enlaces en la comunidad.', codigo: 'ENLACE_NO_PERMITIDO' });
+    }
 
     let entrenamiento;
 
@@ -236,6 +243,11 @@ export const crearComentario = async (req, res) => {
     if (!idValido(req.params.id)) return res.status(400).json({ mensaje: 'Publicación no válida' });
 
     const yo = req.usuario.id;
+
+    if (rechazarSiInapropiado(res, req.body.texto)) return;
+    if (contieneEnlace(req.body.texto)) {
+      return res.status(422).json({ mensaje: 'No se permiten enlaces en la comunidad.', codigo: 'ENLACE_NO_PERMITIDO' });
+    }
 
     const post = await Post.findOneAndUpdate(
       { _id: req.params.id, numComentarios: { $lt: MAX_COMENTARIOS_POR_POST } },

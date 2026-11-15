@@ -46,6 +46,30 @@ class UserService {
     return BackendUser.fromJson(data as Map<String, dynamic>);
   }
 
+  /// Paso 1 del cambio de correo: el servidor envía un código de 6 dígitos al
+  /// correo NUEVO. El correo de la cuenta no cambia hasta confirmar el código.
+  Future<void> requestEmailChange({
+    required String userId,
+    required String email,
+  }) async {
+    await _api.post(
+      '/api/users/$userId/cambio-correo',
+      body: <String, dynamic>{'email': email},
+    );
+  }
+
+  /// Paso 2: confirma el código y el correo de la cuenta cambia.
+  Future<BackendUser> confirmEmailChange({
+    required String userId,
+    required String code,
+  }) async {
+    final dynamic data = await _api.post(
+      '/api/users/$userId/cambio-correo/confirmar',
+      body: <String, dynamic>{'codigo': code},
+    );
+    return BackendUser.fromJson(data as Map<String, dynamic>);
+  }
+
   /// Cambia (o crea) la contraseña. La confirmación se valida también en el servidor.
   Future<void> changePassword({
     required String userId,

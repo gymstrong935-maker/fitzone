@@ -145,6 +145,31 @@ export const correoRecuperacion = ({ nombre, codigo }) => ({
   })
 });
 
+// Cambio de correo: el código llega al correo NUEVO
+export const correoCambioEmail = ({ nombre, codigo }) => ({
+  asunto: 'Confirma tu nuevo correo - FitZone',
+  html: layout({
+    preheader: `Tu código es ${codigo}. Vence en ${MINUTOS_CODIGO} minutos.`,
+    titulo: 'Confirma tu nuevo correo',
+    contenido:
+      parrafo(`Hola ${resaltar(escapeHtml(nombre))}, pediste usar este correo en tu cuenta de FitZone. Escribe este código en la app para confirmarlo:`) +
+      bloqueCodigo(codigo) +
+      parrafo('Si no fuiste tú, ignora este mensaje: tu cuenta sigue con el correo anterior.')
+  })
+});
+
+// Aviso de seguridad al correo ANTERIOR cuando el cambio ya se hizo
+export const correoEmailCambiado = ({ nombre, emailNuevo }) => ({
+  asunto: 'El correo de tu cuenta cambió - FitZone',
+  html: layout({
+    preheader: 'El correo de tu cuenta de FitZone fue actualizado.',
+    titulo: 'Cambiaste tu correo',
+    contenido:
+      parrafo(`Hola ${resaltar(escapeHtml(nombre))}, el correo de tu cuenta de FitZone ahora es ${resaltar(escapeHtml(emailNuevo))}.`) +
+      parrafo('Si no fuiste tú, escribe de inmediato al equipo de FitZone desde los canales oficiales.')
+  })
+});
+
 // ------------------------------------------------------
 // Estado de la cuenta
 // ------------------------------------------------------

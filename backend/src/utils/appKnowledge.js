@@ -47,6 +47,8 @@ PANTALLAS DE LA APLICACIÓN:
 - Historial: muestra los entrenamientos terminados, ejercicios, duración y calorías registradas.
 - Nutrición: presenta metas de calorías y macronutrientes calculadas a partir de los datos del usuario y su registro de comidas.
 - Ajustes: permite modificar perfil, datos personales, contraseña, tema visual, objetivo, entrenador y notificaciones.
+- Cambio de correo: en Ajustes → Editar perfil se escribe el correo nuevo y la app envía un código de 6 dígitos a ESE correo nuevo; el cambio solo se aplica cuando se escribe ese código (vence en 15 minutos).
+- Comunidad: permite publicar un mensaje o compartir un entrenamiento terminado, dar me gusta y comentar. No se permiten groserías, insultos, amenazas ni enlaces; los mensajes con ese contenido no se publican.
 - Citas: desde "Tu Entrenador" se puede agendar una cita de una hora, elegir un horario disponible y cancelar una cita.
 - Soporte: este chat permite consultar al asistente. El botón "Hablar con una persona" crea una solicitud para el equipo y las respuestas llegan mediante notificación.
  

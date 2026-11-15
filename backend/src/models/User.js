@@ -90,7 +90,19 @@ const userSchema = new mongoose.Schema({
 
   codigoVerificacion: String,
 
-  codigoVerificacionExpira: Date
+  codigoVerificacionExpira: Date,
+
+  // Cambio de correo desde Ajustes: el correo nuevo solo reemplaza al actual cuando
+  // la persona escribe el código que le llegó a ese correo nuevo.
+  emailPendiente: String,
+
+  codigoCambioEmail: String,
+
+  codigoCambioEmailExpira: Date,
+
+  codigoCambioEmailEnviado: Date,
+
+  intentosCambioEmail: { type: Number, default: 0 }
 
 }, {
 
@@ -109,6 +121,14 @@ const userSchema = new mongoose.Schema({
       delete ret.codigoVerificacion;
 
       delete ret.codigoVerificacionExpira;
+
+      delete ret.codigoCambioEmail;
+
+      delete ret.codigoCambioEmailExpira;
+
+      delete ret.codigoCambioEmailEnviado;
+
+      delete ret.intentosCambioEmail;
 
       delete ret.fotoPerfilId; // el cliente no necesita el public_id interno
 
