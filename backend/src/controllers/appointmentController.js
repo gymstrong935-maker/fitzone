@@ -3,6 +3,7 @@ import Appointment from '../models/Appointment.js';
 import Coach from '../models/Coach.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
+import { ahoraEnGimnasio, diaSemanaDe, horasDelDia } from '../utils/horarios.js';
 
 const avisar = async (usuarioId, mensaje) => {
   try {
@@ -32,6 +33,21 @@ export const crearCita = async (req, res) => {
       if (!usuario?.entrenadorAsignado || String(usuario.entrenadorAsignado) !== String(entrenadorId)) {
         return res.status(403).json({ mensaje: 'Solo puedes agendar citas con tu entrenador asignado' });
       }
+    }
+
+    // La fecha y la hora deben ser reales, futuras y caer dentro del horario del entrenador
+    const dia = diaSemanaDe(fecha);
+    if (!dia) {
+      return res.status(400).json({ mensaje: 'La fecha no es válida' });
+    }
+
+    const ahora = ahoraEnGimnasio();
+    if (`${fecha} ${hora}` <= `${ahora.fecha} ${ahora.hora}`) {
+      return res.status(400).json({ mensaje: 'Esa hora ya pasó. Elige un horario futuro.' });
+    }
+
+    if (!horasDelDia(coach.disponibilidad, dia).includes(hora)) {
+      return res.status(400).json({ mensaje: 'Ese horario no está dentro de la atención de tu entrenador' });
     }
 
     const yaOcupado = await Appointment.findOne({

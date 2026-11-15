@@ -5,6 +5,7 @@ import 'appointments_service.dart';
 import 'auth_service.dart';
 import 'chat_service.dart';
 import 'coaches_service.dart';
+import 'community_service.dart';
 import 'google_auth_service.dart';
 import 'measurements_service.dart';
 import 'notifications_service.dart';
@@ -35,6 +36,7 @@ class AppServices {
     admin = AdminService(api);
     support = SupportService(api);
     payments = PaymentsService(api);
+    community = CommunityService(api);
   }
 
   static final AppServices instance = AppServices._();
@@ -58,4 +60,5 @@ class AppServices {
   late final AdminService admin;
   late final SupportService support;
   late final PaymentsService payments;
+  late final CommunityService community;
 }

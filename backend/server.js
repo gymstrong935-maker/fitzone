@@ -26,6 +26,7 @@ import appointmentRoutes from './src/routes/appointmentRoutes.js';
 import workoutRoutes from './src/routes/workoutRoutes.js';
 import adminRoutes from './src/routes/adminRoutes.js';
 import supportRoutes from './src/routes/supportRoutes.js';
+import communityRoutes from './src/routes/communityRoutes.js';
 
 import { iniciarJobVencimientos } from './src/jobs/verificarVencimientosJob.js';
 
@@ -109,6 +110,7 @@ app.use('/api/workouts', workoutRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/community', communityRoutes);
 
 // =====================================================
 // RUTA 404

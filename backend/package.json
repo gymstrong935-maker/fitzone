@@ -8,7 +8,9 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "seed": "node src/seed.js",
-    "seed:coaches": "node src/seedCoaches.js"
+    "seed:coaches": "node src/seedCoaches.js",
+    "horarios:revisar": "node src/scripts/normalizarHorarios.js",
+    "horarios:corregir": "node src/scripts/normalizarHorarios.js --aplicar"
   },
   "keywords": [],
   "author": "",

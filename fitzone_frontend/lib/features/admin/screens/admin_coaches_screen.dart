@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/appointments_service.dart'
-    show ScheduleEntry, parseAvailabilityEntry;
 import '../../../core/api/api_exception.dart';
 import '../../../core/services/admin_service.dart';
+import '../../../core/services/appointments_service.dart' show ScheduleEntry, parseAvailabilityEntry;
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/utils/format.dart';
@@ -11,13 +10,7 @@ import '../../onboarding/widgets/fz_select.dart';
 import '../widgets/admin_widgets.dart';
 
 const List<String> _days = <String>[
-  'lunes',
-  'martes',
-  'miércoles',
-  'jueves',
-  'viernes',
-  'sábado',
-  'domingo',
+  'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo',
 ];
 
 List<String> _lines(String text) => text
@@ -54,7 +47,8 @@ class _AdminCoachesScreenState extends State<AdminCoachesScreen> {
     final bool ok = await adminConfirm(
       context,
       title: '¿Eliminar a ${str(coach['nombre'])}?',
-      message: 'Sus clientes quedarán sin entrenador y se cancelarán sus citas futuras. Esta acción no se puede deshacer.',
+      message:
+          'Sus clientes quedarán sin entrenador y se cancelarán sus citas futuras. Esta acción no se puede deshacer.',
       confirmLabel: 'Eliminar',
     );
     if (!ok || !mounted) return;
@@ -85,56 +79,47 @@ class _AdminCoachesScreenState extends State<AdminCoachesScreen> {
       child: AdminFuture<List<Map<String, dynamic>>>(
         key: ValueKey<int>(_version),
         load: widget.service.coaches,
-        builder:
-            (
-              BuildContext context,
-              List<Map<String, dynamic>> coaches,
-              Future<void> Function() reload,
-            ) {
-              if (coaches.isEmpty) {
-                return const AdminEmpty(
-                  icon: Icons.fitness_center_rounded,
-                  title: 'Aún no hay entrenadores',
-                  message: 'Crea el primero con el botón "Nuevo entrenador".',
-                );
-              }
+        builder: (BuildContext context, List<Map<String, dynamic>> coaches,
+            Future<void> Function() reload) {
+          if (coaches.isEmpty) {
+            return const AdminEmpty(
+              icon: Icons.fitness_center_rounded,
+              title: 'Aún no hay entrenadores',
+              message: 'Crea el primero con el botón "Nuevo entrenador".',
+            );
+          }
 
-              return LayoutBuilder(
-                builder: (BuildContext context, BoxConstraints c) {
-                  final int columns = c.maxWidth >= 820 ? 2 : 1;
-                  const double gap = 14;
-                  final double width =
-                      (c.maxWidth - gap * (columns - 1)) / columns;
+          return LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints c) {
+              final int columns = c.maxWidth >= 820 ? 2 : 1;
+              const double gap = 14;
+              final double width = (c.maxWidth - gap * (columns - 1)) / columns;
 
-                  return Wrap(
-                    spacing: gap,
-                    runSpacing: gap,
-                    children: <Widget>[
-                      for (final Map<String, dynamic> coach in coaches)
-                        SizedBox(
-                          width: width,
-                          child: _CoachCard(
-                            coach: coach,
-                            onEdit: () => _edit(coach),
-                            onDelete: () => _delete(coach),
-                          ),
-                        ),
-                    ],
-                  );
-                },
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: <Widget>[
+                  for (final Map<String, dynamic> coach in coaches)
+                    SizedBox(
+                      width: width,
+                      child: _CoachCard(
+                        coach: coach,
+                        onEdit: () => _edit(coach),
+                        onDelete: () => _delete(coach),
+                      ),
+                    ),
+                ],
               );
             },
+          );
+        },
       ),
     );
   }
 }
 
 class _CoachCard extends StatelessWidget {
-  const _CoachCard({
-    required this.coach,
-    required this.onEdit,
-    required this.onDelete,
-  });
+  const _CoachCard({required this.coach, required this.onEdit, required this.onDelete});
 
   final Map<String, dynamic> coach;
   final VoidCallback onEdit;
@@ -149,11 +134,7 @@ class _CoachCard extends StatelessWidget {
 
     final Widget fallback = ColoredBox(
       color: AppColors.whiteA(0.08),
-      child: Icon(
-        Icons.person_outline_rounded,
-        size: 30,
-        color: AppColors.whiteA(0.4),
-      ),
+      child: Icon(Icons.person_outline_rounded, size: 30, color: AppColors.whiteA(0.4)),
     );
 
     return AdminCard(
@@ -173,11 +154,7 @@ class _CoachCard extends StatelessWidget {
                       : Image.network(
                           photo,
                           fit: BoxFit.cover,
-                          errorBuilder: (
-                            BuildContext c,
-                            Object e,
-                            StackTrace? s,
-                          ) => fallback,
+                          errorBuilder: (BuildContext c, Object e, StackTrace? s) => fallback,
                         ),
                 ),
               ),
@@ -188,20 +165,11 @@ class _CoachCard extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       str(coach['nombre']),
-                      style: AppText.display(
-                        size: 16,
-                        weight: FontWeight.w700,
-                        height: 1.4,
-                      ),
+                      style: AppText.display(size: 16, weight: FontWeight.w700, height: 1.4),
                     ),
                     Text(
-                      specialties.isEmpty
-                          ? 'Sin especialidad'
-                          : specialties.join(' · '),
-                      style: AppText.body(
-                        size: 12.5,
-                        color: AppColors.cyanLightText,
-                      ),
+                      specialties.isEmpty ? 'Sin especialidad' : specialties.join(' · '),
+                      style: AppText.body(size: 12.5, color: AppColors.cyanLightText),
                     ),
                     const SizedBox(height: 6),
                     Wrap(
@@ -209,17 +177,11 @@ class _CoachCard extends StatelessWidget {
                       runSpacing: 6,
                       children: <Widget>[
                         StatusBadge(
-                          label: statusLabel(
-                            str(coach['nivel']).isEmpty
-                                ? 'standard'
-                                : str(coach['nivel']),
-                          ),
+                          label: statusLabel(str(coach['nivel']).isEmpty ? 'standard' : str(coach['nivel'])),
                           color: AppColors.violet,
                         ),
                         StatusBadge(
-                          label:
-                              formatCop(asNum(coach['precio'])) +
-                              str(coach['descripcionPrecio']),
+                          label: formatCop(asNum(coach['precio'])) + str(coach['descripcionPrecio']),
                           color: AppColors.teal400,
                         ),
                       ],
@@ -233,21 +195,12 @@ class _CoachCard extends StatelessWidget {
           Text(
             '⭐ ${rating.toStringAsFixed(1)} · ${asNum(coach['experiencia']).toInt()} años de experiencia · '
             '$slots ${slots == 1 ? 'horario' : 'horarios'} de atención',
-            style: AppText.body(
-              size: 12.5,
-              color: AppColors.whiteA(0.55),
-              height: 1.5,
-            ),
+            style: AppText.body(size: 12.5, color: AppColors.whiteA(0.55), height: 1.5),
           ),
           const SizedBox(height: 14),
           Row(
             children: <Widget>[
-              AdminButton(
-                label: 'Editar',
-                icon: Icons.edit_outlined,
-                compact: true,
-                onTap: onEdit,
-              ),
+              AdminButton(label: 'Editar', icon: Icons.edit_outlined, compact: true, onTap: onEdit),
               const SizedBox(width: 10),
               AdminButton(
                 label: 'Eliminar',
@@ -280,6 +233,7 @@ class _Slot {
   bool get valid =>
       end.hour * 60 + end.minute >= start.hour * 60 + start.minute + 60;
 
+  /// Un texto puede traer varios días ("lunes a viernes 8-17"): sale un horario por día.
   static List<_Slot> parseAll(String raw) {
     final ScheduleEntry? entry = parseAvailabilityEntry(raw);
     if (entry == null) return const <_Slot>[];
@@ -289,6 +243,7 @@ class _Slot {
         _Slot(
           day: _days[d - 1],
           start: TimeOfDay(hour: entry.start ~/ 60, minute: entry.start % 60),
+          // 24:00 no existe en TimeOfDay: se muestra como 23:59
           end: entry.end >= 1440
               ? const TimeOfDay(hour: 23, minute: 59)
               : TimeOfDay(hour: entry.end ~/ 60, minute: entry.end % 60),
@@ -308,49 +263,32 @@ class _CoachForm extends StatefulWidget {
 }
 
 class _CoachFormState extends State<_CoachForm> {
-  late final Map<String, dynamic> _c =
-      widget.coach ?? const <String, dynamic>{};
+  late final Map<String, dynamic> _c = widget.coach ?? const <String, dynamic>{};
   bool get _editing => widget.coach != null;
 
-  late final TextEditingController _name = TextEditingController(
-    text: str(_c['nombre']),
-  );
-  late final TextEditingController _specialties = TextEditingController(
-    text: asStrings(_c['especialidad']).join(', '),
-  );
+  late final TextEditingController _name = TextEditingController(text: str(_c['nombre']));
+  late final TextEditingController _specialties =
+      TextEditingController(text: asStrings(_c['especialidad']).join(', '));
   late final TextEditingController _experience = TextEditingController(
-    text: _c['experiencia'] == null
-        ? ''
-        : '${asNum(_c['experiencia']).toInt()}',
+    text: _c['experiencia'] == null ? '' : '${asNum(_c['experiencia']).toInt()}',
   );
-  late final TextEditingController _certs = TextEditingController(
-    text: asStrings(_c['certificaciones']).join(', '),
-  );
-  late final TextEditingController _description = TextEditingController(
-    text: str(_c['descripcion']),
-  );
-  late final TextEditingController _type = TextEditingController(
-    text: str(_c['tipoEntrenamiento']),
-  );
+  late final TextEditingController _certs =
+      TextEditingController(text: asStrings(_c['certificaciones']).join(', '));
+  late final TextEditingController _description = TextEditingController(text: str(_c['descripcion']));
+  late final TextEditingController _type = TextEditingController(text: str(_c['tipoEntrenamiento']));
   late final TextEditingController _price = TextEditingController(
     text: _c['precio'] == null ? '' : '${asNum(_c['precio']).toInt()}',
   );
   late final TextEditingController _rating = TextEditingController(
-    text: _c['calificacionPromedio'] == null
-        ? ''
-        : '${asNum(_c['calificacionPromedio'])}',
+    text: _c['calificacionPromedio'] == null ? '' : '${asNum(_c['calificacionPromedio'])}',
   );
-  late final TextEditingController _services = TextEditingController(
-    text: asStrings(_c['servicios']).join('\n'),
-  );
-  late final TextEditingController _photo = TextEditingController(
-    text: str(_c['fotoPerfil']),
-  );
+  late final TextEditingController _services =
+      TextEditingController(text: asStrings(_c['servicios']).join('\n'));
+  late final TextEditingController _photo = TextEditingController(text: str(_c['fotoPerfil']));
 
   late String _level = str(_c['nivel']).isEmpty ? 'standard' : str(_c['nivel']);
   late final List<_Slot> _slots = <_Slot>[
-    for (final String raw in asStrings(_c['disponibilidad']))
-      ..._Slot.parseAll(raw),
+    for (final String raw in asStrings(_c['disponibilidad'])) ..._Slot.parseAll(raw),
   ];
 
   bool _saving = false;
@@ -359,16 +297,7 @@ class _CoachFormState extends State<_CoachForm> {
   @override
   void dispose() {
     for (final TextEditingController c in <TextEditingController>[
-      _name,
-      _specialties,
-      _experience,
-      _certs,
-      _description,
-      _type,
-      _price,
-      _rating,
-      _services,
-      _photo,
+      _name, _specialties, _experience, _certs, _description, _type, _price, _rating, _services, _photo,
     ]) {
       c.dispose();
     }
@@ -397,17 +326,13 @@ class _CoachFormState extends State<_CoachForm> {
     }
     for (final _Slot s in _slots) {
       if (!s.valid) {
-        setState(
-          () => _error =
-              'Cada horario debe durar al menos 1 hora (revisa "${s.day}").',
-        );
+        setState(() => _error =
+            'Cada horario debe durar al menos 1 hora (revisa "${s.day}").');
         return;
       }
     }
 
-    final double? rating = double.tryParse(
-      _rating.text.trim().replaceAll(',', '.'),
-    );
+    final double? rating = double.tryParse(_rating.text.trim().replaceAll(',', '.'));
     if (rating != null && (rating < 0 || rating > 5)) {
       setState(() => _error = 'La calificación debe estar entre 0 y 5');
       return;
@@ -441,10 +366,7 @@ class _CoachFormState extends State<_CoachForm> {
         await widget.service.createCoach(body);
       }
       if (!mounted) return;
-      adminToast(
-        context,
-        _editing ? 'Entrenador actualizado' : 'Entrenador creado',
-      );
+      adminToast(context, _editing ? 'Entrenador actualizado' : 'Entrenador creado');
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -463,12 +385,7 @@ class _CoachFormState extends State<_CoachForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          AdminTextField(
-            controller: _name,
-            label: 'Nombre *',
-            hint: 'Ej. Ana Martínez',
-            maxLength: 60,
-          ),
+          AdminTextField(controller: _name, label: 'Nombre *', hint: 'Ej. Ana Martínez', maxLength: 60),
           const SizedBox(height: 12),
           AdminTextField(
             controller: _specialties,
@@ -504,22 +421,13 @@ class _CoachFormState extends State<_CoachForm> {
                   controller: _rating,
                   label: 'Calificación (0-5)',
                   maxLength: 3,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            'Nivel',
-            style: AppText.body(
-              size: 12,
-              weight: FontWeight.w500,
-              color: AppColors.whiteA(0.70),
-            ),
-          ),
+          Text('Nivel', style: AppText.body(size: 12, weight: FontWeight.w500, color: AppColors.whiteA(0.70))),
           const SizedBox(height: 8),
           AdminChoiceChips<String>(
             options: const <(String, String)>[
@@ -537,12 +445,7 @@ class _CoachFormState extends State<_CoachForm> {
             hint: 'Separadas por coma: NSCA-CPT, ISSA',
           ),
           const SizedBox(height: 12),
-          AdminTextField(
-            controller: _description,
-            label: 'Descripción',
-            maxLines: 4,
-            maxLength: 400,
-          ),
+          AdminTextField(controller: _description, label: 'Descripción', maxLines: 4, maxLength: 400),
           const SizedBox(height: 12),
           AdminTextField(
             controller: _type,
@@ -604,10 +507,7 @@ class _CoachFormState extends State<_CoachForm> {
           ),
           if (_error.isNotEmpty) ...<Widget>[
             const SizedBox(height: 16),
-            Text(
-              _error,
-              style: AppText.body(size: 13, color: AppColors.red, height: 1.4),
-            ),
+            Text(_error, style: AppText.body(size: 13, color: AppColors.red, height: 1.4)),
           ],
           const SizedBox(height: 22),
           AdminButton(
@@ -647,44 +547,27 @@ class _SlotRow extends StatelessWidget {
             value: slot.day,
             options: <FzSelectOption<String>>[
               for (final String d in _days)
-                FzSelectOption<String>(
-                  value: d,
-                  label: d[0].toUpperCase() + d.substring(1),
-                ),
+                FzSelectOption<String>(value: d, label: d[0].toUpperCase() + d.substring(1)),
             ],
             onChanged: onDay,
           ),
         ),
         const SizedBox(width: 8),
-        Expanded(
-          flex: 3,
-          child: _TimePill(text: _hhmm(slot.start), onTap: onStart),
-        ),
+        Expanded(flex: 3, child: _TimePill(text: _hhmm(slot.start), onTap: onStart)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Text(
-            '–',
-            style: AppText.body(size: 16, color: AppColors.whiteA(0.45)),
-          ),
+          child: Text('–', style: AppText.body(size: 16, color: AppColors.whiteA(0.45))),
         ),
         Expanded(
           flex: 3,
-          child: _TimePill(
-            text: _hhmm(slot.end),
-            onTap: onEnd,
-            invalid: !slot.valid,
-          ),
+          child: _TimePill(text: _hhmm(slot.end), onTap: onEnd, invalid: !slot.valid),
         ),
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onRemove,
           child: Padding(
             padding: const EdgeInsets.only(left: 8),
-            child: Icon(
-              Icons.close_rounded,
-              size: 20,
-              color: AppColors.whiteA(0.45),
-            ),
+            child: Icon(Icons.close_rounded, size: 20, color: AppColors.whiteA(0.45)),
           ),
         ),
       ],
@@ -693,11 +576,7 @@ class _SlotRow extends StatelessWidget {
 }
 
 class _TimePill extends StatelessWidget {
-  const _TimePill({
-    required this.text,
-    required this.onTap,
-    this.invalid = false,
-  });
+  const _TimePill({required this.text, required this.onTap, this.invalid = false});
 
   final String text;
   final VoidCallback onTap;
@@ -720,10 +599,7 @@ class _TimePill extends StatelessWidget {
               color: invalid ? AppColors.red : AppColors.whiteA(0.15),
             ),
           ),
-          child: Text(
-            text,
-            style: AppText.body(size: 14.5, color: AppColors.ink),
-          ),
+          child: Text(text, style: AppText.body(size: 14.5, color: AppColors.ink)),
         ),
       ),
     );

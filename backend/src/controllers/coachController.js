@@ -3,14 +3,38 @@ import User from '../models/User.js';
 import Plan from '../models/Plan.js';
 import Appointment from '../models/Appointment.js';
 import { borrarImagenCloudinary } from '../utils/cloudinary.js';
+import { normalizarDisponibilidad } from '../utils/horarios.js';
 
 // El admin puede indicar la foto como una URL pública (https://...)
 const urlDeFoto = (valor) =>
   typeof valor === 'string' && /^https?:\/\/\S+$/i.test(valor.trim()) ? valor.trim() : undefined;
 
+// Deja los horarios en el formato oficial ("lunes 06:00-12:00"). Si alguno no se
+// entiende, devuelve el mensaje de error para responder 400 en vez de guardarlo roto.
+const prepararDisponibilidad = (datos) => {
+  if (datos.disponibilidad === undefined) return null;
+
+  let lista = datos.disponibilidad;
+  if (typeof lista === 'string') {
+    try { lista = JSON.parse(lista); } catch { lista = lista.split(/[\n;]/); } // multipart: llega como texto
+  }
+
+  const { validos, invalidos } = normalizarDisponibilidad(lista);
+
+  if (invalidos.length) {
+    return `Estos horarios no se entienden: ${invalidos.join(' | ')}. Usa el formato "lunes 06:00-12:00" (cada rango debe durar al menos 1 hora).`;
+  }
+
+  datos.disponibilidad = validos;
+  return null;
+};
+
 export const crearCoach = async (req, res) => {
   try {
     const datosCoach = { ...req.body };
+
+    const errorHorarios = prepararDisponibilidad(datosCoach);
+    if (errorHorarios) return res.status(400).json({ mensaje: errorHorarios });
 
     // Estos campos solo se asignan de forma controlada
     delete datosCoach.fotoPerfil;
@@ -44,6 +68,9 @@ export const obtenerCoaches = async (req, res) => {
 export const actualizarCoach = async (req, res) => {
   try {
     const datosActualizar = { ...req.body };
+
+    const errorHorarios = prepararDisponibilidad(datosActualizar);
+    if (errorHorarios) return res.status(400).json({ mensaje: errorHorarios });
 
     delete datosActualizar.fotoPerfil;
     delete datosActualizar.fotoPerfilId;

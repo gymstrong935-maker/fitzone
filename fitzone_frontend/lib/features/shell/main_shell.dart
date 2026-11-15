@@ -406,7 +406,7 @@ class _MainShellState extends State<MainShell> {
       case 'achievements':
         return AchievementsScreen(key: key, onBack: backHome);
       case 'community':
-        return CommunityScreen(key: key, onBack: backHome);
+        return CommunityScreen(key: key, workouts: _workouts, onBack: backHome);
       case 'home':
       default:
         return HomeScreen(

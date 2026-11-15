@@ -23,6 +23,8 @@ String _plain(String text) {
   return out.toString();
 }
 
+/// Un horario de atención ya leído: días (1 = lunes ... 7 = domingo) y el
+/// rango en minutos desde medianoche.
 class ScheduleEntry {
   const ScheduleEntry({required this.days, required this.start, required this.end});
 
@@ -31,6 +33,7 @@ class ScheduleEntry {
   final int end;
 }
 
+// "6", "6:00", "6.30", "18h" + am/pm opcional
 const String _timePattern = r'(\d{1,2})(?:\s*(?:[:.h]\s*(\d{2})?))?\s*(am|pm)?';
 final RegExp _rangePattern = RegExp(
   '^$_timePattern\\s*(?:-|a|al|hasta|to)\\s*$_timePattern\$',
@@ -86,6 +89,9 @@ List<int> _readDays(String text) {
   return days.toList()..sort();
 }
 
+/// Lee un horario como "lunes 06:00-12:00", pero también "Lunes 6am - 12pm",
+/// "lunes a viernes 8-17", "lun, mié y vie 14:00 a 20:00" o "todos los días 18h-21h".
+/// Devuelve `null` si no se entiende o dura menos de 1 hora.
 ScheduleEntry? parseAvailabilityEntry(String raw) {
   final String text = _plain(raw)
       .replaceAllMapped(RegExp(r'\b([ap])\s*\.\s*m\b\.?'), (Match m) => '${m.group(1)}m')
@@ -105,6 +111,7 @@ ScheduleEntry? parseAvailabilityEntry(String raw) {
   final int? end = _toMinutes(m.group(4)!, m.group(5), m.group(6));
   int? start = _toMinutes(m.group(1)!, m.group(2), m.group(3));
 
+  // "2-8pm": si el inicio no dice am/pm, hereda el del final cuando tiene sentido.
   if (m.group(3) == null && m.group(6) != null && end != null) {
     final int? inherited = _toMinutes(m.group(1)!, m.group(2), m.group(6));
     if (inherited != null && inherited < end) start = inherited;
@@ -114,6 +121,8 @@ ScheduleEntry? parseAvailabilityEntry(String raw) {
   return ScheduleEntry(days: days, start: start, end: end);
 }
 
+/// Horas de inicio ("06:00", "07:00"...) disponibles en un día de la semana
+/// (lunes = 1 ... domingo = 7). Cada cita dura 1 hora.
 List<String> availableTimesFor(List<String> availability, int weekday) {
   final Set<String> times = <String>{};
 
@@ -131,13 +140,6 @@ List<String> availableTimesFor(List<String> availability, int weekday) {
   final List<String> sorted = times.toList()..sort();
   return sorted;
 }
-
- 
-final RegExp _availabilityPattern = RegExp(
-  r'^\s*([^\s\d]+)\s+(\d{1,2}):(\d{2})\s*(?:-|–|—|a|al|to)\s*(\d{1,2}):(\d{2})\s*$',
-);
- 
-
  
 class Appointment {
   const Appointment({
