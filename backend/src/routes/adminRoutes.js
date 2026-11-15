@@ -7,7 +7,7 @@ import {
 } from '../validators/adminValidator.js';
 import {
   obtenerEstadisticas, listarUsuarios, detalleUsuario, actualizarUsuarioAdmin,
-  aprobarCuenta, rechazarCuenta, revocarCuenta,
+  aprobarCuenta, rechazarCuenta, revocarCuenta, reactivarCuenta, eliminarCuenta, listarHistorial,
   listarSuscripciones, aprobarConPago, rechazarConPago, listarPagos,
   listarPlanes, actualizarPlan,
   listarGrupos, crearGrupo, actualizarGrupo, eliminarGrupo,
@@ -33,6 +33,10 @@ router.put('/users/:id', validar(usuarioAdminSchema), actualizarUsuarioAdmin);
 router.put('/users/:id/aprobar', aprobarCuenta);
 router.put('/users/:id/rechazar', validar(rechazoSchema), rechazarCuenta);
 router.post('/users/:id/revocar', validar(rechazoSchema), revocarCuenta);
+router.put('/users/:id/reactivar', reactivarCuenta);
+router.delete('/users/:id', eliminarCuenta);
+
+router.get('/activity', listarHistorial);
 
 router.get('/subscriptions', listarSuscripciones);
 router.put('/subscriptions/:id/aprobar', aprobarConPago);

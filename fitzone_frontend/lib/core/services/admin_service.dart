@@ -192,11 +192,37 @@ class AdminService {
     await _api.put('/api/admin/support/$id/estado', body: <String, dynamic>{'estado': estado});
   }
 
-  /// Elimina la cuenta y deja constancia de que fue revocada.
+  /// Revoca la cuenta: queda suspendida (baneada) durante 1 mes.
   Future<void> revokeUser(String id, {String reason = ''}) async {
     await _api.post(
       '/api/admin/users/$id/revocar',
       body: <String, dynamic>{if (reason.trim().isNotEmpty) 'motivo': reason.trim()},
     );
+  }
+
+  /// Levanta la suspensión antes de que termine el mes.
+  Future<void> reactivateUser(String id) async {
+    await _api.put('/api/admin/users/$id/reactivar');
+  }
+
+  /// Elimina la cuenta de la base de datos. Esa persona puede volver a registrarse.
+  Future<void> deleteUser(String id) async {
+    await _api.delete('/api/admin/users/$id');
+  }
+
+  // Historial de cambios
+  Future<Map<String, dynamic>> activity({
+    String q = '',
+    String categoria = '',
+    int skip = 0,
+    int limit = 40,
+  }) async {
+    final String qs = _query(<String, String>{
+      'limit': '$limit',
+      'skip': '$skip',
+      if (q.trim().isNotEmpty) 'q': q.trim(),
+      if (categoria.isNotEmpty) 'categoria': categoria,
+    });
+    return _map(await _api.get('/api/admin/activity?$qs'));
   }
 }

@@ -51,8 +51,9 @@ class _PressableScaleState extends State<PressableScale> {
         onTap: widget.onTap,
         child: AnimatedScale(
           scale: scale,
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOut,
+          // Se hunde rápido y vuelve con un pequeño rebote.
+          duration: Duration(milliseconds: _pressing ? 110 : 260),
+          curve: _pressing ? Curves.easeOut : Curves.easeOutBack,
           child: widget.child,
         ),
       ),

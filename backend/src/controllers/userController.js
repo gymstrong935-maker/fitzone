@@ -20,6 +20,8 @@ import {
   escapeHtml
 } from '../utils/emailTemplates.js';
 import RevokedAccount from '../models/RevokedAccount.js';
+import { levantarSiVencio, estaBloqueada, respuestaSuspension } from '../helpers/suspension.js';
+import { registrarActividad } from '../utils/actividad.js';
 
 const googleClient = new OAuth2Client();
 
@@ -145,6 +147,11 @@ export const registrarUsuario = async (req, res) => {
       to: nuevoUsuario.email,
       subject: correo.asunto,
       html: correo.html
+    });
+
+    registrarActividad({
+      usuarioId: nuevoUsuario._id, nombre: nuevoUsuario.nombre, email: nuevoUsuario.email, rol: nuevoUsuario.rol,
+      categoria: 'cuenta', accion: 'registro', descripcion: 'Creó su cuenta'
     });
 
     return res.status(201).json({
@@ -383,11 +390,10 @@ export const iniciarSesion = async (req, res) => {
 
     // Suspendidas o inactivas no entran. Las pendientes o rechazadas sí reciben
     // sesión para ver su estado, pero el servidor les bloquea el resto (authMiddleware).
-    if (['inactivo', 'suspendido'].includes(usuario.estadoCuenta)) {
-      return res.status(403).json({
-        mensaje: 'Tu cuenta está suspendida. Contacta al equipo de FitZone.',
-        codigo: 'CUENTA_SUSPENDIDA'
-      });
+    await levantarSiVencio(usuario); // si el baneo de 1 mes ya terminó, vuelve a estar activa
+
+    if (estaBloqueada(usuario)) {
+      return res.status(403).json(respuestaSuspension(usuario));
     }
 
     // Solo entra con el plan con el que se registró (mientras siga vigente)
@@ -406,6 +412,11 @@ export const iniciarSesion = async (req, res) => {
         expiresIn: '7d'
       }
     );
+
+    registrarActividad({
+      usuarioId: usuario._id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol,
+      categoria: 'cuenta', accion: 'inicio_sesion', descripcion: 'Inició sesión'
+    });
 
     return res.json({
       mensaje: 'Sesión iniciada',
@@ -631,11 +642,10 @@ export const iniciarSesionGoogle = async (req, res) => {
     }
 
     // 5) Suspendidas o inactivas no entran.
-    if (['inactivo', 'suspendido'].includes(usuario.estadoCuenta)) {
-      return res.status(403).json({
-        mensaje: 'Tu cuenta está suspendida. Contacta al equipo de FitZone.',
-        codigo: 'CUENTA_SUSPENDIDA'
-      });
+    await levantarSiVencio(usuario);
+
+    if (estaBloqueada(usuario)) {
+      return res.status(403).json(respuestaSuspension(usuario));
     }
 
     const token = jwt.sign(
@@ -648,6 +658,12 @@ export const iniciarSesionGoogle = async (req, res) => {
         expiresIn: '7d'
       }
     );
+
+    registrarActividad({
+      usuarioId: usuario._id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol,
+      categoria: 'cuenta', accion: esNueva ? 'registro_google' : 'inicio_sesion_google',
+      descripcion: esNueva ? 'Se registró con Google' : 'Inició sesión con Google'
+    });
 
     return res.status(esNueva ? 201 : 200).json({
       mensaje: 'Sesión iniciada con Google',
@@ -805,6 +821,11 @@ export const actualizarUsuario = async (req, res) => {
 
       if (req.body.estadoCuenta !== undefined) {
         datosActualizar.estadoCuenta = req.body.estadoCuenta;
+
+        if (req.body.estadoCuenta !== 'suspendido') {
+          datosActualizar.suspendidoHasta = null;
+          datosActualizar.motivoSuspension = null;
+        }
       }
     }
 

@@ -1,5 +1,3 @@
-import 'dart:ui' show PointerDeviceKind;
-
 import 'package:flutter/material.dart';
 
 import '../data/trainers_data.dart';
@@ -26,21 +24,6 @@ class TrainerStep extends StatelessWidget {
     // Entrenadores reales del servidor (o los del diseño si no hay conexión).
     final List<Trainer> trainers = TrainersRepository.current;
 
-    // La lista ocupa como máximo el 40 % del alto de la pantalla y hace scroll
-    // por dentro (igual que max-h-[40vh] del diseño).
-    final double maxListHeight = MediaQuery.sizeOf(context).height * 0.4;
-
-    final ScrollBehavior listBehavior =
-        ScrollConfiguration.of(context).copyWith(
-      scrollbars: false,
-      dragDevices: <PointerDeviceKind>{
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.stylus,
-        PointerDeviceKind.trackpad,
-      },
-    );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -52,26 +35,53 @@ class TrainerStep extends StatelessWidget {
         const SizedBox(height: 24),
         const TrainerBenefitsPanel(benefits: kTrainerBenefits),
         const SizedBox(height: 20),
-        ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: maxListHeight),
-          child: ScrollConfiguration(
-            behavior: listBehavior,
-            child: ListView.separated(
-              shrinkWrap: true,
-              padding: const EdgeInsets.only(bottom: 16),
-              itemCount: trainers.length,
-              separatorBuilder: (BuildContext context, int index) =>
-                  const SizedBox(height: 12),
-              itemBuilder: (BuildContext context, int index) {
-                final Trainer trainer = trainers[index];
-                return TrainerCard(
+        // La lista vive dentro del scroll de la página (sin scroll anidado) y en
+        // pantallas anchas se reparte en dos columnas.
+        LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints c) {
+            final bool twoColumns = c.maxWidth >= 560 && trainers.length > 1;
+
+            Widget card(Trainer trainer) => TrainerCard(
                   trainer: trainer,
                   isSelected: selected?.id == trainer.id,
                   onTap: () => onSelect(trainer),
                 );
-              },
-            ),
-          ),
+
+            if (!twoColumns) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  for (int i = 0; i < trainers.length; i++) ...<Widget>[
+                    if (i > 0) const SizedBox(height: 12),
+                    card(trainers[i]),
+                  ],
+                ],
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                for (int i = 0; i < trainers.length; i += 2) ...<Widget>[
+                  if (i > 0) const SizedBox(height: 12),
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Expanded(child: card(trainers[i])),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: i + 1 < trainers.length
+                              ? card(trainers[i + 1])
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
         ),
       ],
     );

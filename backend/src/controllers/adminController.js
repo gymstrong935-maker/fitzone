@@ -22,6 +22,9 @@ import TrainingPeriod from '../models/TrainingPeriod.js';
 import DietaryControl from '../models/DietaryControl.js';
 import RevokedAccount from '../models/RevokedAccount.js';
 import CoachChangeRequest from '../models/CoachChangeRequest.js';
+import Post from '../models/Post.js';
+import ActivityLog from '../models/ActivityLog.js';
+import { finSuspension, DIAS_SUSPENSION } from '../helpers/suspension.js';
 import { listarVencimientos, notificarVencimiento } from '../helpers/vencimientos.js';
 
 const OCULTOS = '-passwordHash -resetPasswordToken -resetPasswordExpira -codigoVerificacion -codigoVerificacionExpira';
@@ -200,7 +203,17 @@ export const actualizarUsuarioAdmin = async (req, res) => {
       return res.status(400).json({ mensaje: 'Estado no válido', permitidos: estados });
     }
 
-    const usuario = await User.findByIdAndUpdate(id, datos, { new: true }).select(OCULTOS);
+    if (datos.estadoCuenta !== undefined) {
+      if (datos.estadoCuenta === 'suspendido') {
+        // Suspensión manual desde el editor: también dura 1 mes
+        datos.suspendidoHasta = finSuspension();
+      } else {
+        datos.$unset = { suspendidoHasta: 1, motivoSuspension: 1 };
+      }
+    }
+
+    const { $unset, ...set } = datos;
+    const usuario = await User.findByIdAndUpdate(id, { $set: set, ...($unset ? { $unset } : {}) }, { new: true }).select(OCULTOS);
     if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });
 
     res.json(usuario);
@@ -625,10 +638,85 @@ export const rechazarCuenta = async (req, res) => {
 };
 
 // ======================================================
-// ELIMINAR (REVOCAR) UNA CUENTA
+// REVOCAR UNA CUENTA = suspenderla (baneo) durante 1 mes
+//
+// La cuenta y sus datos se conservan, pero la persona no puede entrar hasta que
+// pase el mes (o hasta que un administrador levante la suspensión). Cuando el mes
+// termina, la cuenta vuelve sola a estar activa.
 // ======================================================
 
 export const revocarCuenta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!idValido(id)) return res.status(400).json({ mensaje: 'Usuario no válido' });
+    if (id === req.usuario.id) return res.status(400).json({ mensaje: 'No puedes revocar tu propia cuenta' });
+
+    const usuario = await User.findById(id);
+    if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    if (usuario.rol === 'admin') {
+      return res.status(400).json({ mensaje: 'Primero quítale el rol de administrador a esta cuenta' });
+    }
+
+    const motivo = (req.body?.motivo || '').trim();
+
+    usuario.estadoCuenta = 'suspendido';
+    usuario.suspendidoHasta = finSuspension();
+    usuario.motivoSuspension = motivo || undefined;
+    await usuario.save();
+
+    // Se queda sin sesión de entrenamiento agendada mientras dure la suspensión
+    await Appointment.updateMany(
+      { usuarioId: id, estado: 'confirmada' },
+      { $set: { estado: 'cancelada' } }
+    );
+
+    res.json({
+      mensaje: `Cuenta revocada por ${DIAS_SUSPENSION} días`,
+      suspendidoHasta: usuario.suspendidoHasta
+    });
+  } catch (e) {
+    errorServidor(res, e);
+  }
+};
+
+// Levantar la suspensión antes de tiempo
+export const reactivarCuenta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!idValido(id)) return res.status(400).json({ mensaje: 'Usuario no válido' });
+
+    const usuario = await User.findById(id);
+    if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    if (usuario.estadoCuenta !== 'suspendido') {
+      return res.status(400).json({ mensaje: 'Esta cuenta no está suspendida' });
+    }
+
+    usuario.estadoCuenta = 'activo';
+    usuario.suspendidoHasta = undefined;
+    usuario.motivoSuspension = undefined;
+    await usuario.save();
+
+    await Notification.create({
+      usuarioId: usuario._id,
+      tipo: 'sistema',
+      mensaje: 'Tu cuenta fue reactivada. Ya puedes volver a usar FitZone.'
+    });
+
+    res.json({ mensaje: 'Suspensión levantada', usuario });
+  } catch (e) {
+    errorServidor(res, e);
+  }
+};
+
+// ======================================================
+// ELIMINAR UNA CUENTA
+//
+// Solo se borra de la base de datos. No queda ningún bloqueo: la persona puede
+// volver a registrarse con el mismo correo. Los pagos se conservan por contabilidad
+// y el historial de cambios también.
+// ======================================================
+
+export const eliminarCuenta = async (req, res) => {
   try {
     const { id } = req.params;
     if (!idValido(id)) return res.status(400).json({ mensaje: 'Usuario no válido' });
@@ -640,17 +728,8 @@ export const revocarCuenta = async (req, res) => {
       return res.status(400).json({ mensaje: 'Primero quítale el rol de administrador a esta cuenta' });
     }
 
-    const motivo = (req.body?.motivo || '').trim();
     const email = String(usuario.email).toLowerCase().trim();
 
-    // Queda constancia de la revocación (para avisarle si intenta entrar)
-    await RevokedAccount.findOneAndUpdate(
-      { email },
-      { $set: { email, nombre: usuario.nombre, motivo: motivo || undefined, revocadaPor: req.usuario.id, fecha: new Date() } },
-      { upsert: true }
-    );
-
-    // Se borran sus datos personales (los pagos se conservan por contabilidad)
     await Promise.all([
       PhysicalCondition.deleteMany({ usuarioId: id }),
       PhysicalMeasurement.deleteMany({ usuarioId: id }),
@@ -663,15 +742,60 @@ export const revocarCuenta = async (req, res) => {
       WorkoutSession.deleteMany({ usuarioId: id }),
       Notification.deleteMany({ usuarioId: id }),
       SupportTicket.deleteMany({ usuarioId: id }),
+      CoachChangeRequest.deleteMany({ usuarioId: id }),
+      Post.deleteMany({ usuarioId: id }),
+      Post.updateMany({}, { $pull: { likes: id, comentarios: { usuarioId: id } } }),
       Appointment.updateMany({ usuarioId: id, estado: 'confirmada' }, { $set: { estado: 'cancelada' } }),
       Subscription.updateMany({ usuarioId: id, estado: { $in: ['activa', 'pendiente'] } }, { $set: { estado: 'cancelada' } }),
       Group.updateMany({ miembros: id }, { $pull: { miembros: id } }),
-      Coach.updateMany({ clientesAsignados: id }, { $pull: { clientesAsignados: id } })
+      Coach.updateMany({ clientesAsignados: id }, { $pull: { clientesAsignados: id } }),
+      // Por si el correo quedó bloqueado por el sistema anterior de revocación
+      RevokedAccount.deleteMany({ email })
     ]);
 
     await User.findByIdAndDelete(id);
 
-    res.json({ mensaje: 'Cuenta eliminada y revocada' });
+    res.json({ mensaje: 'Cuenta eliminada. Esa persona puede volver a registrarse.' });
+  } catch (e) {
+    errorServidor(res, e);
+  }
+};
+
+// ======================================================
+// HISTORIAL DE CAMBIOS
+// ======================================================
+
+export const listarHistorial = async (req, res) => {
+  try {
+    const { q, categoria, usuarioId, desde, hasta } = req.query;
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const skip = Math.max(Number(req.query.skip) || 0, 0);
+
+    const filtro = {};
+    if (categoria) filtro.categoria = categoria;
+    if (usuarioId && idValido(usuarioId)) filtro.usuarioId = usuarioId;
+
+    if (q) {
+      const rx = new RegExp(escapeRegex(q), 'i');
+      filtro.$or = [{ nombre: rx }, { email: rx }, { descripcion: rx }, { objetivoNombre: rx }];
+    }
+
+    if (desde || hasta) {
+      filtro.fecha = {};
+      const d = desde ? new Date(desde) : null;
+      const h = hasta ? new Date(hasta) : null;
+      if (d && !isNaN(d)) filtro.fecha.$gte = d;
+      if (h && !isNaN(h)) filtro.fecha.$lte = h;
+      if (!Object.keys(filtro.fecha).length) delete filtro.fecha;
+    }
+
+    const [registros, total, categorias] = await Promise.all([
+      ActivityLog.find(filtro).sort({ fecha: -1 }).skip(skip).limit(limit).lean(),
+      ActivityLog.countDocuments(filtro),
+      ActivityLog.distinct('categoria')
+    ]);
+
+    res.json({ total, registros, categorias });
   } catch (e) {
     errorServidor(res, e);
   }

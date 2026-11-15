@@ -63,6 +63,11 @@ const userSchema = new mongoose.Schema({
 
   motivoRechazo: String,
 
+  // Suspensión temporal (baneo de 1 mes): al llegar esta fecha la cuenta vuelve sola a "activo"
+  suspendidoHasta: Date,
+
+  motivoSuspension: String,
+
   entrenadorAsignado: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Coach'

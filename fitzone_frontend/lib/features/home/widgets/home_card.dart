@@ -19,9 +19,20 @@ class HomeCard extends StatelessWidget {
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: AppColors.whiteA(0.05),
-        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[AppColors.whiteA(0.07), AppColors.whiteA(0.035)],
+        ),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.whiteA(0.09)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, AppColors.isLight ? 0.05 : 0.20),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: child,
     );

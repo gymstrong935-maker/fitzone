@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_text.dart';
+import 'fade_slide_in.dart';
+import 'pressable_scale.dart';
 
 /// Encabezado de las sub-pantallas: flecha "volver", título y subtítulo.
 class SubScreenHeader extends StatelessWidget {
@@ -48,9 +50,9 @@ class SubScreenHeader extends StatelessWidget {
               Semantics(
                 button: true,
                 label: 'Volver',
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
+                child: PressableScale(
                   onTap: onBack,
+                  hoverScale: 1.08,
                   child: Container(
                     width: buttonSize,
                     height: buttonSize,
@@ -145,7 +147,11 @@ class SubScreenFrame extends StatelessWidget {
                 constraints: const BoxConstraints(maxWidth: 512),
                 child: Padding(
                   padding: padding + EdgeInsets.only(bottom: bottom),
-                  child: child,
+                  child: FadeSlideIn(
+                    duration: const Duration(milliseconds: 420),
+                    offsetY: 14,
+                    child: child,
+                  ),
                 ),
               ),
             ),

@@ -13,6 +13,9 @@ class OnboardingFooter extends StatelessWidget {
     required this.onBack,
     required this.onNext,
     this.hint,
+    this.compact = false,
+    this.maxWidth = 512,
+    this.sidePadding = 24,
   });
 
   final bool showBack;
@@ -20,6 +23,15 @@ class OnboardingFooter extends StatelessWidget {
   final bool nextEnabled;
   final VoidCallback onBack;
   final VoidCallback onNext;
+
+  /// Pantallas chicas: botón y márgenes más compactos.
+  final bool compact;
+
+  /// Ancho máximo del contenido (se alinea con el del paso).
+  final double maxWidth;
+
+  /// Margen lateral (se alinea con el del paso).
+  final double sidePadding;
 
   /// Aviso de lo que falta por llenar. Solo se pasa cuando la persona intentó
   /// continuar sin completar los datos; si es `null` no se muestra nada.
@@ -43,11 +55,11 @@ class OnboardingFooter extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          padding: EdgeInsets.fromLTRB(sidePadding, 14, sidePadding, compact ? 14 : 24),
           child: Center(
             heightFactor: 1,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 512),
+              constraints: BoxConstraints(maxWidth: maxWidth),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
@@ -100,7 +112,7 @@ class OnboardingFooter extends StatelessWidget {
                     _Pressable(
                       onTap: onBack,
                       child: Container(
-                        height: 56,
+                        height: compact ? 50 : 56,
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
@@ -124,7 +136,7 @@ class OnboardingFooter extends StatelessWidget {
                       child: _Pressable(
                         onTap: nextEnabled ? onNext : null,
                         child: Container(
-                          height: 56,
+                          height: compact ? 50 : 56,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(18),
@@ -138,7 +150,7 @@ class OnboardingFooter extends StatelessWidget {
                               Text(
                                 isLast ? 'Finalizar configuración' : 'Siguiente',
                                 style: AppText.body(
-                                  size: 16,
+                                  size: compact ? 15 : 16,
                                   weight: FontWeight.w600,
                                   color: const Color(0xFF0A0A0A),
                                 ),

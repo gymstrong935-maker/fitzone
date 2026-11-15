@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import { levantarSiVencio, respuestaSuspension } from '../helpers/suspension.js';
 
 const ESTADOS_BLOQUEADOS = ['inactivo', 'suspendido'];
 
@@ -46,7 +47,7 @@ export const verificarToken = async (req, res, next) => {
 
   try {
     // El estado actual de la cuenta manda sobre lo que diga el token
-    const cuenta = await User.findById(decoded.id).select('estadoCuenta rol');
+    const cuenta = await User.findById(decoded.id).select('estadoCuenta rol suspendidoHasta motivoSuspension');
 
     if (!cuenta) {
       return res.status(403).json({
@@ -58,13 +59,11 @@ export const verificarToken = async (req, res, next) => {
     decoded.rol = cuenta.rol; // el rol vigente (por si lo cambiaron)
 
     if (cuenta.rol !== 'admin') {
+      await levantarSiVencio(cuenta); // si el baneo de 1 mes terminó, vuelve a estar activa
       const estado = cuenta.estadoCuenta;
 
       if (ESTADOS_BLOQUEADOS.includes(estado)) {
-        return res.status(403).json({
-          mensaje: 'Tu cuenta está suspendida. Contacta al equipo de FitZone.',
-          codigo: 'CUENTA_SUSPENDIDA'
-        });
+        return res.status(403).json(respuestaSuspension(cuenta));
       }
 
       if (estado === 'pendiente' && !permitidoEnRevision(req)) {

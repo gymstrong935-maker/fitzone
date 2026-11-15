@@ -259,11 +259,11 @@ class PersonalInfoStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const FzLabel('Condiciones Médicas'),
+        const FzLabel('Condiciones Médicas · opcional'),
         const SizedBox(height: 6),
         FzTextArea(
           initialText: info.medicalConditions.physical,
-          hint: 'Lesiones, condiciones crónicas, alergias... (escribe «Ninguna» si no tienes)',
+          hint: 'Enfermedades, lesiones, alergias o notas que debamos saber (puedes dejarlo vacío)',
           onChanged: (String text) => onChanged(
             info.copyWith(
               medicalConditions:

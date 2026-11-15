@@ -55,6 +55,7 @@ class FitZoneApp extends StatelessWidget {
         return MaterialApp(
           title: 'FitZone',
           debugShowCheckedModeBanner: false,
+          scrollBehavior: const FzScrollBehavior(),
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode:
@@ -272,7 +273,8 @@ class _AppFlowState extends State<AppFlow> {
         revoked ? 'Cuenta revocada' : 'Cuenta suspendida',
         revoked
             ? 'El equipo de FitZone revocó esta cuenta, por eso ya no puedes usarla. Si crees que es un error, contáctanos por los canales oficiales.'
-            : 'Tu cuenta fue suspendida. Contacta al equipo de FitZone para más información.',
+            : (_services.api.lastBlockedMessage ??
+                'Tu cuenta fue suspendida. Contacta al equipo de FitZone para más información.'),
         revoked ? Icons.gpp_bad_outlined : Icons.pause_circle_outline_rounded,
       );
       return;
@@ -565,8 +567,14 @@ class _AppFlowState extends State<AppFlow> {
         _enterApp(user);
       };
     } on ApiException catch (e) {
-      if (e.code == 'CUENTA_REVOCADA') {
-        _showNotice('Cuenta revocada', e.message, Icons.gpp_bad_outlined);
+      if (e.code == 'CUENTA_REVOCADA' || e.code == 'CUENTA_SUSPENDIDA') {
+        _showNotice(
+          e.code == 'CUENTA_REVOCADA' ? 'Cuenta revocada' : 'Cuenta suspendida',
+          e.message,
+          e.code == 'CUENTA_REVOCADA'
+              ? Icons.gpp_bad_outlined
+              : Icons.pause_circle_outline_rounded,
+        );
         rethrow;
       }
  
@@ -612,8 +620,14 @@ class _AppFlowState extends State<AppFlow> {
     } on ApiException catch (e) {
       // Libera la cuenta elegida para poder probar con otra la próxima vez.
       unawaited(_services.google.signOut());
-      if (e.code == 'CUENTA_REVOCADA') {
-        _showNotice('Cuenta revocada', e.message, Icons.gpp_bad_outlined);
+      if (e.code == 'CUENTA_REVOCADA' || e.code == 'CUENTA_SUSPENDIDA') {
+        _showNotice(
+          e.code == 'CUENTA_REVOCADA' ? 'Cuenta revocada' : 'Cuenta suspendida',
+          e.message,
+          e.code == 'CUENTA_REVOCADA'
+              ? Icons.gpp_bad_outlined
+              : Icons.pause_circle_outline_rounded,
+        );
       }
       rethrow;
     }

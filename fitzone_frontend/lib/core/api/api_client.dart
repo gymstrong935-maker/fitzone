@@ -30,6 +30,9 @@ class ApiClient {
   /// (recibe el código: CUENTA_PENDIENTE, CUENTA_RECHAZADA o CUENTA_SUSPENDIDA).
   void Function(String code)? onAccountBlocked;
 
+  /// Mensaje del servidor de la última cuenta bloqueada (p. ej. "suspendida hasta el 14 de diciembre").
+  String? lastBlockedMessage;
+
   String? get token => _token;
 
   void setToken(String? token) => _token = token;
@@ -165,6 +168,7 @@ class ApiClient {
     final ApiException error = _toException(status, data);
 
     if (status == 403 && error.code != null && _blockedCodes.contains(error.code)) {
+      lastBlockedMessage = error.message;
       onAccountBlocked?.call(error.code!);
       throw error;
     }

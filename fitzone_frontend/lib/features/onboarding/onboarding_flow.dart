@@ -212,11 +212,25 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
  
   @override
   Widget build(BuildContext context) {
-    final double bottomInset = MediaQuery.paddingOf(context).bottom;
+    final MediaQueryData mq = MediaQuery.of(context);
+    final double width = mq.size.width;
+    final double height = mq.size.height;
+    final double bottomInset = mq.padding.bottom;
+    final bool keyboardOpen = mq.viewInsets.bottom > 0;
+
+    // Medidas que se adaptan al tamaño de pantalla (celular chico → tablet / web).
+    final bool compact = width < 360 || height < 640;
+    final bool wide = width >= 720;
+    final double sidePadding = width < 360 ? 16 : (wide ? 40 : 24);
+    final double contentMaxWidth = wide ? 600 : 512;
+    final double topSpace = compact ? 62 : 72;
+
     // Espacio que ocupa la barra inferior (con aviso incluido) + un respiro.
-    final double bottomSpace = (_footerHeight ?? 112 + bottomInset) + 16;
+    // Con el teclado abierto la barra se esconde y no hace falta reservarlo.
+    final double bottomSpace =
+        keyboardOpen ? 24 : (_footerHeight ?? 112 + bottomInset) + 16;
     _measureFooter();
- 
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Stack(
@@ -242,22 +256,22 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               fadeStop: 0.6,
             ),
           ),
- 
+
           // ── Contenido del paso ──
           SafeArea(
             bottom: false,
             child: SingleChildScrollView(
               controller: _scroll,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(24, 70, 24, bottomSpace),
+              padding: EdgeInsets.fromLTRB(sidePadding, topSpace, sidePadding, bottomSpace),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 512),
+                  constraints: BoxConstraints(maxWidth: contentMaxWidth),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
                       StepDots(total: _steps.length, current: _step),
-                      const SizedBox(height: 32),
+                      SizedBox(height: compact ? 22 : 32),
                       _buildAnimatedStep(),
                     ],
                   ),
@@ -265,7 +279,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               ),
             ),
           ),
- 
+
           // ── Barra de progreso (arriba) ──
           Positioned(
             top: 0,
@@ -275,7 +289,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               progress: (_step + 1) / _steps.length,
             ),
           ),
- 
+
           // ── Botón atrás (arriba a la izquierda) y contador de pasos ──
           Positioned(
             top: 0,
@@ -284,10 +298,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 20, 0),
+                padding: EdgeInsets.fromLTRB(sidePadding - 8, 12, sidePadding - 4, 0),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 512 + 24),
+                    constraints: BoxConstraints(maxWidth: contentMaxWidth + 12),
                     child: Row(
                       children: <Widget>[
                         AnimatedSwitcher(
@@ -326,29 +340,44 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               ),
             ),
           ),
- 
-          // ── Navegación (abajo) ──
+
+          // ── Navegación (abajo): se esconde mientras se escribe con el teclado ──
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: OnboardingFooter(
-              key: _footerKey,
-              showBack: false,
-              isLast: _isLast,
-              nextEnabled: true,
-              hint: _attempted && _missing.isNotEmpty
-                  ? 'Antes de continuar completa: ${_missing.join(', ')}'
-                  : null,
-              onBack: _goBack,
-              onNext: _goNext,
+            child: IgnorePointer(
+              ignoring: keyboardOpen,
+              child: AnimatedSlide(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                offset: keyboardOpen ? const Offset(0, 1) : Offset.zero,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 180),
+                  opacity: keyboardOpen ? 0 : 1,
+                  child: OnboardingFooter(
+                    key: _footerKey,
+                    showBack: false,
+                    isLast: _isLast,
+                    nextEnabled: true,
+                    compact: compact,
+                    maxWidth: contentMaxWidth,
+                    sidePadding: sidePadding,
+                    hint: _attempted && _missing.isNotEmpty
+                        ? 'Antes de continuar completa: ${_missing.join(', ')}'
+                        : null,
+                    onBack: _goBack,
+                    onNext: _goNext,
+                  ),
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
   }
- 
+
   Widget _buildAnimatedStep() {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),

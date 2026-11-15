@@ -10,6 +10,7 @@ import '../../core/widgets/shimmer_top_bar.dart';
 import 'admin_controller.dart';
 import '../assistant/assistant_controller.dart';
 import '../assistant/assistant_screen.dart';
+import 'screens/admin_activity_screen.dart';
 import 'screens/admin_coach_changes_screen.dart';
 import 'screens/admin_coaches_screen.dart';
 import 'screens/admin_expirations_screen.dart';
@@ -35,6 +36,7 @@ enum AdminSection {
   appointments('Citas', Icons.event_available_outlined),
   support('Soporte', Icons.support_agent_rounded),
   announcements('Anuncios', Icons.campaign_outlined),
+  activity('Historial de cambios', Icons.history_rounded),
   assistant('Asistente', Icons.smart_toy_outlined);
 
   const AdminSection(this.label, this.icon);
@@ -135,6 +137,8 @@ class _AdminShellState extends State<AdminShell> {
         page = AdminAppointmentsScreen(service: _service);
       case AdminSection.announcements:
         page = AdminAnnouncementsScreen(service: _service);
+      case AdminSection.activity:
+        page = AdminActivityScreen(service: _service);
       case AdminSection.assistant:
         page = AssistantScreen(
           controller: _assistant,
@@ -144,7 +148,17 @@ class _AdminShellState extends State<AdminShell> {
     }
 
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 180),
+      duration: const Duration(milliseconds: 280),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (Widget child, Animation<double> animation) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(begin: const Offset(0, 0.015), end: Offset.zero)
+              .animate(animation),
+          child: child,
+        ),
+      ),
       child: KeyedSubtree(key: ValueKey<AdminSection>(_section), child: page),
     );
   }
@@ -355,7 +369,7 @@ class _Sidebar extends StatelessWidget {
   }
 }
 
-class _SidebarItem extends StatelessWidget {
+class _SidebarItem extends StatefulWidget {
   const _SidebarItem({
     required this.section,
     required this.selected,
@@ -369,29 +383,50 @@ class _SidebarItem extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_SidebarItem> createState() => _SidebarItemState();
+}
+
+class _SidebarItemState extends State<_SidebarItem> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
+    final bool selected = widget.selected;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: onTap,
+          onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            transform: Matrix4.translationValues(_hover && !selected ? 3 : 0, 0, 0),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              color: selected ? AppColors.cyanA(0.14) : Colors.transparent,
+              color: selected
+                  ? AppColors.cyanA(0.14)
+                  : (_hover ? AppColors.whiteA(0.06) : Colors.transparent),
               border: Border.all(color: selected ? AppColors.cyanA(0.30) : Colors.transparent),
             ),
             child: Row(
               children: <Widget>[
-                Icon(section.icon, size: 19, color: selected ? AppColors.cyanText : AppColors.whiteA(0.55)),
+                Icon(
+                  widget.section.icon,
+                  size: 19,
+                  color: selected
+                      ? AppColors.cyanText
+                      : AppColors.whiteA(_hover ? 0.8 : 0.55),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    section.label,
+                    widget.section.label,
                     style: AppText.body(
                       size: 14,
                       weight: selected ? FontWeight.w700 : FontWeight.w500,
@@ -399,7 +434,7 @@ class _SidebarItem extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (badge > 0) _Badge(count: badge),
+                if (widget.badge > 0) _Badge(count: widget.badge),
               ],
             ),
           ),
@@ -483,7 +518,12 @@ class _MobileBottomNav extends StatelessWidget {
                 Stack(
                   clipBehavior: Clip.none,
                   children: <Widget>[
-                    Icon(icon, size: 22, color: selected ? AppColors.cyanText : AppColors.whiteA(0.50)),
+                    AnimatedScale(
+                      scale: selected ? 1.15 : 1.0,
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutBack,
+                      child: Icon(icon, size: 22, color: selected ? AppColors.cyanText : AppColors.whiteA(0.50)),
+                    ),
                     if (count > 0)
                       Positioned(top: -6, right: -12, child: _Badge(count: count)),
                   ],

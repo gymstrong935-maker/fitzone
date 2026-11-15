@@ -175,6 +175,35 @@ class _TrainerCardState extends State<TrainerCard> {
 
   // Nombre, especialidad, precio, selección y valoración.
   Widget _buildInfo(Trainer t, bool selected) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints c) =>
+          _buildInfoBody(t, selected, narrow: c.maxWidth < 230),
+    );
+  }
+
+  Widget _buildInfoBody(Trainer t, bool selected, {required bool narrow}) {
+    final Widget price = Column(
+      crossAxisAlignment: narrow ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(
+          formatCop(t.price),
+          style: AppText.body(
+            size: 16,
+            weight: FontWeight.w700,
+            color: _teal400,
+          ),
+        ),
+        Text(
+          t.priceDescription,
+          style: AppText.body(
+            size: 12,
+            color: AppColors.whiteA(0.4),
+          ),
+        ),
+      ],
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -204,28 +233,7 @@ class _TrainerCardState extends State<TrainerCard> {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  formatCop(t.price),
-                  style: AppText.body(
-                    size: 16,
-                    weight: FontWeight.w700,
-                    color: _teal400,
-                  ),
-                ),
-                Text(
-                  t.priceDescription,
-                  style: AppText.body(
-                    size: 12,
-                    color: AppColors.whiteA(0.4),
-                  ),
-                ),
-              ],
-            ),
+            if (!narrow) ...<Widget>[const SizedBox(width: 8), price],
             if (selected) ...<Widget>[
               const SizedBox(width: 8),
               Container(
@@ -245,8 +253,10 @@ class _TrainerCardState extends State<TrainerCard> {
             ],
           ],
         ),
+        if (narrow) ...<Widget>[const SizedBox(height: 6), price],
         const SizedBox(height: 6),
-        Row(
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: <Widget>[
             Icon(
               Icons.star_rounded,

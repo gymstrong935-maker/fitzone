@@ -7,6 +7,7 @@ import '../../../core/api/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../../core/widgets/error_box.dart';
+import '../../../core/widgets/fade_slide_in.dart';
 import '../../../core/widgets/pulsing_dots.dart';
 import '../../onboarding/widgets/fz_field_frame.dart';
 import '../../onboarding/widgets/fz_label.dart';
@@ -112,28 +113,42 @@ class AdminPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Text(
-                title,
-                style: AppText.display(
-                  size: 26,
-                  weight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                  height: 1.25,
+              FadeSlideIn(
+                duration: const Duration(milliseconds: 420),
+                offsetY: 12,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: AppText.display(
+                        size: 26,
+                        weight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                        height: 1.25,
+                      ),
+                    ),
+                    if (subtitle != null) ...<Widget>[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle!,
+                        style: AppText.body(size: 14, color: AppColors.whiteA(0.50), height: 1.5),
+                      ),
+                    ],
+                    if (actions.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 16),
+                      Wrap(spacing: 10, runSpacing: 10, children: actions),
+                    ],
+                  ],
                 ),
               ),
-              if (subtitle != null) ...<Widget>[
-                const SizedBox(height: 4),
-                Text(
-                  subtitle!,
-                  style: AppText.body(size: 14, color: AppColors.whiteA(0.50), height: 1.5),
-                ),
-              ],
-              if (actions.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 16),
-                Wrap(spacing: 10, runSpacing: 10, children: actions),
-              ],
               const SizedBox(height: 22),
-              child,
+              FadeSlideIn(
+                delay: const Duration(milliseconds: 90),
+                duration: const Duration(milliseconds: 420),
+                offsetY: 16,
+                child: child,
+              ),
             ],
           ),
         ),
@@ -232,7 +247,7 @@ class _AdminFutureState<T> extends State<AdminFuture<T>> {
 // Componentes
 // ═══════════════════════════════════════════════════════════════════════════
 
-class AdminCard extends StatelessWidget {
+class AdminCard extends StatefulWidget {
   const AdminCard({
     super.key,
     required this.child,
@@ -249,21 +264,65 @@ class AdminCard extends StatelessWidget {
   final Color? highlight;
 
   @override
+  State<AdminCard> createState() => _AdminCardState();
+}
+
+class _AdminCardState extends State<AdminCard> {
+  bool _hover = false;
+  bool _pressing = false;
+
+  @override
   Widget build(BuildContext context) {
-    final Widget card = Container(
-      padding: padding,
+    final bool interactive = widget.onTap != null;
+    final bool lifted = interactive && _hover;
+
+    final Widget card = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: widget.padding,
       decoration: BoxDecoration(
-        color: AppColors.whiteA(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: highlight ?? AppColors.whiteA(0.09)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            AppColors.whiteA(lifted ? 0.085 : 0.065),
+            AppColors.whiteA(lifted ? 0.045 : 0.03),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: widget.highlight ?? (lifted ? AppColors.cyanA(0.35) : AppColors.whiteA(0.09)),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, AppColors.isLight ? 0.05 : 0.22),
+            blurRadius: lifted ? 22 : 12,
+            offset: Offset(0, lifted ? 8 : 4),
+          ),
+        ],
       ),
-      child: child,
+      child: widget.child,
     );
 
-    if (onTap == null) return card;
+    if (!interactive) return card;
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: card),
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressing = true),
+        onTapUp: (_) => setState(() => _pressing = false),
+        onTapCancel: () => setState(() => _pressing = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _pressing ? 0.985 : 1.0,
+          duration: Duration(milliseconds: _pressing ? 100 : 220),
+          curve: _pressing ? Curves.easeOut : Curves.easeOutBack,
+          child: card,
+        ),
+      ),
     );
   }
 }
@@ -293,7 +352,7 @@ class StatusBadge extends StatelessWidget {
 
 enum AdminButtonKind { primary, secondary, danger }
 
-class AdminButton extends StatelessWidget {
+class AdminButton extends StatefulWidget {
   const AdminButton({
     super.key,
     required this.label,
@@ -312,7 +371,21 @@ class AdminButton extends StatelessWidget {
   final bool loading;
 
   @override
+  State<AdminButton> createState() => _AdminButtonState();
+}
+
+class _AdminButtonState extends State<AdminButton> {
+  bool _hover = false;
+  bool _pressing = false;
+
+  @override
   Widget build(BuildContext context) {
+    final String label = widget.label;
+    final VoidCallback? onTap = widget.onTap;
+    final IconData? icon = widget.icon;
+    final AdminButtonKind kind = widget.kind;
+    final bool compact = widget.compact;
+    final bool loading = widget.loading;
     final bool enabled = onTap != null && !loading;
 
     late final Color text;
@@ -342,10 +415,19 @@ class AdminButton extends StatelessWidget {
 
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
+        onTapDown: enabled ? (_) => setState(() => _pressing = true) : null,
+        onTapUp: (_) => setState(() => _pressing = false),
+        onTapCancel: () => setState(() => _pressing = false),
         onTap: enabled ? onTap : null,
-        child: AnimatedOpacity(
+        child: AnimatedScale(
+          scale: _pressing ? 0.95 : (_hover && enabled ? 1.03 : 1.0),
+          duration: Duration(milliseconds: _pressing ? 90 : 220),
+          curve: _pressing ? Curves.easeOut : Curves.easeOutBack,
+          child: AnimatedOpacity(
           opacity: enabled ? 1 : 0.5,
           duration: const Duration(milliseconds: 150),
           child: Container(
@@ -371,6 +453,7 @@ class AdminButton extends StatelessWidget {
               ],
             ),
           ),
+        ),
         ),
       ),
     );
@@ -613,7 +696,13 @@ Future<bool> adminConfirm(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 380),
-        child: Container(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.92, end: 1),
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutBack,
+          builder: (BuildContext context, double v, Widget? c) =>
+              Transform.scale(scale: v, child: c),
+          child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: AppColors.surface,
@@ -657,6 +746,7 @@ Future<bool> adminConfirm(
               ),
             ],
           ),
+        ),
         ),
       ),
     ),

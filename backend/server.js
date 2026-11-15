@@ -28,6 +28,7 @@ import adminRoutes from './src/routes/adminRoutes.js';
 import supportRoutes from './src/routes/supportRoutes.js';
 import communityRoutes from './src/routes/communityRoutes.js';
 
+import auditoria from './src/middleware/auditoria.js';
 import { iniciarJobVencimientos } from './src/jobs/verificarVencimientosJob.js';
 
 // =====================================================
@@ -95,6 +96,9 @@ app.get('/health', (req, res) => {
 // =====================================================
 // RUTAS DE LA API
 // =====================================================
+
+// Historial de cambios: registra lo que cada usuario modifica
+app.use('/api', auditoria);
 
 app.use('/api/users', userRoutes);
 app.use('/api/plans', planRoutes);

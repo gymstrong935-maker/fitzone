@@ -136,7 +136,8 @@ class PersonalInfo {
         if (!touched.contains(kMotivation)) 'motivación',
         if (!touched.contains(kStress)) 'nivel de estrés',
         if (!touched.contains(kEnergy)) 'energía',
-        if (medicalConditions.physical.trim().isEmpty) 'condiciones médicas',
+        // Las condiciones médicas (enfermedades, lesiones, notas) son OPCIONALES:
+        // no se exigen para continuar.
       ];
  
   bool get isComplete => missing.isEmpty;

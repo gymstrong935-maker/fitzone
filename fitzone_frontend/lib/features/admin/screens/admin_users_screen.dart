@@ -244,6 +244,11 @@ class _UserCard extends StatelessWidget {
                           StatusBadge(label: plan, color: AppColors.teal400),
                         if (!verified)
                           StatusBadge(label: 'Correo sin verificar', color: AppColors.red),
+                        if (estado == 'suspendido' && asDate(user['suspendidoHasta']) != null)
+                          StatusBadge(
+                            label: 'Hasta ${shortDate(asDate(user['suspendidoHasta']))}',
+                            color: AppColors.amber,
+                          ),
                       ],
                     ),
                   ],
@@ -459,20 +464,59 @@ class _UserEditorState extends State<_UserEditor> {
     }
   }
 
+  /// Revocar = suspender (banear) la cuenta durante 1 mes.
   Future<void> _revoke() async {
     final String? reason = await showAdminSheet<String>(
       context,
-      (BuildContext ctx) => _RevokeSheet(
-        name: str(_user['nombre']),
-        email: str(_user['email']),
-      ),
+      (BuildContext ctx) => _RevokeSheet(name: str(_user['nombre'])),
     );
     if (reason == null || !mounted) return;
 
     try {
       await widget.service.revokeUser(str(_user['_id']), reason: reason);
       if (!mounted) return;
-      adminToast(context, 'Cuenta eliminada. Si intenta entrar verá que fue revocada.');
+      adminToast(context, 'Cuenta revocada por 1 mes. Se reactiva sola al terminar.');
+      Navigator.of(context).pop(true);
+    } on ApiException catch (e) {
+      if (mounted) adminToast(context, e.message, error: true);
+    }
+  }
+
+  Future<void> _reactivate() async {
+    final bool ok = await adminConfirm(
+      context,
+      title: '¿Levantar la suspensión?',
+      message: '${str(_user['nombre'])} podrá volver a entrar a FitZone de inmediato.',
+      confirmLabel: 'Reactivar',
+      danger: false,
+    );
+    if (!ok || !mounted) return;
+
+    try {
+      await widget.service.reactivateUser(str(_user['_id']));
+      if (!mounted) return;
+      adminToast(context, 'Cuenta reactivada');
+      Navigator.of(context).pop(true);
+    } on ApiException catch (e) {
+      if (mounted) adminToast(context, e.message, error: true);
+    }
+  }
+
+  /// Eliminar = borrar de la base de datos (puede volver a registrarse).
+  Future<void> _delete() async {
+    final bool? confirmed = await showAdminSheet<bool>(
+      context,
+      (BuildContext ctx) => _DeleteSheet(
+        name: str(_user['nombre']),
+        email: str(_user['email']),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await widget.service.deleteUser(str(_user['_id']));
+      if (!mounted) return;
+      adminToast(context, 'Cuenta eliminada. Esa persona puede volver a registrarse.');
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (mounted) adminToast(context, e.message, error: true);
@@ -594,6 +638,43 @@ class _UserEditorState extends State<_UserEditor> {
             ),
         if (str(_user['rol']) != 'admin') ...<Widget>[
           const SizedBox(height: 32),
+          if (str(_user['estadoCuenta']) == 'suspendido') ...<Widget>[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color.fromRGBO(251, 191, 36, 0.07),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color.fromRGBO(251, 191, 36, 0.28)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Cuenta suspendida',
+                    style: AppText.display(size: 15, weight: FontWeight.w700, color: AppColors.amber),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    asDate(_user['suspendidoHasta']) == null
+                        ? 'Sin fecha de fin: el administrador debe reactivarla.'
+                        : 'No puede entrar hasta el ${shortDate(asDate(_user['suspendidoHasta']))}. '
+                            'Ese día vuelve a estar activa automáticamente.'
+                            '${str(_user['motivoSuspension']).isEmpty ? '' : '\nMotivo: ${str(_user['motivoSuspension'])}'}',
+                    style: AppText.body(size: 13, color: AppColors.whiteA(0.60), height: 1.5),
+                  ),
+                  const SizedBox(height: 12),
+                  AdminButton(
+                    label: 'Levantar suspensión',
+                    icon: Icons.lock_open_rounded,
+                    kind: AdminButtonKind.primary,
+                    compact: true,
+                    onTap: _reactivate,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -608,18 +689,44 @@ class _UserEditorState extends State<_UserEditor> {
                   'Zona de peligro',
                   style: AppText.display(size: 15, weight: FontWeight.w700, color: AppColors.red),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 14),
                 Text(
-                  'Eliminar la cuenta revoca el acceso de este usuario.',
-                  style: AppText.body(size: 13, color: AppColors.whiteA(0.55), height: 1.5),
+                  'Revocar',
+                  style: AppText.body(size: 13.5, weight: FontWeight.w700, color: AppColors.ink),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 4),
+                Text(
+                  'Banea la cuenta durante 1 mes: no podrá entrar ni usar la app. '
+                  'Sus datos se conservan y al terminar el mes vuelve a estar activa.',
+                  style: AppText.body(size: 12.5, color: AppColors.whiteA(0.55), height: 1.5),
+                ),
+                const SizedBox(height: 10),
+                if (str(_user['estadoCuenta']) != 'suspendido')
+                  AdminButton(
+                    label: 'Revocar por 1 mes',
+                    icon: Icons.block_rounded,
+                    kind: AdminButtonKind.danger,
+                    compact: true,
+                    onTap: _revoke,
+                  ),
+                const SizedBox(height: 18),
+                Text(
+                  'Eliminar',
+                  style: AppText.body(size: 13.5, weight: FontWeight.w700, color: AppColors.ink),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Borra la cuenta y sus datos de la base de datos. '
+                  'No queda bloqueada: la persona puede registrarse otra vez.',
+                  style: AppText.body(size: 12.5, color: AppColors.whiteA(0.55), height: 1.5),
+                ),
+                const SizedBox(height: 10),
                 AdminButton(
                   label: 'Eliminar cuenta',
                   icon: Icons.delete_forever_outlined,
                   kind: AdminButtonKind.danger,
                   compact: true,
-                  onTap: _revoke,
+                  onTap: _delete,
                 ),
               ],
             ),
@@ -630,20 +737,84 @@ class _UserEditorState extends State<_UserEditor> {
   }
 }
 
-/// Confirmación para eliminar una cuenta: hay que escribir el correo.
+/// Revocar una cuenta: baneo de 1 mes con motivo opcional.
 class _RevokeSheet extends StatefulWidget {
-  const _RevokeSheet({required this.name, required this.email});
+  const _RevokeSheet({required this.name});
 
   final String name;
-  final String email;
 
   @override
   State<_RevokeSheet> createState() => _RevokeSheetState();
 }
 
 class _RevokeSheetState extends State<_RevokeSheet> {
-  final TextEditingController _confirm = TextEditingController();
   final TextEditingController _reason = TextEditingController();
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AdminSheet(
+      title: 'Revocar cuenta',
+      subtitle: widget.name,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            'La cuenta quedará suspendida durante 1 mes: no podrá iniciar sesión ni usar la app '
+            'y se cancelarán sus citas confirmadas. Sus datos se conservan. '
+            'Pasado el mes vuelve a estar activa sola, o puedes levantar la suspensión antes.',
+            style: AppText.body(size: 13.5, color: AppColors.whiteA(0.60), height: 1.55),
+          ),
+          const SizedBox(height: 16),
+          AdminTextField(
+            controller: _reason,
+            label: 'Motivo (opcional, lo verá el usuario)',
+            maxLength: 200,
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Center(
+                  child: AdminButton(label: 'Cancelar', onTap: () => Navigator.of(context).pop()),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Center(
+                  child: AdminButton(
+                    label: 'Revocar 1 mes',
+                    kind: AdminButtonKind.danger,
+                    onTap: () => Navigator.of(context).pop(_reason.text.trim()),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Eliminar una cuenta: hay que escribir el correo para confirmar.
+class _DeleteSheet extends StatefulWidget {
+  const _DeleteSheet({required this.name, required this.email});
+
+  final String name;
+  final String email;
+
+  @override
+  State<_DeleteSheet> createState() => _DeleteSheetState();
+}
+
+class _DeleteSheetState extends State<_DeleteSheet> {
+  final TextEditingController _confirm = TextEditingController();
 
   bool get _matches =>
       _confirm.text.trim().toLowerCase() == widget.email.trim().toLowerCase();
@@ -651,7 +822,6 @@ class _RevokeSheetState extends State<_RevokeSheet> {
   @override
   void dispose() {
     _confirm.dispose();
-    _reason.dispose();
     super.dispose();
   }
 
@@ -664,18 +834,13 @@ class _RevokeSheetState extends State<_RevokeSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Text(
-            'Se borrarán sus datos (entrenamientos, comidas, medidas, notificaciones y solicitudes), '
-            'se cancelarán sus citas y suscripciones, y la cuenta quedará revocada: '
-            'si intenta entrar verá un aviso. Los pagos se conservan. Esta acción no se puede deshacer.',
+            'Se borrará la cuenta de la base de datos junto con sus entrenamientos, comidas, medidas, '
+            'publicaciones, notificaciones y solicitudes. Los pagos se conservan. '
+            'No se bloquea el correo: esa persona podrá registrarse de nuevo. '
+            'Esta acción no se puede deshacer.',
             style: AppText.body(size: 13.5, color: AppColors.whiteA(0.60), height: 1.55),
           ),
           const SizedBox(height: 16),
-          AdminTextField(
-            controller: _reason,
-            label: 'Motivo (opcional, lo verá el usuario)',
-            maxLength: 200,
-          ),
-          const SizedBox(height: 12),
           AdminTextField(
             controller: _confirm,
             label: 'Escribe ${widget.email} para confirmar',
@@ -696,7 +861,7 @@ class _RevokeSheetState extends State<_RevokeSheet> {
                   child: AdminButton(
                     label: 'Eliminar cuenta',
                     kind: AdminButtonKind.danger,
-                    onTap: _matches ? () => Navigator.of(context).pop(_reason.text.trim()) : null,
+                    onTap: _matches ? () => Navigator.of(context).pop(true) : null,
                   ),
                 ),
               ),

@@ -144,7 +144,8 @@ Map<String, dynamic> conditionPayload(String userId, OnboardingData d) {
   return <String, dynamic>{
     'usuarioId': userId,
     if (nivel != null) 'nivel': nivel,
-    'observacionesMedicas': notes,
+    // Opcional: solo se envía si la persona escribió algo
+    if (notes.isNotEmpty) 'observacionesMedicas': notes,
     'valoraciones': <String, dynamic>{
       'condicionFisica': p.physicalCondition,
       'motivacion': p.psychologicalCondition.motivation,

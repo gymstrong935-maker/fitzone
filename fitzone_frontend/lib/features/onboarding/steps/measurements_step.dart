@@ -168,23 +168,33 @@ class _Section extends StatelessWidget {
  
   @override
   Widget build(BuildContext context) {
-    final List<Widget> rows = <Widget>[];
-    for (int i = 0; i < cells.length; i += 2) {
-      if (i > 0) rows.add(const SizedBox(height: 10));
-      rows.add(
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Expanded(child: cells[i]),
-            const SizedBox(width: 10),
-            Expanded(
-              child: i + 1 < cells.length ? cells[i + 1] : const SizedBox(),
+    final Widget grid = LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints c) {
+        // 2 columnas en celular, 3 cuando hay espacio.
+        final int cols = c.maxWidth >= 520 ? 3 : 2;
+        final List<Widget> rows = <Widget>[];
+
+        for (int i = 0; i < cells.length; i += cols) {
+          if (i > 0) rows.add(const SizedBox(height: 10));
+          rows.add(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                for (int j = 0; j < cols; j++) ...<Widget>[
+                  if (j > 0) const SizedBox(width: 10),
+                  Expanded(
+                    child: i + j < cells.length ? cells[i + j] : const SizedBox(),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ),
-      );
-    }
- 
+          );
+        }
+
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
+      },
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -204,7 +214,7 @@ class _Section extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        ...rows,
+        grid,
       ],
     );
   }
