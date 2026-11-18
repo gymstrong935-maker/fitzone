@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/api/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text.dart';
 import '../../onboarding/data/goals_data.dart';
@@ -168,6 +169,251 @@ Future<bool?> showLogoutDialog(BuildContext context) {
       );
     },
   );
+}
+
+/// Palabra que deben escribir las cuentas de Google (no tienen contraseña) para
+/// confirmar que quieren eliminar su cuenta.
+const String _kDeleteWord = 'ELIMINAR';
+
+/// Cuadro de confirmación de "Eliminar cuenta".
+///
+/// Pide la contraseña ([requiresPassword]) o, para cuentas de Google, escribir
+/// "ELIMINAR". Llama a [onDelete] y, si el servidor la rechaza ([ApiException],
+/// p. ej. contraseña incorrecta), muestra el mensaje dentro del cuadro sin cerrarlo.
+/// Se cierra solo cuando la cuenta se eliminó.
+Future<void> showDeleteAccountDialog(
+  BuildContext context, {
+  required bool requiresPassword,
+  required Future<void> Function(String? password) onDelete,
+}) {
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    barrierColor: const Color(0xB3000000),
+    builder: (BuildContext ctx) => _DeleteAccountDialog(
+      requiresPassword: requiresPassword,
+      onDelete: onDelete,
+    ),
+  );
+}
+
+class _DeleteAccountDialog extends StatefulWidget {
+  const _DeleteAccountDialog({
+    required this.requiresPassword,
+    required this.onDelete,
+  });
+
+  final bool requiresPassword;
+  final Future<void> Function(String? password) onDelete;
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focus = FocusNode();
+  bool _busy = false;
+  bool _showPassword = false;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_rebuild);
+    _focus.addListener(_rebuild);
+  }
+
+  void _rebuild() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_rebuild);
+    _focus.removeListener(_rebuild);
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  bool get _canSubmit {
+    if (_busy) return false;
+    return widget.requiresPassword
+        ? _controller.text.isNotEmpty
+        : _controller.text.trim().toUpperCase() == _kDeleteWord;
+  }
+
+  Future<void> _submit() async {
+    if (!_canSubmit) return;
+    setState(() {
+      _busy = true;
+      _error = '';
+    });
+    try {
+      await widget.onDelete(widget.requiresPassword ? _controller.text : null);
+      if (mounted) Navigator.of(context).pop();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = 'No se pudo eliminar la cuenta. Inténtalo de nuevo.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color red = AppColors.red;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 380),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.whiteA(0.10)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Icon(Icons.delete_forever_outlined, size: 34, color: red),
+                const SizedBox(height: 10),
+                Text(
+                  '¿Eliminar tu cuenta?',
+                  textAlign: TextAlign.center,
+                  style: AppText.display(size: 20, weight: FontWeight.w700, height: 1.4),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Se borrarán para siempre tu perfil, tu progreso, tus entrenamientos '
+                  'y tus publicaciones, y tu suscripción se cancelará. '
+                  'Esta acción no se puede deshacer.',
+                  textAlign: TextAlign.center,
+                  style: AppText.body(
+                    size: 14,
+                    color: AppColors.whiteA(0.60),
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                FzLabel(
+                  widget.requiresPassword
+                      ? 'Escribe tu contraseña para confirmar'
+                      : 'Escribe $_kDeleteWord para confirmar',
+                ),
+                const SizedBox(height: 6),
+                FzFieldFrame(
+                  focused: _focus.hasFocus,
+                  height: 44,
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          focusNode: _focus,
+                          enabled: !_busy,
+                          obscureText: widget.requiresPassword && !_showPassword,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          textCapitalization: widget.requiresPassword
+                              ? TextCapitalization.none
+                              : TextCapitalization.characters,
+                          textInputAction: TextInputAction.done,
+                          onChanged: (_) {
+                            if (_error.isNotEmpty) setState(() => _error = '');
+                          },
+                          onSubmitted: (_) => _submit(),
+                          cursorColor: AppColors.ink,
+                          style: AppText.body(size: 15, color: AppColors.ink),
+                          decoration: InputDecoration(
+                            isCollapsed: true,
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                            hintText: widget.requiresPassword ? 'Contraseña' : _kDeleteWord,
+                            hintStyle: AppText.body(
+                              size: 15,
+                              color: AppColors.whiteA(0.30),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (widget.requiresPassword)
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => setState(() => _showPassword = !_showPassword),
+                          child: Icon(
+                            _showPassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            size: 18,
+                            color: AppColors.whiteA(0.45),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (_error.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 10),
+                  Text(
+                    _error,
+                    style: AppText.body(size: 13, color: red, height: 1.4),
+                  ),
+                ],
+                const SizedBox(height: 22),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: IgnorePointer(
+                        ignoring: _busy,
+                        child: _DialogButton(
+                          label: 'Cancelar',
+                          background: AppColors.whiteA(0.08),
+                          border: AppColors.whiteA(0.12),
+                          textColor: AppColors.ink,
+                          onTap: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: AnimatedOpacity(
+                        opacity: _canSubmit || _busy ? 1 : 0.4,
+                        duration: const Duration(milliseconds: 150),
+                        child: IgnorePointer(
+                          ignoring: !_canSubmit,
+                          child: _DialogButton(
+                            label: _busy ? 'Eliminando…' : 'Eliminar',
+                            background: const Color.fromRGBO(239, 68, 68, 0.12),
+                            border: const Color.fromRGBO(239, 68, 68, 0.30),
+                            textColor: red,
+                            onTap: _submit,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

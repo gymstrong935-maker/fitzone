@@ -380,6 +380,7 @@ class _AppFlowState extends State<AppFlow> {
         email: user.email,
         createdAt: user.fechaRegistro,
         onboardingData: data,
+        authProvider: (user.raw['proveedorAuth'] ?? 'local').toString(),
       );
       _stage = AppStage.main;
       _authNotice = null;
@@ -884,6 +885,17 @@ class _AppFlowState extends State<AppFlow> {
     );
   }
  
+  /// Ajustes → "Eliminar cuenta": borra la cuenta en el servidor y cierra la
+  /// sesión. Lanza [ApiException] si el servidor la rechaza (p. ej. contraseña
+  /// incorrecta); en ese caso la sesión se mantiene.
+  Future<void> _handleDeleteAccount(String? password) async {
+    final BackendUser? user = _user;
+    if (user == null) return;
+
+    await _services.users.deleteAccount(userId: user.id, password: password);
+    _handleLogout();
+  }
+
   /// Datos personales / medidas / hábitos editados: se guardan en el servidor.
   Future<void> _handleSaveData(OnboardingData before, OnboardingData after) async {
     final BackendUser? user = _user;
@@ -1089,6 +1101,7 @@ class _AppFlowState extends State<AppFlow> {
           onProfileChanged: _handleProfileChanged,
           onSaveAccount: _handleSaveAccount,
           onChangePassword: _handleChangePassword,
+          onDeleteAccount: _handleDeleteAccount,
           onSaveData: _handleSaveData,
           onChangePlan: _openPlanChange,
         );

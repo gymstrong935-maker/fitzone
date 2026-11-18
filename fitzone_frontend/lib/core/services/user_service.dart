@@ -87,4 +87,18 @@ class UserService {
       },
     );
   }
+
+  /// Elimina la cuenta de forma definitiva (DELETE /api/users/:id).
+  /// Si la cuenta tiene contraseña, el servidor la pide para confirmar.
+  Future<void> deleteAccount({
+    required String userId,
+    String? password,
+  }) async {
+    await _api.delete(
+      '/api/users/$userId',
+      body: <String, dynamic>{
+        if (password != null && password.isNotEmpty) 'password': password,
+      },
+    );
+  }
 }

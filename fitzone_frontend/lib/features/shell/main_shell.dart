@@ -59,6 +59,7 @@ class MainShell extends StatefulWidget {
     required this.onProfileChanged,
     required this.onSaveAccount,
     required this.onChangePassword,
+    required this.onDeleteAccount,
     required this.onSaveData,
     this.onChangePlan,
   });
@@ -84,6 +85,10 @@ class MainShell extends StatefulWidget {
   final Future<void> Function(String? current, String next, String confirmation)
       onChangePassword;
  
+  /// Elimina la cuenta (con la contraseña, si tiene) y cierra la sesión.
+  /// Lanza `ApiException` si falla.
+  final Future<void> Function(String? password) onDeleteAccount;
+
   /// Guarda en el servidor los datos personales editados. Lanza `ApiException`.
   final Future<void> Function(OnboardingData before, OnboardingData after) onSaveData;
  
@@ -369,6 +374,7 @@ class _MainShellState extends State<MainShell> {
           onRename: _rename,
           onSaveAccount: _saveAccount,
           onChangePassword: widget.onChangePassword,
+          onDeleteAccount: widget.onDeleteAccount,
           onSaveData: _saveData,
           onOpenNotifications: () => _navigate('notifications'),
           onLogout: widget.onLogout,

@@ -45,7 +45,8 @@ class ApiClient {
   Future<dynamic> put(String path, {Object? body}) =>
       _send('PUT', path, body: body);
 
-  Future<dynamic> delete(String path) => _send('DELETE', path);
+  Future<dynamic> delete(String path, {Object? body}) =>
+      _send('DELETE', path, body: body);
 
   Future<dynamic> _send(String method, String path, {Object? body}) async {
     final Uri uri = Uri.parse('${ApiConfig.baseUrl}$path');
@@ -69,7 +70,7 @@ class ApiClient {
               .timeout(ApiConfig.timeout);
         case 'DELETE':
           response = await _client
-              .delete(uri, headers: headers)
+              .delete(uri, headers: headers, body: encoded)
               .timeout(ApiConfig.timeout);
         default:
           response =

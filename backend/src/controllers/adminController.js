@@ -26,6 +26,7 @@ import Post from '../models/Post.js';
 import ActivityLog from '../models/ActivityLog.js';
 import { finSuspension, DIAS_SUSPENSION } from '../helpers/suspension.js';
 import { listarVencimientos, notificarVencimiento } from '../helpers/vencimientos.js';
+import { eliminarCuentaYDatos } from '../helpers/eliminarCuentaUsuario.js';
 
 const OCULTOS = '-passwordHash -resetPasswordToken -resetPasswordExpira -codigoVerificacion -codigoVerificacionExpira';
 const escapeRegex = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -728,32 +729,7 @@ export const eliminarCuenta = async (req, res) => {
       return res.status(400).json({ mensaje: 'Primero quítale el rol de administrador a esta cuenta' });
     }
 
-    const email = String(usuario.email).toLowerCase().trim();
-
-    await Promise.all([
-      PhysicalCondition.deleteMany({ usuarioId: id }),
-      PhysicalMeasurement.deleteMany({ usuarioId: id }),
-      SleepQuality.deleteMany({ usuarioId: id }),
-      Motivation.deleteMany({ usuarioId: id }),
-      TrainingFrequency.deleteMany({ usuarioId: id }),
-      TrainingParameter.deleteMany({ usuarioId: id }),
-      TrainingPeriod.deleteMany({ usuarioId: id }),
-      DietaryControl.deleteMany({ usuarioId: id }),
-      WorkoutSession.deleteMany({ usuarioId: id }),
-      Notification.deleteMany({ usuarioId: id }),
-      SupportTicket.deleteMany({ usuarioId: id }),
-      CoachChangeRequest.deleteMany({ usuarioId: id }),
-      Post.deleteMany({ usuarioId: id }),
-      Post.updateMany({}, { $pull: { likes: id, comentarios: { usuarioId: id } } }),
-      Appointment.updateMany({ usuarioId: id, estado: 'confirmada' }, { $set: { estado: 'cancelada' } }),
-      Subscription.updateMany({ usuarioId: id, estado: { $in: ['activa', 'pendiente'] } }, { $set: { estado: 'cancelada' } }),
-      Group.updateMany({ miembros: id }, { $pull: { miembros: id } }),
-      Coach.updateMany({ clientesAsignados: id }, { $pull: { clientesAsignados: id } }),
-      // Por si el correo quedó bloqueado por el sistema anterior de revocación
-      RevokedAccount.deleteMany({ email })
-    ]);
-
-    await User.findByIdAndDelete(id);
+    await eliminarCuentaYDatos(usuario);
 
     res.json({ mensaje: 'Cuenta eliminada. Esa persona puede volver a registrarse.' });
   } catch (e) {

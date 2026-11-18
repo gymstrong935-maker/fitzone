@@ -13,6 +13,7 @@ import {
   verificarCuenta,
   reenviarCodigo,
   cambiarRolUsuario,
+  eliminarMiCuenta,
   solicitarCambioEmail,
   confirmarCambioEmail
 } from '../controllers/userController.js';
@@ -179,6 +180,19 @@ router.put(
   verificarDueño,
   uploadUserImage.single('imagen'),
   actualizarUsuario
+);
+
+
+// ======================================================
+// ELIMINAR MI CUENTA (con contraseña; en Google, con confirmación en la app)
+// ======================================================
+
+router.delete(
+  '/:id',
+  verificarToken,
+  verificarDueño,
+  limitarLogin,
+  eliminarMiCuenta
 );
 
 

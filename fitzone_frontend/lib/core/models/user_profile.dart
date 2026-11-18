@@ -8,6 +8,7 @@ class UserProfile {
     required this.email,
     required this.createdAt,
     required this.onboardingData,
+    this.authProvider = 'local',
   });
 
   final String id;
@@ -15,6 +16,9 @@ class UserProfile {
   final String email;
   final DateTime createdAt;
   final OnboardingData onboardingData;
+
+  /// Cómo inicia sesión la persona: `local` (correo y contraseña) o `google`.
+  final String authProvider;
 
   UserProfile copyWith({
     String? name,
@@ -27,6 +31,7 @@ class UserProfile {
       email: email ?? this.email,
       createdAt: createdAt,
       onboardingData: onboardingData ?? this.onboardingData,
+      authProvider: authProvider,
     );
   }
 }

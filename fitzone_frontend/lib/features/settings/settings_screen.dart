@@ -77,6 +77,7 @@ class SettingsScreen extends StatefulWidget {
     required this.onLogout,
     required this.onSaveAccount,
     required this.onChangePassword,
+    required this.onDeleteAccount,
     required this.onSaveData,
     this.onChangePlan,
   });
@@ -106,6 +107,10 @@ class SettingsScreen extends StatefulWidget {
   final Future<void> Function(String? current, String next, String confirmation)
       onChangePassword;
  
+  /// Elimina la cuenta en el servidor y cierra la sesión. Recibe la contraseña
+  /// (si la cuenta tiene una). Lanza [ApiException] si falla.
+  final Future<void> Function(String? password) onDeleteAccount;
+
   /// Guarda los datos personales editados (también en el servidor).
   final Future<void> Function(OnboardingData data) onSaveData;
  
@@ -452,6 +457,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final bool? confirmed = await showLogoutDialog(context);
     if (confirmed == true) widget.onLogout();
   }
+
+  /// "Eliminar cuenta": el cuadro pide la contraseña (o escribir ELIMINAR si la
+  /// cuenta es de Google) y llama a [SettingsScreen.onDeleteAccount]. Si sale
+  /// bien, la app cierra la sesión sola.
+  Future<void> _deleteAccount(BuildContext context) {
+    final bool usesGoogle =
+        widget.userProfile.authProvider == 'google';
+    return showDeleteAccountDialog(
+      context,
+      requiresPassword: !usesGoogle,
+      onDelete: widget.onDeleteAccount,
+    );
+  }
  
   // ── Build ─────────────────────────────────────────────────────────────────
  
@@ -473,6 +491,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _animated(100, _buildInfoCard(trainer)),
           const SizedBox(height: 16),
           _animated(150, _buildLogoutButton(context)),
+          const SizedBox(height: 8),
+          _animated(200, _buildDeleteAccountButton(context)),
         ],
       ),
     );
@@ -722,6 +742,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
  
+  // ── Eliminar cuenta ───────────────────────────────────────────────────────
+  Widget _buildDeleteAccountButton(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Eliminar cuenta',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _deleteAccount(context),
+          child: Container(
+            height: 44,
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  Icons.delete_outline_rounded,
+                  size: 16,
+                  color: AppColors.red.withValues(alpha: 0.85),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Eliminar cuenta',
+                  style: AppText.body(
+                    size: 13.5,
+                    weight: FontWeight.w500,
+                    color: AppColors.red.withValues(alpha: 0.85),
+                    height: 1.43,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _sectionTitle(String text) {
     return Text(
       text.toUpperCase(),

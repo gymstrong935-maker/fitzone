@@ -22,6 +22,7 @@ import {
 import RevokedAccount from '../models/RevokedAccount.js';
 import { levantarSiVencio, estaBloqueada, respuestaSuspension } from '../helpers/suspension.js';
 import { registrarActividad } from '../utils/actividad.js';
+import { eliminarCuentaYDatos } from '../helpers/eliminarCuentaUsuario.js';
 
 const googleClient = new OAuth2Client();
 
@@ -1108,6 +1109,64 @@ export const cambiarPassword = async (req, res) => {
   } catch (error) {
     console.error('❌ Error al cambiar la contraseña:', error);
     return res.status(500).json({ mensaje: 'No se pudo cambiar la contraseña' });
+  }
+};
+
+
+// ======================================================
+// ELIMINAR MI CUENTA
+// DELETE /api/users/:id   (solo la propia persona)
+//
+// Cuentas con contraseña: se pide la contraseña en el body ({ password }).
+// Cuentas de Google (sin contraseña local): la app pide escribir "ELIMINAR".
+// ======================================================
+
+export const eliminarMiCuenta = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Ni siquiera un admin puede usar esta ruta para borrar la cuenta de otra persona
+    if (!mongoose.isValidObjectId(id) || String(req.usuario.id) !== String(id)) {
+      return res.status(403).json({ mensaje: 'Solo puedes eliminar tu propia cuenta' });
+    }
+
+    const usuario = await User.findById(id);
+
+    if (!usuario) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    if (usuario.rol === 'admin') {
+      return res.status(400).json({
+        mensaje: 'Una cuenta de administrador no se puede eliminar desde la app'
+      });
+    }
+
+    // Cuentas con contraseña local: debe demostrar que es la persona dueña
+    if (usuario.passwordHash && usuario.proveedorAuth !== 'google') {
+      const { password } = req.body || {};
+
+      if (!password) {
+        return res.status(400).json({
+          mensaje: 'Escribe tu contraseña para confirmar',
+          codigo: 'PASSWORD_REQUERIDA'
+        });
+      }
+
+      const coincide = await bcrypt.compare(String(password), usuario.passwordHash);
+
+      if (!coincide) {
+        return res.status(400).json({ mensaje: 'La contraseña no es correcta' });
+      }
+    }
+
+    await eliminarCuentaYDatos(usuario);
+
+    return res.json({ mensaje: 'Tu cuenta fue eliminada' });
+
+  } catch (error) {
+    console.error('❌ Error al eliminar la cuenta:', error);
+    return res.status(500).json({ mensaje: 'No se pudo eliminar la cuenta. Inténtalo de nuevo.' });
   }
 };
 
