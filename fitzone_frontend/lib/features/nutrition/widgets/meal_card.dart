@@ -1,0 +1,207 @@
+import 'package:flutter/material.dart';
+
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text.dart';
+import '../models/nutrition_models.dart';
+import 'nutrition_card.dart';
+
+/// Tarjeta de una comida: nombre, hora, calorías, macros y alimentos.
+class MealCard extends StatelessWidget {
+  const MealCard({super.key, required this.meal, this.onDelete});
+
+  final Meal meal;
+
+  /// Si se da, muestra el botón de borrar.
+  final VoidCallback? onDelete;
+
+  static Color get _green400 => AppColors.green400;
+  static Color get _cyan400 => AppColors.cyanLightText;
+  static Color get _teal400 => AppColors.teal400;
+  static Color get _yellow400 => AppColors.yellow;
+
+  @override
+  Widget build(BuildContext context) {
+    return NutritionCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          // ── Nombre + hora | calorías ──
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      meal.name,
+                      style: AppText.display(
+                        size: 18,
+                        weight: FontWeight.w600,
+                        height: 1.556,
+                      ),
+                    ),
+                    Text(
+                      meal.time,
+                      style: AppText.body(
+                        size: 14,
+                        color: AppColors.whiteA(0.60),
+                        height: 1.43,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    '${meal.calories} kcal',
+                    style: AppText.body(
+                      size: 16,
+                      weight: FontWeight.w700,
+                      color: _green400,
+                      height: 1.5,
+                    ),
+                  ),
+                  if (onDelete != null) ...<Widget>[
+                    const SizedBox(width: 6),
+                    Semantics(
+                      button: true,
+                      label: 'Borrar comida',
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: onDelete,
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: Icon(
+                              Icons.delete_outline_rounded,
+                              size: 18,
+                              color: AppColors.whiteA(0.35),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // ── Macros ──
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _MacroCell(
+                  label: 'Proteína',
+                  value: meal.protein,
+                  color: _cyan400,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _MacroCell(
+                  label: 'Carbos',
+                  value: meal.carbs,
+                  color: _teal400,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _MacroCell(
+                  label: 'Grasas',
+                  value: meal.fats,
+                  color: _yellow400,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // ── Alimentos ──
+          for (int i = 0; i < meal.foods.length; i++) ...<Widget>[
+            if (i > 0) const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    meal.foods[i].name,
+                    style: AppText.body(
+                      size: 14,
+                      color: AppColors.whiteA(0.80),
+                      height: 1.43,
+                    ),
+                  ),
+                ),
+                if (meal.foods[i].amount.isNotEmpty) ...<Widget>[
+                  const SizedBox(width: 8),
+                  Text(
+                    meal.foods[i].amount,
+                    style: AppText.body(
+                      size: 14,
+                      color: AppColors.whiteA(0.60),
+                      height: 1.43,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MacroCell extends StatelessWidget {
+  const _MacroCell({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final int value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: AppColors.whiteA(0.05),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            label,
+            style: AppText.body(
+              size: 12,
+              color: AppColors.whiteA(0.60),
+              height: 1.333,
+            ),
+          ),
+          Text(
+            '${value}g',
+            style: AppText.body(
+              size: 16,
+              weight: FontWeight.w600,
+              color: color,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

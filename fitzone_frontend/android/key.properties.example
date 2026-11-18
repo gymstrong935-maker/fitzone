@@ -1,0 +1,7 @@
+# Copia este archivo como android/key.properties y rellena tus datos reales.
+# key.properties está en .gitignore: NUNCA lo subas a git.
+storePassword=TU_PASSWORD_DEL_KEYSTORE
+keyPassword=TU_PASSWORD_DE_LA_KEY
+keyAlias=fitzone
+# Ruta ABSOLUTA al .jks. Usa "/" también en Windows.
+storeFile=C:/Users/TU_USUARIO/keystores/fitzone-release.jks
