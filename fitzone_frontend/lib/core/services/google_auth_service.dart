@@ -24,6 +24,11 @@ class GoogleAuthConfig {
   );
   static const String iosClientId =
       String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
+
+  /// TEMPORAL (diagnóstico): true = muestra en pantalla el error real de
+  /// Google cuando el selector se cierra solo. Ponlo en false cuando el login
+  /// funcione, para que cancelar no muestre un error.
+  static const bool mostrarErrorDeDiagnostico = true;
 }
 
 /// Obtiene el ID token de Google en el dispositivo. El backend lo valida.
@@ -86,6 +91,11 @@ class GoogleAuthService {
         // En Android también puede aparecer por mala configuración
         // (SHA-1 / ID de cliente): revisa este log si el selector se cierra solo.
         debugPrint('Google Sign-In cancelado: ${e.code} ${e.description}');
+        if (GoogleAuthConfig.mostrarErrorDeDiagnostico) {
+          throw ApiException(
+            'Google: ${e.code.name} - ${e.description}',
+          );
+        }
         return null;
       }
       debugPrint('GoogleSignInException: ${e.code} ${e.description}');
@@ -97,6 +107,9 @@ class GoogleAuthService {
       rethrow;
     } catch (e) {
       debugPrint('Google Sign-In falló: $e');
+      if (GoogleAuthConfig.mostrarErrorDeDiagnostico) {
+        throw ApiException('Google (error): $e');
+      }
       throw const ApiException(
         'No se pudo iniciar sesión con Google. Inténtalo de nuevo.',
       );
