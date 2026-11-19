@@ -1,4 +1,4 @@
-package com.fitzone
+package com.fitzoneapp
 
 import io.flutter.embedding.android.FlutterActivity
 
