@@ -8,7 +8,7 @@
 PRODUCT_NAME = fitzone_frontend
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.fitzoneapp
+PRODUCT_BUNDLE_IDENTIFIER = com.stronggym.fitzone
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 FitZone. All rights reserved.
